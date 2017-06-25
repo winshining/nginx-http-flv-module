@@ -10,7 +10,7 @@ static ngx_rtmp_play_pt         next_play;
 static ngx_rtmp_close_stream_pt next_close_stream;
 
 
-static ngx_http_flv_live_conf_t *ngx_http_flv_live_conf;
+static ngx_array_t        *ngx_http_flv_live_conf;
 
 
 static ngx_int_t ngx_http_flv_live_init(ngx_conf_t *cf);
@@ -153,9 +153,10 @@ ngx_http_flv_live_init(ngx_conf_t *cf)
 void *
 ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 {
-    ngx_http_flv_live_conf_t *conf = ngx_pcalloc(cf->pool,
-            sizeof(ngx_http_flv_live_conf_t));
+    ngx_http_flv_live_conf_t  *conf;
+    void                      **p;
 
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_flv_live_conf_t));
     if (conf == NULL) {
         return NULL;
     }
@@ -163,9 +164,36 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
     conf->flv_live = NGX_CONF_UNSET;
     conf->chunked = NGX_CONF_UNSET;
 
-    ngx_http_flv_live_conf = conf;
+    /* we must wait until walking through the whole conf to know
+     * the rtmp conf info, but unfortunately, the ngx_http_block
+     * does postconfiguration after creating location trees, the
+     * only way to find the loc_conf in the loc level was destroyed,
+     * because the queue pointer of the srv level that refers to
+     * the loc level was a temporary pointer, so we use this
+     * work-around to get the loc_conf
+     */
+    if (ngx_http_flv_live_conf == NULL) {
+        ngx_http_flv_live_conf = ngx_array_create(cf->pool,
+            4, sizeof(void *));
+        if (ngx_http_flv_live_conf == NULL) {
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                    "flv live: failed to create array for global conf");
 
-    return (void *) conf;
+            return NULL;
+        }
+    }
+
+    p = ngx_array_push(ngx_http_flv_live_conf);
+    if (p == NULL) {
+        ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                "flv live: failed to get memory for global conf");
+
+        return NULL;
+    }
+
+    *p = (void *)conf;
+
+    return (void *)conf;
 }
 
 
@@ -214,91 +242,106 @@ ngx_http_flv_live_init_process(ngx_cycle_t *cycle)
     ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
     ngx_rtmp_core_srv_conf_t  **pcscf, *cscf;
     ngx_rtmp_core_app_conf_t  **pcacf, *cacf;
-    ngx_http_flv_live_conf_t   *hfcf = ngx_http_flv_live_conf;
+    ngx_http_flv_live_conf_t   *hfcf;
+    void                      **iter;
     ngx_http_flv_live_app_t    *app;
-    ngx_uint_t                  n, m;
+    ngx_uint_t                  i, n, m;
 
     if (cmcf == NULL || cmcf->listen.nelts == 0) {
         return NGX_OK;
     }
 
-    if (hfcf->app_hash.ha.temp_pool == NULL) {
-        hfcf->app_hash.ha.temp_pool = ngx_create_pool(
-                NGX_HASH_LARGE_ASIZE, cycle->log);
+    iter = ngx_http_flv_live_conf->elts;
+    for (i = 0; i < ngx_http_flv_live_conf->nelts; ++i) {
+        hfcf = (ngx_http_flv_live_conf_t *)iter[i];
+
+        if (!hfcf->flv_live || hfcf->flv_live == NGX_CONF_UNSET) {
+            continue;
+        }
 
         if (hfcf->app_hash.ha.temp_pool == NULL) {
-            ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                    "create pool for app_hash temp_pool failed");
+            hfcf->app_hash.ha.temp_pool = ngx_create_pool(
+                    NGX_HASH_LARGE_ASIZE, cycle->log);
 
-            return NGX_ERROR;
-        }
+            if (hfcf->app_hash.ha.temp_pool == NULL) {
+                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
+                        "flv live: create pool for app_hash "
+                        "temp_pool failed");
 
-        hfcf->app_hash.ha.pool = cycle->pool;
-
-        if (ngx_hash_keys_array_init(&hfcf->app_hash.ha,
-                NGX_HASH_SMALL) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                    "ngx_hash_keys_array_init for app_hash failed");
-
-            return NGX_ERROR;
-        }
-    }
-
-    pcscf = cmcf->servers.elts;
-    for (n = 0; n < cmcf->servers.nelts; ++n, ++pcscf) {
-        cscf = *pcscf;
-        pcacf = cscf->applications.elts;
-
-        for (m = 0; m < cscf->applications.nelts; ++m, ++pcacf) {
-            cacf = *pcacf;
-
-            app = ngx_pcalloc(cycle->pool, sizeof(ngx_http_flv_live_app_t));
-            if (app == NULL) {
                 return NGX_ERROR;
             }
 
-            app->hash_name.data = ngx_pcalloc(cycle->pool,
-                    NGX_RTMP_MAX_NAME + NGX_INT_T_LEN);
-            if (app->hash_name.data == NULL) {
+            hfcf->app_hash.ha.pool = cycle->pool;
+
+            if (ngx_hash_keys_array_init(&hfcf->app_hash.ha,
+                    NGX_HASH_SMALL) != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
+                        "flv live: ngx_hash_keys_array_init "
+                        "for app_hash failed");
+
                 return NGX_ERROR;
             }
-
-            app->hash_name.len = ngx_sprintf(app->hash_name.data, "%V:%O",
-                    &cacf->name, n) - app->hash_name.data;
-            app->srv.srv_index = n;
-            app->app.app_index = m;
-            app->app.app_name = cacf->name;
-
-            if (n == 0 && m == 0) {
-                hfcf->default_hash.hash_name = app->hash_name;
-
-                hfcf->default_hash.srv.srv_index = 0;
-                hfcf->default_hash.app.app_index = 0; 
-                hfcf->default_hash.app.app_name = cacf->name;
-            }
-
-            ngx_hash_add_key(&hfcf->app_hash.ha, &app->hash_name, app, 0);
         }
-    }
 
-    if (hfcf->app_hash.ha.keys.nelts) {
-        hfcf->app_hash.hint.key = ngx_hash_key_lc;
-        hfcf->app_hash.hint.max_size = NGX_HASH_MAX_SIZE;
-        hfcf->app_hash.hint.bucket_size = NGX_HASH_MAX_BUKET_SIZE; 
-        hfcf->app_hash.hint.name = "hash_for_app";
-        hfcf->app_hash.hint.pool = cycle->pool;
+        pcscf = cmcf->servers.elts;
+        for (n = 0; n < cmcf->servers.nelts; ++n, ++pcscf) {
+            cscf = *pcscf;
+            pcacf = cscf->applications.elts;
 
-        hfcf->app_hash.hint.hash = &hfcf->app_hash.hash.hash;
-        hfcf->app_hash.hint.temp_pool = NULL;
+            for (m = 0; m < cscf->applications.nelts; ++m, ++pcacf) {
+                cacf = *pcacf;
 
-        if (ngx_hash_init(&hfcf->app_hash.hint, hfcf->app_hash.ha.keys.elts,
-                hfcf->app_hash.ha.keys.nelts) != NGX_OK)
-        {
-            ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                    "ngx_hash_init for app_hash failed");
+                app = ngx_pcalloc(cycle->pool,
+                        sizeof(ngx_http_flv_live_app_t));
+                if (app == NULL) {
+                    return NGX_ERROR;
+                }
 
-            return NGX_ERROR;
+                app->hash_name.data = ngx_pcalloc(cycle->pool,
+                        NGX_RTMP_MAX_NAME + NGX_INT_T_LEN);
+                if (app->hash_name.data == NULL) {
+                    return NGX_ERROR;
+                }
+
+                app->hash_name.len = ngx_sprintf(app->hash_name.data,
+                        "%V:%O", &cacf->name, n) - app->hash_name.data;
+                app->srv.srv_index = n;
+                app->app.app_index = m;
+                app->app.app_name = cacf->name;
+
+                if (n == 0 && m == 0) {
+                    hfcf->default_hash.hash_name = app->hash_name;
+
+                    hfcf->default_hash.srv.srv_index = 0;
+                    hfcf->default_hash.app.app_index = 0; 
+                    hfcf->default_hash.app.app_name = cacf->name;
+                }
+
+                ngx_hash_add_key(&hfcf->app_hash.ha,
+                        &app->hash_name, app, 0);
+            }
+        }
+
+        if (hfcf->app_hash.ha.keys.nelts) {
+            hfcf->app_hash.hint.key = ngx_hash_key_lc;
+            hfcf->app_hash.hint.max_size = NGX_HASH_MAX_SIZE;
+            hfcf->app_hash.hint.bucket_size = NGX_HASH_MAX_BUKET_SIZE; 
+            hfcf->app_hash.hint.name = "hash_for_app";
+            hfcf->app_hash.hint.pool = cycle->pool;
+
+            hfcf->app_hash.hint.hash = &hfcf->app_hash.hash.hash;
+            hfcf->app_hash.hint.temp_pool = NULL;
+
+            if (ngx_hash_init(&hfcf->app_hash.hint,
+                    hfcf->app_hash.ha.keys.elts,
+                    hfcf->app_hash.ha.keys.nelts) != NGX_OK)
+            {
+                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
+                        "flv live: ngx_hash_init for app_hash failed");
+
+                return NGX_ERROR;
+            }
         }
     }
 
@@ -445,7 +488,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
      * Note we always leave 1 slot free */
     if (nmsg + priority * s->out_queue / 4 >= s->out_queue) {
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "HTTP drop message bufs=%ui, priority=%ui",
+                "flv live: HTTP drop message bufs=%ui, priority=%ui",
                 nmsg, priority);
         return NGX_AGAIN;
     }
@@ -456,7 +499,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
     ngx_rtmp_acquire_shared_chain(out);
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "HTTP send nmsg=%ui, priority=%ui #%ui",
+            "flv live: HTTP send nmsg=%ui, priority=%ui #%ui",
             nmsg, priority, s->out_last);
 
     if (priority && s->out_buffer && nmsg < s->out_cork) {
@@ -619,7 +662,7 @@ ngx_http_flv_live_req(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             sizeof(v.args) - 1));
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-           "local play: name='%s' args='%s' start=%i duration=%i "
+           "flv live: name='%s' args='%s' start=%i duration=%i "
            "reset=%i silent=%i",
            v.name, v.args, (ngx_int_t) v.start,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
@@ -893,7 +936,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "live: delete empty stream '%s'", ctx->stream->name);
+            "flv live: delete empty stream '%s'", ctx->stream->name);
 
     stream = ngx_rtmp_live_get_stream(s, ctx->stream->name, 0);
     if (stream == NULL) {
@@ -965,7 +1008,7 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 
     if (wev->timedout) {
         ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
-                "client timed out");
+                "flv live: client timed out");
         c->timedout = 1;
         ngx_rtmp_finalize_session(s);
         return;
@@ -1148,7 +1191,7 @@ ngx_http_flv_live_preprocess_port(ngx_http_request_t *r)
     cmcf = ngx_rtmp_core_main_conf;
     if (cmcf->listen.nelts == 0) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "listen configuration not found");
+                "flv live: listen configuration not found");
 
         return NGX_ERROR;
     }
@@ -1180,7 +1223,7 @@ ngx_http_flv_live_preprocess_port(ngx_http_request_t *r)
 
     if (!found) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "failed to found listen configuration: %O",
+                "flv live: failed to found listen configuration: %O",
                 ctx->app.srv.srv_index);
 
         return NGX_ERROR;
@@ -1273,15 +1316,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
     ngx_str_t                    arg_stream = ngx_string("stream");
     ngx_str_t                    srv, app, stream;
 
-    /* we must wait until walking through the whole conf to know
-     * the rtmp conf info, but unfortunately, the ngx_http_block
-     * does postconfiguration after creating location trees, the
-     * only way to find the loc_conf in the loc level was destroyed,
-     * because the queue pointer of the srv level that refers to
-     * the loc level was a temporary pointer, so we use this
-     * work-around to get the loc_conf
-     */
-    hfcf = ngx_http_flv_live_conf;
+    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
     
@@ -1319,7 +1354,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
             ctx->app.hash_name.data, ctx->app.hash_name.len);
     if (value == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "failed to find configured app: \"%V\"", &ctx->app);
+                "flv live: failed to find configured app: \"%V\"", &ctx->app);
         
         return NGX_ERROR;
     }
@@ -1335,7 +1370,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
 
     if (ngx_http_flv_live_preprocess_port(r) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "preprocess port failed");
+                "flv live: preprocess port failed");
 
         return NGX_ERROR;
     }
@@ -1452,13 +1487,14 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r)
         }
     }
 
-    ngx_log_error(NGX_LOG_INFO, c->log, 0, "*%ui client connected '%V'",
-                  c->number, &c->addr_text);
+    ngx_log_error(NGX_LOG_INFO, c->log, 0,
+            "flv live: *%ui client connected '%V'",
+            c->number, &c->addr_text);
 
     s = ngx_http_flv_live_init_session(r, addr_conf);
     if (s == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "failed to init connection for session");
+                "flv live: failed to init connection for session");
 
         return NULL;
     }
@@ -1733,7 +1769,7 @@ ngx_http_flv_close_session_handler(ngx_rtmp_session_t *s)
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    ngx_log_error(NGX_LOG_INFO, c->log, 0, "flv live close session");
+    ngx_log_error(NGX_LOG_INFO, c->log, 0, "flv live: close session");
 
     ngx_rtmp_fire_event(s, NGX_RTMP_DISCONNECT, NULL, NULL);
 
@@ -1770,7 +1806,7 @@ ngx_http_flv_live_cleanup(void *data)
     s = ctx->s;
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "flv live close connection");
+            "flv live: close connection");
 
     ngx_http_flv_close_session_handler(s);
 }
@@ -1787,12 +1823,17 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "HTTP method was not \"GET\" or \"HEAD\"");
+                "flv live: HTTP method was not \"GET\" or \"HEAD\"");
 
         return NGX_HTTP_NOT_ALLOWED;
     }
 
     if (r->uri.data[r->uri.len - 1] == '/') {
+        return NGX_DECLINED;
+    }
+
+    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
+    if (!hfcf->flv_live) {
         return NGX_DECLINED;
     }
 
@@ -1822,7 +1863,6 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    hfcf = ngx_http_flv_live_conf;
     ctx->chunked = hfcf->chunked;
     ctx->s = s;
 
