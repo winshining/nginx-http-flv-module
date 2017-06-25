@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-Media streming server based on nginx-rtmp-module.
+Media streming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
 # Features
 
@@ -26,60 +26,60 @@ cd to NGINX source directory & run this:
 
 * subscribe: http://localhost[:port]/live?[srv=0&app=myapp&]stream=mystream
 
-# example nginx.conf
+# Example nginx.conf
 
-worker_processes  1;
+    worker_processes  1;
 
-error_log logs/error.log error;
+    error_log logs/error.log error;
 
-events {
-    worker_connections  1024;
-}
+    events {
+        worker_connections  1024;
+    }
 
-http {
-    include       mime.types;
-    default_type  application/octet-stream;
+    http {
+        include       mime.types;
+        default_type  application/octet-stream;
 
-    sendfile        on;
+        sendfile        on;
 
-    keepalive_timeout  65;
+        keepalive_timeout  65;
 
-    server {
-        listen       80;
+        server {
+            listen       80;
 
-        location / {
-            root   /var/www;
-            index  index.html index.htm;
-        }
+            location / {
+                root   /var/www;
+                index  index.html index.htm;
+            }
 
-        error_page   500 502 503 504  /50x.html;
-        location = /50x.html {
-            root   html;
-        }
+            error_page   500 502 503 504  /50x.html;
+            location = /50x.html {
+                root   html;
+            }
 
-        location /live {
-            flv_live on;
-            chunked  on;
+            location /live {
+                flv_live on;
+                chunked  on;
+            }
         }
     }
-}
 
-rtmp_auto_push on;
-rtmp_auto_push_reconnect 1s;
-rtmp_socket_dir /tmp;
+    rtmp_auto_push on;
+    rtmp_auto_push_reconnect 1s;
+    rtmp_socket_dir /tmp;
 
-rtmp {
-    out_queue 4096;
-    out_cork  8;
+    rtmp {
+        out_queue 4096;
+        out_cork  8;
 
-    server {
-        listen 1935;
+        server {
+            listen 1935;
 
-        application myapp {
-            live on;
-            gop_cache on;
-            gop_cache_count 5;
+            application myapp {
+                live on;
+                gop_cache on;
+                gop_cache_count 5;
+            }
         }
     }
-}
 
