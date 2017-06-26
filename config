@@ -1,4 +1,4 @@
-ngx_addon_name="ngx_rtmp_module"
+ngx_addon_name="ngx_http_flv_module"
 
 RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_module                             \

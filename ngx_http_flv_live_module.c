@@ -885,9 +885,8 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     passive = 0;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-    if (ctx == NULL || ctx->protocol == 0) {
-        /* close all http flv stream */
-        passive = 1;
+    if (ctx == NULL) {
+        goto next;
     }
 
     if (ctx->stream == NULL) {
@@ -895,6 +894,11 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 "flv live: not joined");
 
         goto next;
+    }
+
+    if (ctx->protocol == 0) {
+        /* close all http flv stream */
+        passive = 1;
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
