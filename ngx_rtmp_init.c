@@ -8,26 +8,31 @@
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_proxy_protocol.h"
+#include "ngx_rtmp_auto_push_module.h"
 
 
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
 
 
+extern ngx_module_t        ngx_rtmp_auto_push_module;
+
+
 void
 ngx_rtmp_init_connection(ngx_connection_t *c)
 {
-    ngx_uint_t             i;
-    ngx_rtmp_port_t       *port;
-    struct sockaddr       *sa;
-    struct sockaddr_in    *sin;
-    ngx_rtmp_in_addr_t    *addr;
-    ngx_rtmp_session_t    *s;
-    ngx_rtmp_addr_conf_t  *addr_conf;
-    ngx_int_t              unix_socket;
+    ngx_uint_t                 i;
+    ngx_rtmp_port_t           *port;
+    struct sockaddr           *sa;
+    struct sockaddr_in        *sin;
+    ngx_rtmp_in_addr_t        *addr;
+    ngx_rtmp_session_t        *s;
+    ngx_rtmp_addr_conf_t      *addr_conf;
+    ngx_int_t                  unix_socket;
 #if (NGX_HAVE_INET6)
-    struct sockaddr_in6   *sin6;
-    ngx_rtmp_in6_addr_t   *addr6;
+    struct sockaddr_in6       *sin6;
+    ngx_rtmp_in6_addr_t       *addr6;
 #endif
+    ngx_rtmp_auto_push_conf_t *apcf;
 
     ++ngx_rtmp_naccepted;
 
@@ -37,6 +42,9 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
 
     port = c->listening->servers;
     unix_socket = 0;
+
+    apcf = (ngx_rtmp_auto_push_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx,
+           ngx_rtmp_auto_push_module);
 
     if (port->naddrs > 1) {
 
@@ -79,6 +87,15 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
         case AF_UNIX:
             unix_socket = 1;
 
+            if (apcf->auto_push == 0) {
+                ngx_close_connection(c);
+                return;
+            }
+
+            addr_conf = apcf->addr_conf;
+
+            break;
+
         default: /* AF_INET */
             sin = (struct sockaddr_in *) sa;
 
@@ -109,6 +126,15 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
 
         case AF_UNIX:
             unix_socket = 1;
+
+            if (apcf->auto_push == 0) {
+                ngx_close_connection(c);
+                return;
+            }
+
+            addr_conf = apcf->addr_conf;
+
+            break;
 
         default: /* AF_INET */
             addr = port->addrs;

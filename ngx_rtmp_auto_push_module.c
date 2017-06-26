@@ -8,6 +8,7 @@
 #include <ngx_core.h>
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_relay_module.h"
+#include "ngx_rtmp_auto_push_module.h"
 
 
 static ngx_rtmp_publish_pt          next_publish;
@@ -34,13 +35,6 @@ struct ngx_rtmp_auto_push_ctx_s {
     u_char                          args[NGX_RTMP_MAX_ARGS];
     ngx_event_t                     push_evt;
 };
-
-
-typedef struct {
-    ngx_flag_t                      auto_push;
-    ngx_str_t                       socket_dir;
-    ngx_msec_t                      push_reconnect;
-} ngx_rtmp_auto_push_conf_t;
 
 
 static ngx_command_t  ngx_rtmp_auto_push_commands[] = {
@@ -136,6 +130,15 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     size_t                      n;
     ngx_file_info_t             fi;
 
+    ngx_rtmp_port_t            *port;
+    struct sockaddr            *sa;
+    struct sockaddr_in         *sin;
+    ngx_rtmp_in_addr_t         *addr;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6        *sin6;
+    ngx_rtmp_in6_addr_t        *addr6;
+#endif
+
     if (ngx_process != NGX_PROCESS_WORKER) {
         return NGX_OK;
     }
@@ -178,6 +181,63 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     }
 
     *ls = *lss;
+
+    /* used in ngx_rtmp_init_connection */
+    port = ls->servers;
+    sa = ls->sockaddr;
+
+    if (port->naddrs > 1) {
+        switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+        case AF_INET6:
+            sin6 = (struct sockaddr_in6 *) sa;
+
+            addr6 = port->addrs;
+
+            /* the last address is "*" */
+
+            for (n = 0; n < port->naddrs - 1; n++) {
+                if (ngx_memcmp(&addr6[n].addr6, &sin6->sin6_addr, 16) == 0) {
+                    break;
+                }
+            }
+
+            apcf->addr_conf = &addr6[n].conf;
+
+            break;
+#endif
+
+        default: /* AF_INET */
+            sin = (struct sockaddr_in *) sa;
+
+            addr = port->addrs;
+
+            /* the last address is "*" */
+
+            for (n = 0; n < port->naddrs - 1; n++) {
+                if (addr[n].addr == sin->sin_addr.s_addr) {
+                    break;
+                }
+            }
+
+            apcf->addr_conf = &addr[n].conf;
+        }
+    } else {
+        switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+        case AF_INET6:
+            addr6 = port->addrs;
+            apcf->addr_conf = &addr6[0].conf;
+            break;
+#endif
+
+        default: /* AF_INET */
+            addr = port->addrs;
+            apcf->addr_conf = &addr[0].conf;
+        }
+    }
 
     /* Disable unix socket client address extraction
      * from accept call
