@@ -171,6 +171,12 @@ typedef struct {
 #define NGX_RTMP_MAX_CHUNK_HEADER       18
 
 
+enum {
+    NGX_RTMP_PROTOCOL_RTMP = 0,
+    NGX_RTMP_PROTOCOL_HTTP
+};
+
+
 typedef struct {
     uint32_t                csid;       /* chunk stream id */
     uint32_t                timestamp;  /* timestamp (delta) */

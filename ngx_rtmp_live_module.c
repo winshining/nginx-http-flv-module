@@ -1045,7 +1045,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     }
 
                 } else if (dummy_audio) {
-                    handler->send_message_pt(ss, pctx->protocol ? hapkt : aapkt, 0);
+                    handler->send_message_pt(ss,
+                            pctx->protocol == NGX_RTMP_PROTOCOL_HTTP ? hapkt
+                                    : aapkt, 0);
                 }
 
                 cs->timestamp = lh.timestamp;

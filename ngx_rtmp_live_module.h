@@ -40,7 +40,7 @@ struct ngx_rtmp_live_ctx_s {
     unsigned                            publishing:1;
     unsigned                            silent:1;
     unsigned                            paused:1;
-    unsigned                            protocol:1; /* 0: rtmp, 1: http */
+    ngx_uint_t                          protocol;
 };
 
 
