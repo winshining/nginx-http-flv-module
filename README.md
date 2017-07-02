@@ -28,7 +28,8 @@ cd to NGINX source directory & run this:
 
 # Example nginx.conf
 
-    worker_processes  1;
+    worker_processes  4;
+    worker_cpu_affinity 0001 0010 0100 1000;
 
     error_log logs/error.log error;
 
@@ -78,7 +79,6 @@ cd to NGINX source directory & run this:
             application myapp {
                 live on;
                 gop_cache on;
-                gop_cache_count 5;
             }
         }
     }
