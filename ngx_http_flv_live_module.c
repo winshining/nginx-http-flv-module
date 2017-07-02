@@ -787,7 +787,7 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ctx->stream = *stream;
     ctx->publishing = publisher;
     ctx->next = (*stream)->ctx;
-    ctx->protocol = 1;
+    ctx->protocol = NGX_RTMP_PROTOCOL_HTTP;
 
     (*stream)->ctx = ctx;
 
@@ -823,18 +823,22 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
+    r->main->count++;
+
+    /* join stream as subscriber */
+
+    if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
+        r->main->count--;
+
+        return NGX_ERROR;
+    }
+
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live play: name='%s' start=%uD duration=%uD reset=%d",
             v->name, (uint32_t) v->start,
             (uint32_t) v->duration, (uint32_t) v->reset);
-
-    /* join stream as subscriber */
-
-    if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-        return NGX_ERROR;
-    }
 
     if (!ctx->joined) {
         ngx_http_flv_live_send_header(s);
@@ -855,12 +859,13 @@ ngx_http_flv_live_close_stream_handler(ngx_rtmp_session_t *s)
 
     r = s->data;
     if (r && r->connection && !r->connection->destroyed) {
+        r->main->count--;
+
         sctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
         if (sctx->chunked) {
             sctx->chunked = 0;
             ngx_http_flv_live_send_tail(s);
         } else {
-            r->blocked = 0;
             r->keepalive = 0;
             ngx_http_finalize_request(r, NGX_DONE);
         }
@@ -896,7 +901,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         goto next;
     }
 
-    if (ctx->protocol == 0) {
+    if (ctx->protocol == NGX_RTMP_PROTOCOL_RTMP) {
         /* close all http flv stream */
         passive = 1;
     }
@@ -910,7 +915,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
         /* TODO: maybe using red-black tree is more efficient */
         for (cctx = &ctx->stream->ctx; *cctx; cctx = &(*cctx)->next) {
-            if ((*cctx)->protocol) {
+            if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP) {
                 ngx_http_flv_live_close_stream_handler((*cctx)->session);
 
                 *iter = (*cctx)->next;
@@ -1872,9 +1877,8 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 
     /* live, ranges not allowed */
     r->allow_ranges = 0;
-    r->blocked = 1;
     r->read_event_handler = ngx_http_test_reading;
-    
+
     if (ngx_rtmp_fire_event(s, NGX_HTTP_FLV_LIVE_REQ, NULL, NULL) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }

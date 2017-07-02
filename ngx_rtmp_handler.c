@@ -430,7 +430,8 @@ ngx_rtmp_recv(ngx_event_t *rev)
 
             if (h->mlen > cscf->max_message) {
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                        "too big message: %uz", cscf->max_message);
+                        "too big message: %uz, %uz",
+                                h->mlen, cscf->max_message);
                 ngx_rtmp_finalize_session(s);
                 return;
             }

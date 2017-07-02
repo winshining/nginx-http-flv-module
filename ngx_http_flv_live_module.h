@@ -55,6 +55,7 @@ typedef struct ngx_http_flv_live_ctx_s {
     ngx_flag_t               joined;
     ngx_http_flv_live_app_t  app;
     ngx_str_t                stream;
+    ngx_rtmp_gop_cache_t     gop_cache;
     ngx_rtmp_session_t      *s;
 } ngx_http_flv_live_ctx_t;
 

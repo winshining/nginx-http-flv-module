@@ -10,6 +10,7 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_codec_module.h"
 #include "ngx_http_flv_live_module.h"
+#include "ngx_rtmp_gop_cache_module.h"
 
 
 static ngx_rtmp_publish_pt              next_publish;
@@ -46,6 +47,7 @@ ngx_rtmp_process_handler_t ngx_rtmp_live_process_handler = {
 
 extern ngx_rtmp_process_handler_t *ngx_rtmp_process_handlers[2];
 extern ngx_module_t                ngx_http_flv_live_module;
+extern ngx_module_t                ngx_rtmp_gop_cache_module;
 
 
 static ngx_command_t  ngx_rtmp_live_commands[] = {
@@ -572,7 +574,7 @@ ngx_rtmp_live_join(ngx_rtmp_session_t *s, u_char *name, unsigned publisher)
     ngx_memzero(ctx, sizeof(*ctx));
 
     ctx->session = s;
-    ctx->protocol = 0;
+    ctx->protocol = NGX_RTMP_PROTOCOL_RTMP;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "live: join '%s'", name);
@@ -788,6 +790,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 #endif 
     ngx_http_request_t             *r;
     ngx_http_flv_live_ctx_t        *hctx;
+    ngx_rtmp_gop_cache_app_conf_t  *gacf;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
@@ -914,6 +917,8 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         }
     }
 
+    gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
+
     /* broadcast to all subscribers */
 
     for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
@@ -923,6 +928,18 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         ss = pctx->session;
         cs = &pctx->cs[csidx];
+
+        if (gacf->gop_cache
+                && pctx->gop_cache.status != NGX_RTMP_GOP_CACHE_DONE)
+        {
+            ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+                    "live: gop cache send unfinished, type='%s', "
+                    "status='%d'",
+                    h->type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
+                    pctx->gop_cache.status);
+
+            continue;
+        }
 
         handler = ngx_rtmp_process_handlers[pctx->protocol];
 
@@ -935,7 +952,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         /* send metadata */
         
         if (codec_ctx) {
-            if (pctx->protocol) {
+            if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
                 r = ss->data;
                 if (r == NULL
                     || (r->connection && r->connection->destroyed))
@@ -1045,7 +1062,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     }
 
                 } else if (dummy_audio) {
-                    handler->send_message_pt(ss, pctx->protocol ? hapkt : aapkt, 0);
+                    handler->send_message_pt(ss,
+                            pctx->protocol == NGX_RTMP_PROTOCOL_HTTP ? hapkt
+                            : aapkt, 0);
                 }
 
                 cs->timestamp = lh.timestamp;

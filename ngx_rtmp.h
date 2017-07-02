@@ -171,6 +171,29 @@ typedef struct {
 #define NGX_RTMP_MAX_CHUNK_HEADER       18
 
 
+enum {
+    NGX_RTMP_PROTOCOL_RTMP = 0,
+    NGX_RTMP_PROTOCOL_HTTP
+};
+
+
+enum {
+    NGX_RTMP_GOP_CACHE_INITIAL = 0,
+    NGX_RTMP_GOP_CACHE_PLAYING,
+    NGX_RTMP_GOP_CACHE_DONE
+};
+
+
+typedef struct {
+    ngx_chain_t        *video_seq_header;
+    ngx_chain_t        *audio_seq_header;
+    ngx_chain_t        *meta;
+    ngx_chain_t        *flv_meta;
+    ngx_chain_t        *flv_meta_chunked;
+    ngx_uint_t          status;
+} ngx_rtmp_gop_cache_t;
+
+
 typedef struct {
     uint32_t                csid;       /* chunk stream id */
     uint32_t                timestamp;  /* timestamp (delta) */
