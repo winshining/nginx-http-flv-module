@@ -6,6 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_http.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
 #include "ngx_rtmp_streams.h"
@@ -58,6 +59,8 @@ ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
         return NGX_ERROR;
     }
 
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
     /* rquest from http */
     r = s->data;
     if (r) {
@@ -65,8 +68,6 @@ ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
 
         return NGX_OK;
     }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     rc = ngx_rtmp_send_message(s, cl, 0);
 
