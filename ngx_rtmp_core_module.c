@@ -502,7 +502,7 @@ ngx_rtmp_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     rv = ngx_conf_parse(cf, NULL);
 
     if (rv == NGX_CONF_OK) {
-        // check the listen configuration
+        /* check the listen configuration */
         if (!cscf->listen_parsed) {
             rv = ngx_rtmp_core_add_default_listen(cf, &cmcf->listen);
         }
