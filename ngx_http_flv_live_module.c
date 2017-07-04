@@ -31,7 +31,7 @@ static ngx_chain_t *ngx_http_flv_live_append_message(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh, ngx_chain_t *in);
 static void ngx_http_flv_live_free_message(ngx_rtmp_session_t *s,
         ngx_chain_t *in);
-static void ngx_http_flv_live_close_stream_handler(ngx_rtmp_session_t *s);
+static void ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s);
 
 extern ngx_rtmp_process_handler_t ngx_rtmp_live_process_handler;
 static ngx_rtmp_process_handler_t ngx_http_flv_live_process_handler = {
@@ -852,7 +852,7 @@ next:
 
 
 static void
-ngx_http_flv_live_close_stream_handler(ngx_rtmp_session_t *s)
+ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 {
     ngx_http_flv_live_ctx_t    *sctx;
     ngx_http_request_t         *r;
@@ -870,6 +870,8 @@ ngx_http_flv_live_close_stream_handler(ngx_rtmp_session_t *s)
             ngx_http_finalize_request(r, NGX_DONE);
         }
     }
+
+    s->data = NULL;
 }
 
 
@@ -916,31 +918,43 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         /* TODO: maybe using red-black tree is more efficient */
         for (cctx = &ctx->stream->ctx; *cctx; cctx = &(*cctx)->next) {
             if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP) {
-                ngx_http_flv_live_close_stream_handler((*cctx)->session);
+                ngx_http_flv_live_close_http_request((*cctx)->session);
+
+                if (!(*cctx)->publishing && (*cctx)->stream->active) {
+                    ngx_http_flv_live_stop((*cctx)->session);
+                }
 
                 *iter = (*cctx)->next;
+
+                (*cctx)->stream = NULL;
+                ngx_free(*cctx);
+                *cctx = NULL;
             } else {
                 iter = &(*cctx)->next;
             }
         }
 
         ctx->stream->ctx = head;
-        goto next;
     } else {
         for (cctx = &ctx->stream->ctx; *cctx; cctx = &(*cctx)->next) {
             if (*cctx == ctx) {
+                if (!ctx->publishing && ctx->stream->active) {
+                    ngx_http_flv_live_stop(s);
+                }
+
                 *cctx = ctx->next;
+
+                ctx->next = NULL;
+                ctx->stream = NULL;
+                ngx_free(ctx);
+                ctx = NULL;
+
                 break;
             }
         }
     }
 
-    if (!ctx->publishing && ctx->stream->active) {
-        ngx_http_flv_live_stop(s);
-    }
-
-    if (ctx->stream->ctx || ctx->stream->pub_ctx) {
-        ctx->stream = NULL;
+    if (ctx->stream->ctx) {
         goto next;
     }
 
@@ -1878,10 +1892,6 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     r->allow_ranges = 0;
     r->read_event_handler = ngx_http_test_reading;
 
-    if (ngx_rtmp_fire_event(s, NGX_HTTP_FLV_LIVE_REQ, NULL, NULL) != NGX_OK) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
     cln = ngx_http_cleanup_add(r, 0);
     if (cln == NULL) {
         return NGX_DECLINED;
@@ -1889,6 +1899,10 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 
     cln->handler = ngx_http_flv_live_cleanup;
     cln->data = r;
+
+    if (ngx_rtmp_fire_event(s, NGX_HTTP_FLV_LIVE_REQ, NULL, NULL) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     return NGX_OK;
 }
