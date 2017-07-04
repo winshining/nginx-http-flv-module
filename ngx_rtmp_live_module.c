@@ -1201,6 +1201,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
+    ngx_http_request_t             *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
 
@@ -1209,7 +1210,8 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     /* request from http */
-    if (s->data) {
+    r = s->data;
+    if (r) {
         goto next;
     }
 

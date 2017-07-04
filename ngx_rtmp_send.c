@@ -51,6 +51,7 @@ static ngx_int_t
 ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
 {
     ngx_rtmp_core_srv_conf_t       *cscf;
+    ngx_http_request_t             *r;
     ngx_int_t                       rc;
 
     if (cl == NULL) {
@@ -58,7 +59,10 @@ ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
     }
 
     /* rquest from http */
-    if (s->data) {
+    r = s->data;
+    if (r) {
+        ngx_rtmp_free_shared_chain(cscf, cl);
+
         return NGX_OK;
     }
 

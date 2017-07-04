@@ -1497,8 +1497,7 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r)
     }
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0,
-            "flv live: *%ui client connected '%V'",
-            c->number, &c->addr_text);
+            "flv live: client connected '%V'", &c->addr_text);
 
     s = ngx_http_flv_live_init_session(r, addr_conf);
     if (s == NULL) {
@@ -1608,7 +1607,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_rtmp_connect_t     v;
     ngx_http_request_t    *r;
 
-    r = (ngx_http_request_t *)s->data;
+    r = s->data;
 
     ngx_memzero(&v, sizeof(ngx_rtmp_connect_t));
 
