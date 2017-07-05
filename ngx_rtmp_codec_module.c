@@ -429,13 +429,15 @@ ngx_rtmp_codec_parse_avc_header_compat(ngx_uint_t type,
         return;
     }
 
-    if (type == NGX_RTMP_CODEC_COMBO_SEQ_HEADER
-		&& ngx_rtmp_codec_parse_avc_header_in_keyframe(s, *in,
+    if (type == NGX_RTMP_CODEC_COMBO_SEQ_HEADER) {
+        if (ngx_rtmp_codec_parse_avc_header_in_keyframe(s, *in,
                 sps->buf) == NGX_OK)
-    {
-        *in = sps;
-        ngx_rtmp_codec_parse_avc_header(s, *in);
+        {
+            *in = sps;
+        }
     }
+
+    ngx_rtmp_codec_parse_avc_header(s, *in);
 }
 
 
