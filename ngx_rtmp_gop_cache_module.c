@@ -91,7 +91,7 @@ ngx_rtmp_gop_cache_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_gop_cache_app_conf_t        *prev = parent;
     ngx_rtmp_gop_cache_app_conf_t        *conf = child;
 
-    ngx_conf_merge_value(conf->gop_cache, prev->gop_cache, 1);
+    ngx_conf_merge_value(conf->gop_cache, prev->gop_cache, 0);
     
     return NGX_CONF_OK;
 }
@@ -205,7 +205,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s, ngx_uint_t prio,
             }
         } else if (*status == NGX_RTMP_GOP_CACHE_PLAYING) {
             if (ch->type == NGX_RTMP_MSG_VIDEO) {
-                // drop video when not H.264
+                // drop video non-H.264
                 if (codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) {
                     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                             "drop video non-H.264 frame timestamp='%uD'",

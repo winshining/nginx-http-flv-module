@@ -261,7 +261,8 @@ ngx_rtmp_get_codec_header_type(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     if (h->type == NGX_RTMP_MSG_VIDEO &&
-        ngx_rtmp_codec_video_is_combined_nals(in, s) == NGX_OK) {
+        ngx_rtmp_codec_video_is_combined_nals(in, s) == NGX_OK)
+    {
         return NGX_RTMP_CODEC_COMBO_SEQ_HEADER;
     }
 
@@ -317,7 +318,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
 
     b = out;
 
-    *b->last++ = ((ftype & 0xf) << 4) | NGX_RTMP_NALU_SPS;
+    *b->last++ = ((ftype & 0x0f) << 4) | NGX_RTMP_NALU_SPS;
     *b->last++ = 0x00;
 
     /* 3 bytes: decoder delay */
@@ -430,7 +431,7 @@ ngx_rtmp_codec_parse_avc_header_compat(ngx_uint_t type,
 
     if (type == NGX_RTMP_CODEC_COMBO_SEQ_HEADER
 		&& ngx_rtmp_codec_parse_avc_header_in_keyframe(s, *in,
-                sps->buf) != NGX_OK)
+                sps->buf) == NGX_OK)
     {
         *in = sps;
         ngx_rtmp_codec_parse_avc_header(s, *in);
