@@ -431,10 +431,12 @@ ngx_rtmp_codec_parse_avc_header_compat(ngx_uint_t type,
 
     if (type == NGX_RTMP_CODEC_COMBO_SEQ_HEADER) {
         if (ngx_rtmp_codec_parse_avc_header_in_keyframe(s, *in,
-                sps->buf) == NGX_OK)
+                sps->buf) != NGX_OK)
         {
-            *in = sps;
+            return;
         }
+
+        *in = sps;
     }
 
     ngx_rtmp_codec_parse_avc_header(s, *in);
@@ -964,6 +966,14 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
             cscf, h, ctx->meta, 1);
 
     if (ctx->flv_meta == NULL || ctx->flv_meta_chunked == NULL) {
+        if (ctx->flv_meta) {
+            ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta);
+        }
+
+        if (ctx->flv_meta_chunked) {
+            ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta_chunked);
+        }
+
         return NGX_ERROR;
     }
 
