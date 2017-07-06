@@ -1,12 +1,12 @@
 # nginx-http-flv-module
 
-Media streming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
+Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
 # Features
 
-* HTTP-based FLV streming (subscribe).
+* HTTP-based FLV streaming (subscribe).
 
-* GOP cache for low latency.
+* GOP cache for low latency (experimental).
 
 * 'Transfer-Encoding: chunked' response supported.
 
