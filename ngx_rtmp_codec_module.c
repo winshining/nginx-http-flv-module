@@ -968,10 +968,12 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
     if (ctx->flv_meta == NULL || ctx->flv_meta_chunked == NULL) {
         if (ctx->flv_meta) {
             ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta);
+            ctx->flv_meta = NULL;
         }
 
         if (ctx->flv_meta_chunked) {
             ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta_chunked);
+            ctx->flv_meta_chunked = NULL;
         }
 
         return NGX_ERROR;
