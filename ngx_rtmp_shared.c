@@ -66,16 +66,6 @@ ngx_rtmp_free_shared_chain(ngx_rtmp_core_srv_conf_t *cscf, ngx_chain_t *in)
     }
 
     for (cl = in; ; cl = cl->next) {
-        /** 
-         * HTTP chunked buf to normal RTMP buf, 
-         * see ngx_http_alloc_chunked_shared_buf
-         **/
-        if (cl && cl->buf && cl->buf->pos
-            && (cl->buf->pos != cl->buf->start + NGX_RTMP_MAX_CHUNK_HEADER))
-        {
-            cl->buf->pos = cl->buf->start + NGX_RTMP_MAX_CHUNK_HEADER;
-        }
-
         if (cl->next == NULL) {
             cl->next = cscf->free;
             cscf->free = in;
