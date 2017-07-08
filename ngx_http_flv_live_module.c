@@ -750,7 +750,7 @@ ngx_int_t
 ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         ngx_rtmp_close_stream_t *v)
 {
-    ngx_rtmp_live_ctx_t        *ctx, **cctx, *head, *unlink, **iter;
+    ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_rtmp_live_app_conf_t   *lacf;
     ngx_flag_t                  passive;
 
@@ -786,9 +786,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
             "flv live: leave '%s'", ctx->stream->name);
 
     if (passive) {
-        head = ctx->stream->ctx;
-        iter = &head;
-
         /* TODO: maybe using red-black tree is more efficient */
         for (cctx = &ctx->stream->ctx; *cctx; /* void */) {
             if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP) {
@@ -800,31 +797,31 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 unlink = *cctx;
 
-                *iter = (*cctx)->next;
                 *cctx = (*cctx)->next;
 
                 unlink->stream = NULL;
                 unlink->next = NULL;
             } else {
-                iter = &(*cctx)->next;
                 cctx = &(*cctx)->next;
             }
         }
-
-        ctx->stream->ctx = head;
     } else {
-        for (cctx = &ctx->stream->ctx; *cctx; cctx = &(*cctx)->next) {
+        for (cctx = &ctx->stream->ctx; *cctx; /* void */) {
             if (*cctx == ctx) {
                 if (!ctx->publishing && ctx->stream->active) {
                     ngx_http_flv_live_stop(s);
                 }
 
                 unlink = ctx;
+
                 *cctx = ctx->next;
+
                 ctx->next = NULL;
                 ctx->stream = NULL;
 
                 break;
+            } else {
+                cctx = &(*cctx)->next;
             }
         }
     }
