@@ -198,7 +198,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s, ngx_uint_t prio,
                 ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
                        "gop cache send: playing");
             } else {
-               ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+               ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
                        "gop cache send: between the two GOPs");
 
                 continue;
@@ -210,6 +210,10 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s, ngx_uint_t prio,
                     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                             "drop video non-H.264 frame timestamp='%uD'",
                             ch->timestamp);
+
+                    *status = NGX_RTMP_GOP_CACHE_DONE;
+                    ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+                           "gop cache send: done");
 
                     continue;
                 }
@@ -380,7 +384,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s, ngx_uint_t prio,
             pkt = NULL;
         }
 
-        ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+        ngx_log_debug3(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
                "gop cache send: tag type='%s' prio='%d' ltimestamp='%uD'",
                ch->type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
                prio, lh.timestamp);

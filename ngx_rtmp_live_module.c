@@ -931,7 +931,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         if (gacf->gop_cache
                 && pctx->gop_cache.status != NGX_RTMP_GOP_CACHE_DONE)
         {
-            ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+            ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
                     "live: gop cache send unfinished, type='%s', "
                     "status='%d'",
                     h->type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
