@@ -6,7 +6,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * HTTP-based FLV streaming (subscribe).
 
-* GOP cache for low latency.
+* GOP cache for low latency (experimental).
 
 * 'Transfer-Encoding: chunked' response supported.
 

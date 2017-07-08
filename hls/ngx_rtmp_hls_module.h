@@ -13,4 +13,3 @@ ngx_int_t ngx_rtmp_hls_copy(ngx_rtmp_session_t *s, void *dst, u_char **src,
 
 
 #endif /* _NGX_RTMP_HLS_MODULE_H_ */
-

@@ -15,21 +15,30 @@
 
 /* AVC NAL unit types */
 enum {
-    AVC_NAL_SLICE           = 1,
-    AVC_NAL_DPA             = 2,
-    AVC_NAL_DPB             = 3,
-    AVC_NAL_DPC             = 4,
-    AVC_NAL_IDR_SLICE       = 5,
-    AVC_NAL_SEI             = 6,
-    AVC_NAL_SPS             = 7,
-    AVC_NAL_PPS             = 8,
-    AVC_NAL_AUD             = 9,
-    AVC_NAL_END_SEQUENCE    = 10,
-    AVC_NAL_END_STREAM      = 11,
-    AVC_NAL_FILLER_DATA     = 12,
-    AVC_NAL_SPS_EXT         = 13,
-    AVC_NAL_AUXILIARY_SLICE = 19,
-    AVC_NAL_FF_IGNORE       = 0xff0f001
+    NGX_RTMP_NALU_SLICE             = 1,
+    NGX_RTMP_NALU_DPA               = 2,
+    NGX_RTMP_NALU_DPB               = 3,
+    NGX_RTMP_NALU_DPC               = 4,
+    NGX_RTMP_NALU_IDR               = 5,
+    NGX_RTMP_NALU_SEI               = 6,
+    NGX_RTMP_NALU_SPS               = 7,
+    NGX_RTMP_NALU_PPS               = 8,
+    NGX_RTMP_NALU_AUD               = 9,
+    NGX_RTMP_NALU_EOSEQ             = 10,
+    NGX_RTMP_NALU_EOSTREAM          = 11,
+    NGX_RTMP_NALU_FILL              = 12,
+    NGX_RTMP_NALU_SPS_EXT           = 13,
+    NGX_RTMP_NALU_AUXILIARY_SLICE   = 19
+};
+
+
+/* AVC frame types */
+enum {
+    NGX_RTMP_FRAME_IDR              = 1,
+    NGX_RTMP_FRAME_INTER            = 2,
+    NGX_RTMP_FRAME_DISPOSABLE       = 3,
+    NGX_RTMP_FRAME_GENERATED        = 4,
+    NGX_RTMP_FRAME_VIDEOINFOCMD     = 5
 };
 
 

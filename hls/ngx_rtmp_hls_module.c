@@ -12,27 +12,6 @@
 #include "ngx_rtmp_mpegts.h"
 
 
-#define NGX_RTMP_NALU_SLICE    1
-#define NGX_RTMP_NALU_DPA      2
-#define NGX_RTMP_NALU_DPB      3
-#define NGX_RTMP_NALU_DPC      4
-#define NGX_RTMP_NALU_IDR      5
-#define NGX_RTMP_NALU_SEI      6
-#define NGX_RTMP_NALU_SPS      7
-#define NGX_RTMP_NALU_PPS      8
-#define NGX_RTMP_NALU_AUD      9
-#define NGX_RTMP_NALU_EOSEQ    10
-#define NGX_RTMP_NALU_EOSTREAM 11
-#define NGX_RTMP_NALU_FILL     12
-
-
-#define NGX_RTMP_FRAME_IDR          1
-#define NGX_RTMP_FRAME_INTER        2
-#define NGX_RTMP_FRAME_DISPOSABLE   3
-#define NGX_RTMP_FRAME_GENERATED    4
-#define NGX_RTMP_FRAME_VIDEOINFOCMD 5
-
-
 static ngx_rtmp_publish_pt              next_publish;
 static ngx_rtmp_close_stream_pt         next_close_stream;
 static ngx_rtmp_stream_begin_pt         next_stream_begin;

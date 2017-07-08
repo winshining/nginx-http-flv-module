@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -572,7 +573,7 @@ ngx_rtmp_live_join(ngx_rtmp_session_t *s, u_char *name, unsigned publisher)
     ngx_memzero(ctx, sizeof(*ctx));
 
     ctx->session = s;
-    ctx->protocol = 0;
+    ctx->protocol = NGX_RTMP_PROTOCOL_RTMP;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "live: join '%s'", name);
@@ -760,6 +761,7 @@ next:
     return next_pause(s, v);
 }
 
+
 static ngx_int_t
 ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                  ngx_chain_t *in)
@@ -768,8 +770,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_live_ctx_t            *ctx, *pctx;
     ngx_rtmp_codec_ctx_t           *codec_ctx;
     ngx_chain_t                    *header, *coheader, *meta,
-                                   *apkt, *aapkt, *hapkt,
-                                   *acopkt, *rpkt;
+                                   *apkt, *aapkt, *acopkt, *rpkt;
     ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_session_t             *ss;
@@ -791,11 +792,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
-         return NGX_ERROR;
+        return NGX_ERROR;
     }
 
     if (!lacf->live || in == NULL  || in->buf == NULL) {
-         return NGX_OK;
+        return NGX_OK;
     }
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
@@ -826,7 +827,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     peers = 0;
     rpkt = NULL;
     apkt = NULL;
-    hapkt = NULL;
     aapkt = NULL;
     acopkt = NULL;
     header = NULL;
@@ -935,7 +935,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         /* send metadata */
         
         if (codec_ctx) {
-            if (pctx->protocol) {
+            if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
                 r = ss->data;
                 if (r == NULL
                     || (r->connection && r->connection->destroyed))
@@ -1005,14 +1005,14 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 !pctx->cs[1].active)
             {
                 dummy_audio = 1;
-                if (aapkt == NULL) {
-                    aapkt = ngx_rtmp_alloc_shared_buf(cscf);
-                    ngx_rtmp_prepare_message(s, &clh, NULL, aapkt);
+
+                /* if last pctx is RTMP and this pctx is HTTP */
+                if (aapkt) {
+                    ngx_rtmp_free_shared_chain(cscf, aapkt);
                 }
 
-                if (hapkt == NULL) {
-                    hapkt = ngx_rtmp_alloc_shared_buf(cscf);
-                }
+                aapkt = ngx_rtmp_alloc_shared_buf(cscf);
+                handler->append_message_pt(ss, &clh, NULL, aapkt);
             }
 
             if (header || coheader) {
@@ -1045,9 +1045,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     }
 
                 } else if (dummy_audio) {
-                    handler->send_message_pt(ss,
-                            pctx->protocol == NGX_RTMP_PROTOCOL_HTTP ? hapkt
-                                    : aapkt, 0);
+                    handler->send_message_pt(ss, aapkt, 0);
                 }
 
                 cs->timestamp = lh.timestamp;
@@ -1118,10 +1116,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_rtmp_free_shared_chain(cscf, apkt);
     }
 
-    if (hapkt) {
-        ngx_rtmp_free_shared_chain(cscf, hapkt);
-    }
-
     if (aapkt) {
         ngx_rtmp_free_shared_chain(cscf, aapkt);
     }
@@ -1184,6 +1178,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
+    ngx_http_request_t             *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
 
@@ -1192,7 +1187,8 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     /* request from http */
-    if (s->data) {
+    r = s->data;
+    if (r) {
         goto next;
     }
 
