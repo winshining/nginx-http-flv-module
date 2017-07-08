@@ -133,7 +133,7 @@ ngx_rtmp_gop_cache_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_gop_cache_app_conf_t        *prev = parent;
     ngx_rtmp_gop_cache_app_conf_t        *conf = child;
 
-    ngx_conf_merge_value(conf->gop_cache, prev->gop_cache, 1);
+    ngx_conf_merge_value(conf->gop_cache, prev->gop_cache, 0);
     ngx_conf_merge_value(conf->gop_cache_count, prev->gop_cache_count, 2);
     ngx_conf_merge_value(conf->gop_max_frame_count,
             prev->gop_max_frame_count, 2048);
