@@ -134,7 +134,7 @@ ngx_rtmp_gop_cache_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_gop_cache_app_conf_t        *conf = child;
 
     ngx_conf_merge_value(conf->gop_cache, prev->gop_cache, 1);
-    ngx_conf_merge_value(conf->gop_cache_count, prev->gop_cache_count, 1);
+    ngx_conf_merge_value(conf->gop_cache_count, prev->gop_cache_count, 2);
     ngx_conf_merge_value(conf->gop_max_frame_count,
             prev->gop_max_frame_count, 2048);
     ngx_conf_merge_value(conf->gop_max_audio_count,
@@ -222,7 +222,7 @@ ngx_rtmp_gop_link_frame(ngx_rtmp_session_t *s, ngx_rtmp_gop_frame_t *frame)
         return NGX_ERROR;
     }
 
-    cache = ctx->cache;
+    cache = ctx->cache_tail;
     if (cache == NULL) {
         return NGX_ERROR;
     }
@@ -324,12 +324,17 @@ ngx_rtmp_gop_alloc_cache(ngx_rtmp_session_t *s)
                 NULL, codec_ctx->flv_meta_chunked);
     }
 
-    if (ctx->cache == NULL) {
-        ctx->cache = cache;
+    if (ctx->cache_head == NULL) {
+        ctx->cache_tail = ctx->cache_head = cache;
     } else {
-        ctx->cache->next = cache;
-        ctx->cache = cache;
+        ctx->cache_tail->next = cache;
+        ctx->cache_tail = cache;
     }
+
+    ctx->gop_cache_count++;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+           "gop alloc cache: gop_cache_count=%uD", ctx->gop_cache_count);
 
     return NGX_OK;
 }
@@ -388,6 +393,11 @@ ngx_rtmp_gop_free_cache(ngx_rtmp_session_t *s, ngx_rtmp_gop_cache_t *cache)
     cache->frame_tail->next = ctx->free_frame;
     ctx->free_frame = cache->frame_head;
 
+    ctx->gop_cache_count--;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+           "gop free cache: gop_cache_count=%uD", ctx->gop_cache_count);
+
     return cache->next;
 }
 
@@ -397,6 +407,7 @@ ngx_rtmp_gop_cleanup(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_gop_cache_ctx_t       *ctx;
+    ngx_rtmp_gop_cache_t           *cache;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
@@ -408,14 +419,17 @@ ngx_rtmp_gop_cleanup(ngx_rtmp_session_t *s)
         return;
     }
 
-    ngx_rtmp_gop_free_cache(s, ctx->cache);
+    for (cache = ctx->cache_head; cache; cache = cache->next) {
+        ngx_rtmp_gop_free_cache(s, cache);
+    }
 
     if (ctx->pool != NULL) {
         ngx_destroy_pool(ctx->pool);
         ctx->pool = NULL;
     }
 
-    ctx->cache = NULL;
+    ctx->cache_tail = ctx->cache_head = NULL;
+    ctx->gop_cache_count = 0;
     ctx->free_cache = NULL;
     ctx->free_frame = NULL;
     ctx->video_frame_in_all = 0;
@@ -441,14 +455,18 @@ ngx_rtmp_gop_cache_update(ngx_rtmp_session_t *s)
         return;
     }
 
-    if (ctx->cache->next) {
-        /* remove previous gop */
-        next = ngx_rtmp_gop_free_cache(s, ctx->cache);
+    while (ctx->gop_cache_count > gacf->gop_cache_count) {
+        if (ctx->cache_head) {
+            /* remove the 1st gop */
+            next = ngx_rtmp_gop_free_cache(s, ctx->cache_head);
 
-        ctx->cache->next = ctx->free_cache;
-        ctx->free_cache = ctx->cache;
+            ctx->cache_head->next = ctx->free_cache;
+            ctx->free_cache = ctx->cache_head;
 
-        ctx->cache = next;
+            ctx->cache_head = next;
+        } else {
+            ngx_rtmp_gop_cleanup(s);
+        }
     }
 }
 
@@ -494,7 +512,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         }
 
         // drop non-IDR
-        if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache == NULL) {
+        if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache_head == NULL) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                     "drop video non-keyframe timestamp='%uD'",
                     ch->timestamp);
@@ -615,106 +633,106 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         return;
     }
 
-    cache = gctx->cache;
+    for (cache = gctx->cache_head; cache; cache = cache->next) {
+        if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+            r = s->data;
+            if (r == NULL || (r->connection && r->connection->destroyed)) {
+                return;
+            }
 
-    if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
-        r = s->data;
-        if (r == NULL || (r->connection && r->connection->destroyed)) {
-            return;
-        }
-
-        hflctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-        if (hflctx->chunked) {
-            meta = cache->flv_meta_chunked;
+            hflctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+            if (hflctx->chunked) {
+                meta = cache->flv_meta_chunked;
+            } else {
+                meta = cache->flv_meta;
+            }
         } else {
-            meta = cache->flv_meta;
-        }
-    } else {
-        meta = cache->meta;
-    }
-
-    if (meta) {
-        meta_version = cache->meta_version;
-    }
-
-    /* send metadata */
-    if (meta && meta_version != ctx->meta_version) {
-        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "gop cache send: meta");
-
-        if (handler->send_message_pt(s, meta, 0) == NGX_OK) {
-            ctx->meta_version = meta_version;
-        }
-    }
-
-    for (gop_frame = cache->frame_head;
-         gop_frame;
-         gop_frame = gop_frame->next)
-    {
-        csidx = !(lacf->interleave
-                  || gop_frame->h.type == NGX_RTMP_MSG_VIDEO);
-
-        cs = &ctx->cs[csidx];
-
-        lh = ch = gop_frame->h;
-
-        if (cs->active) {
-            lh.timestamp = cs->timestamp;
+            meta = cache->meta;
         }
 
-        delta = ch.timestamp - lh.timestamp;
+        if (meta) {
+            meta_version = cache->meta_version;
+        }
 
-        if (!cs->active) {
-            switch (gop_frame->h.type) {
-                case NGX_RTMP_MSG_VIDEO:
-                    header = cache->video_seq_header;
-                    break;
-                case NGX_RTMP_MSG_AUDIO:
-                    header = cache->audio_seq_header;
-                    break;
-                default:
-                    header = NULL;
-            }
+        /* send metadata */
+        if (meta && meta_version != ctx->meta_version) {
+            ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                    "gop cache send: meta");
 
-            if (header) {
-                apkt = handler->append_message_pt(s, &lh, NULL, header);
-            }
-
-            if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
-                cs->timestamp = lh.timestamp;
-                cs->active = 1;
-                s->current_time = cs->timestamp;
-            }
-
-            if (apkt) {
-                handler->free_message_pt(s, apkt);
-                apkt = NULL;
+            if (handler->send_message_pt(s, meta, 0) == NGX_OK) {
+                ctx->meta_version = meta_version;
             }
         }
 
-        pkt = handler->append_message_pt(s, &ch, &lh, gop_frame->frame);
-        if (handler->send_message_pt(s, pkt, gop_frame->prio) != NGX_OK) {
-            ++pub_ctx->ndropped;
+        for (gop_frame = cache->frame_head;
+             gop_frame;
+             gop_frame = gop_frame->next)
+        {
+            csidx = !(lacf->interleave
+                      || gop_frame->h.type == NGX_RTMP_MSG_VIDEO);
 
-            cs->dropped += delta;
+            cs = &ctx->cs[csidx];
 
-            return;
+            lh = ch = gop_frame->h;
+
+            if (cs->active) {
+                lh.timestamp = cs->timestamp;
+            }
+
+            delta = ch.timestamp - lh.timestamp;
+
+            if (!cs->active) {
+                switch (gop_frame->h.type) {
+                    case NGX_RTMP_MSG_VIDEO:
+                        header = cache->video_seq_header;
+                        break;
+                    case NGX_RTMP_MSG_AUDIO:
+                        header = cache->audio_seq_header;
+                        break;
+                    default:
+                        header = NULL;
+                }
+
+                if (header) {
+                    apkt = handler->append_message_pt(s, &lh, NULL, header);
+                }
+
+                if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
+                    cs->timestamp = lh.timestamp;
+                    cs->active = 1;
+                    s->current_time = cs->timestamp;
+                }
+
+                if (apkt) {
+                    handler->free_message_pt(s, apkt);
+                    apkt = NULL;
+                }
+            }
+
+            pkt = handler->append_message_pt(s, &ch, &lh, gop_frame->frame);
+            if (handler->send_message_pt(s, pkt, gop_frame->prio) != NGX_OK) {
+                ++pub_ctx->ndropped;
+
+                cs->dropped += delta;
+
+                return;
+            }
+
+            if (pkt) {
+                handler->free_message_pt(s, pkt);
+                pkt = NULL;
+            }
+
+            ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "gop cache send: tag type='%s' prio='%d' ltimestamp='%uD'",
+                   gop_frame->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
+                   gop_frame->prio,
+                   lh.timestamp);
+
+            cs->timestamp += delta;
+            s->current_time = cs->timestamp;
         }
-
-        if (pkt) {
-            handler->free_message_pt(s, pkt);
-            pkt = NULL;
-        }
-
-        ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-               "gop cache send: tag type='%s' prio='%d' ltimestamp='%uD'",
-               gop_frame->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
-               gop_frame->prio,
-               lh.timestamp);
-
-        cs->timestamp += delta;
-        s->current_time = cs->timestamp;
-    }
+	}
 }
 
 
@@ -806,6 +824,7 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
     ngx_rtmp_live_ctx_t            *ctx;
+    ngx_msec_t                      start, end;
 
     gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
     if (gacf == NULL || !gacf->gop_cache) {
@@ -822,7 +841,18 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
             v->name, (uint32_t) v->start,
             (uint32_t) v->duration, (uint32_t) v->reset);
 
+    start = ngx_current_msec;
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+            "gop cache send: start_time=%uD", start);
+
     ngx_rtmp_gop_cache_send(s);
+
+    end = ngx_current_msec;
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+            "gop cache send: end_time=%uD", end);
+
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+            "gop cache send: delta_time=%uD", end - start);
 
 next:
     return next_play(s, v);
