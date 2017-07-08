@@ -60,10 +60,10 @@ typedef struct ngx_rtmp_gop_cache_ctx_s {
     ngx_rtmp_gop_cache_t       *cache_tail;
     ngx_rtmp_gop_cache_t       *free_cache;
     ngx_rtmp_gop_frame_t       *free_frame;
-    ngx_int_t                  gop_cache_count;
-    ngx_int_t                  video_frame_in_all;
-    ngx_int_t                  audio_frame_in_all;
-    ngx_int_t                  audio_after_last_video_count;
+    ngx_int_t                   gop_cache_count;
+    ngx_int_t                   video_frame_in_all;
+    ngx_int_t                   audio_frame_in_all;
+    ngx_int_t                   audio_after_last_video_count;
 } ngx_rtmp_gop_cache_ctx_t;
 
 
