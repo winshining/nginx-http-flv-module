@@ -1586,6 +1586,9 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
      * the tag->buf->pos points to the addr of last part of memory
      */
     tag = ngx_rtmp_append_shared_bufs(cscf, NULL, in);
+    if (tag == NULL) {
+        return NULL;
+    }
 
     /* it links to the local variable, unlink it */
     *tail = NULL;
@@ -1632,27 +1635,34 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
             return NULL;
         }
 
-        *ngx_sprintf(chunk_item, CRLF) = 0;
-        chunk_buf.start = chunk_item;
-        chunk_buf.pos = chunk_buf.start;
-        chunk_buf.end = chunk_buf.start + ngx_strlen(chunk_item);
-        chunk_buf.last = chunk_buf.end;
-
-        chunk.buf = &chunk_buf;
-        chunk.next = NULL;
-
-        chunk_tail = ngx_rtmp_append_shared_bufs(cscf, NULL, &chunk);
-        if (chunk_tail == NULL) {
-            return NULL;
-        }
-
         for (iter = tag, last_in = iter; iter; iter = iter->next) {
             last_in = iter;
         }
 
+        /* save the memory, very likely */
+        if (last_in->buf->last + 2 <= last_in->buf->end) {
+            *last_in->buf->last++ = CR;
+            *last_in->buf->last++ = LF;
+        } else {
+            *ngx_sprintf(chunk_item, CRLF) = 0;
+            chunk_buf.start = chunk_item;
+            chunk_buf.pos = chunk_buf.start;
+            chunk_buf.end = chunk_buf.start + ngx_strlen(chunk_item);
+            chunk_buf.last = chunk_buf.end;
+
+            chunk.buf = &chunk_buf;
+            chunk.next = NULL;
+
+            chunk_tail = ngx_rtmp_append_shared_bufs(cscf, NULL, &chunk);
+            if (chunk_tail == NULL) {
+                return NULL;
+            }
+
+            tail = &last_in->next;
+            *tail = chunk_tail;
+        }
+
         chunk_head->next = tag;
-        tail = &last_in->next;
-        *tail = chunk_tail;
 
         return chunk_head;
     }
