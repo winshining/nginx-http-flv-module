@@ -24,7 +24,7 @@ cd to NGINX source directory & run this:
 
 * publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/myapp/mystream
 
-* subscribe: http://localhost[:port]/live?[srv=0&app=myapp&]stream=mystream
+* subscribe: http://example.com[:port]/live?[srv=0&app=myapp&]stream=mystream
 
 # Example nginx.conf
 
