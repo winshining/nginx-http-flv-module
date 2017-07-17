@@ -53,6 +53,8 @@ static ngx_int_t ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_flv_live_req(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 
+static ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
+        unsigned int publisher);
 static void ngx_http_flv_live_stop(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
