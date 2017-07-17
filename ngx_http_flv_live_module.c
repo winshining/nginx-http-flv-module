@@ -1647,7 +1647,11 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
         }
 
         /* save the memory, very likely */
+#if !(NGX_WIN32)
+        if (__builtin_expect(last_in->buf->last + 2 <= last_in->buf->end, 1)) {
+#else
         if (last_in->buf->last + 2 <= last_in->buf->end) {
+#endif
             *last_in->buf->last++ = CR;
             *last_in->buf->last++ = LF;
         } else {
