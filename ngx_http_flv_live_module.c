@@ -4,6 +4,7 @@
  */
 
 #include "ngx_http_flv_live_module.h"
+#include "ngx_rtmp_relay_module.h"
 
 
 static ngx_rtmp_play_pt         next_play;
@@ -52,10 +53,7 @@ static ngx_int_t ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_flv_live_req(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 
-static void ngx_http_flv_live_start(ngx_rtmp_session_t *s);
 static void ngx_http_flv_live_stop(ngx_rtmp_session_t *s);
-static ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
-        unsigned int publisher);
 static ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
 static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
@@ -606,6 +604,8 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_rtmp_live_stream_t        **stream;
     ngx_rtmp_live_app_conf_t       *lacf;
 
+    ngx_rtmp_relay_app_conf_t      *racf;
+
     /* only for subscribers */
     if (publisher) {
         return NGX_DECLINED;
@@ -650,9 +650,16 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
 
     if ((*stream)->pub_ctx == NULL || !(*stream)->pub_ctx->publishing) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "flv live: stream not publishing");
+                "flv live: stream not publishing, check relay pulls");
 
-        return NGX_ERROR;
+        /* check if there are some pulls */
+        racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
+        if (racf == NULL || racf->pulls.nelts == 0) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                    "flv live: no racf or relay pulls, quit");
+
+            return NGX_ERROR;
+        }
     }
 
     ctx->stream = *stream;
@@ -1640,11 +1647,7 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
         }
 
         /* save the memory, very likely */
-#if !(NGX_WIN32)
-        if (__builtin_expect(last_in->buf->last + 2 <= last_in->buf->end, 1)) {
-#else
         if (last_in->buf->last + 2 <= last_in->buf->end) {
-#endif
             *last_in->buf->last++ = CR;
             *last_in->buf->last++ = LF;
         } else {
