@@ -41,8 +41,6 @@ cd to NGINX source directory & run this:
         include       mime.types;
         default_type  application/octet-stream;
 
-        sendfile        on;
-
         keepalive_timeout  65;
 
         server {
