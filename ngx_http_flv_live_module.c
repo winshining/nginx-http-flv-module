@@ -12,6 +12,7 @@ static ngx_rtmp_close_stream_pt next_close_stream;
 
 
 static ngx_array_t        *ngx_http_flv_live_conf;
+static ngx_flag_t          inited;
 
 
 static ngx_int_t ngx_http_flv_live_init(ngx_conf_t *cf);
@@ -139,6 +140,8 @@ ngx_http_flv_live_init(ngx_conf_t *cf)
 
     *h = ngx_http_flv_live_handler;
 
+    inited = 1;
+
     return NGX_OK;
 }
 
@@ -165,6 +168,13 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
      * the loc level was a temporary pointer, so we use this
      * work-around to get the loc_conf
      */
+    if (inited) {
+        inited = 0;
+
+        /* when reload */
+        ngx_http_flv_live_conf = NULL;
+    }
+
     if (ngx_http_flv_live_conf == NULL) {
         ngx_http_flv_live_conf = ngx_array_create(cf->pool,
             4, sizeof(void *));
