@@ -11,8 +11,15 @@ static ngx_rtmp_play_pt         next_play;
 static ngx_rtmp_close_stream_pt next_close_stream;
 
 
-static ngx_array_t        *ngx_http_flv_live_conf;
-static ngx_flag_t          inited;
+typedef struct ngx_http_flv_live_http_info_s ngx_http_flv_live_http_info_t;
+
+struct ngx_http_flv_live_http_info_s {
+    ngx_array_t        *conf;
+    ngx_flag_t          inited;
+};
+
+
+static ngx_http_flv_live_http_info_t ngx_http_flv_live_conf;
 
 
 static ngx_int_t ngx_http_flv_live_init(ngx_conf_t *cf);
@@ -140,7 +147,7 @@ ngx_http_flv_live_init(ngx_conf_t *cf)
 
     *h = ngx_http_flv_live_handler;
 
-    inited = 1;
+    ngx_http_flv_live_conf.inited = 1;
 
     return NGX_OK;
 }
@@ -168,17 +175,17 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
      * the loc level was a temporary pointer, so we use this
      * work-around to get the loc_conf
      */
-    if (inited) {
-        inited = 0;
+    if (ngx_http_flv_live_conf.inited) {
+        ngx_http_flv_live_conf.inited = 0;
 
         /* when reload */
-        ngx_http_flv_live_conf = NULL;
+        ngx_http_flv_live_conf.conf = NULL;
     }
 
-    if (ngx_http_flv_live_conf == NULL) {
-        ngx_http_flv_live_conf = ngx_array_create(cf->pool,
+    if (ngx_http_flv_live_conf.conf == NULL) {
+        ngx_http_flv_live_conf.conf = ngx_array_create(cf->pool,
             4, sizeof(void *));
-        if (ngx_http_flv_live_conf == NULL) {
+        if (ngx_http_flv_live_conf.conf == NULL) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                     "flv live: failed to create array for global conf");
 
@@ -186,7 +193,7 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
         }
     }
 
-    p = ngx_array_push(ngx_http_flv_live_conf);
+    p = ngx_array_push(ngx_http_flv_live_conf.conf);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                 "flv live: failed to get memory for global conf");
@@ -254,8 +261,8 @@ ngx_http_flv_live_init_process(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
-    iter = ngx_http_flv_live_conf->elts;
-    for (i = 0; i < ngx_http_flv_live_conf->nelts; ++i) {
+    iter = ngx_http_flv_live_conf.conf->elts;
+    for (i = 0; i < ngx_http_flv_live_conf.conf->nelts; ++i) {
         hfcf = (ngx_http_flv_live_conf_t *)iter[i];
 
         if (!hfcf->flv_live || hfcf->flv_live == NGX_CONF_UNSET) {
