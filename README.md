@@ -16,7 +16,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).
 
-#Prerequisites
+# Prerequisites
 
 * GNU make for activating compiler on Unix-like systems to compile software.
 
