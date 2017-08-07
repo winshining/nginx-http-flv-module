@@ -34,9 +34,9 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Build
 
-download [NGINX](http://nginx.org) and nginx-http-flv-module.
+Download [NGINX](http://nginx.org) and nginx-http-flv-module.
 
-uncompress them.
+Uncompress them.
 
 cd to NGINX source directory & run this:
 
