@@ -747,7 +747,6 @@ ngx_int_t
 ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t        *lacf;
-    ngx_http_flv_live_ctx_t         *ctx;
     ngx_http_request_t              *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -769,8 +768,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 
         return NGX_ERROR;
     }
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live play: name='%s' start=%uD duration=%uD reset=%d",
