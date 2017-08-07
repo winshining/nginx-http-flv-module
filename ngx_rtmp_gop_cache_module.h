@@ -16,7 +16,6 @@
 
 
 #define NGX_GOP_CACHE_POOL_CREATE_SIZE          4096
-#define NGX_PURE_AUDIO_ESTIMATE_MAX_COUNT       128 /* pure audio */
 
 
 typedef struct ngx_rtmp_gop_frame_s ngx_rtmp_gop_frame_t;

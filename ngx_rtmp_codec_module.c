@@ -549,11 +549,25 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     /* MUST be audio / video sequence header */
     if (h->type == NGX_RTMP_MSG_AUDIO) {
+        if (++ctx->pure_audio_threshold_count >
+                        NGX_PURE_AUDIO_THRESHOLD_COUNT)
+        {
+            ctx->pure_audio = 1;
+            ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
+            ctx->avc_header = NULL;
+        }
+
         if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
             header = &ctx->aac_header;
             ngx_rtmp_codec_parse_aac_header(s, in);
         }
     } else {
+        if (ctx->pure_audio) {
+            return NGX_OK;
+        }
+
+        ctx->pure_audio_estimate_count = 0;
+
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
 

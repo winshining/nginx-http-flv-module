@@ -6,15 +6,39 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * HTTP-based FLV streaming (subscribe).
 
-* GOP cache for low latency (experimental, details please refer to [BLSS](https://github.com/gnolizuh/BLSS)).
+* GOP cache for low latency (experimental, for details, please see [BLSS](https://github.com/gnolizuh/BLSS)).
 
 * 'Transfer-Encoding: chunked' response supported.
 
 * Missing 'listen' directive in rtmp server block will be OK.
 
+# Systems supported
+
+* Linux (recommended)/FreeBSD/MacOS/Windows (limited).
+
+#Prerequisites
+
+* GNU make for activating compiler on Unix-like systems to compile software.
+
+* GCC for compiling on Unix-like systems/MSVC for compiling on Windows.
+
+* GDB for debuging on Unix-like systems.
+
+* FFmpeg for publishing media streams.
+
+* VLC player for playing media streams.
+
+* PCRE for NGINX if regular expressions needed.
+
+* OpenSSL for NGINX if encrypted access needed.
+
 # Build
 
-cd to NGINX source directory & run this:
+* download [NGINX](http://nginx.org) and nginx-http-flv-module.
+
+* uncompress them.
+
+* cd to NGINX source directory & run this:
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -22,14 +46,23 @@ cd to NGINX source directory & run this:
 
 # Usage
 
-* publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/myapp/mystream
+* publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
-* subscribe: http://example.com[:port]/live?[srv=0&app=myapp&]stream=mystream
+The appname is used to match an application block in rtmp block (see below for details).
+The streamname can be specified at will.
+The default port for RTMP is 1935, if some other ports were used, ':port' must be specified.
+
+* subscribe: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
+
+The dir is used to match location blocks in http block (see below for details).
+The default port for HTTP is 80, if some other ports were used, ':port' must be specified.
+The default server block matched is the first one in rtmp block, if the requested server block is not the first one, 'srv=index (index start from 0)' must be specified.
+The default application block matched is the first one in server block, if the requested application block is not the first one, 'app=xxx' must be specified.
 
 # Example nginx.conf
 
     worker_processes  4;
-    worker_cpu_affinity 0001 0010 0100 1000;
+    worker_cpu_affinity  0001 0010 0100 1000;
 
     error_log logs/error.log error;
 

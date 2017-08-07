@@ -148,9 +148,8 @@ typedef struct {
 #define NGX_RTMP_CONNECT                NGX_RTMP_MSG_MAX + 1
 #define NGX_RTMP_DISCONNECT             NGX_RTMP_MSG_MAX + 2
 #define NGX_RTMP_HANDSHAKE_DONE         NGX_RTMP_MSG_MAX + 3
-#define NGX_HTTP_FLV_LIVE_MSG           NGX_RTMP_MSG_MAX + 4
-#define NGX_HTTP_FLV_LIVE_REQ           NGX_RTMP_MSG_MAX + 5
-#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 6
+#define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 4
+#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 5
 
 
 /* RMTP control message types */
@@ -204,7 +203,9 @@ typedef struct {
 #endif
 
 
-typedef struct {
+typedef struct ngx_rtmp_session_s  ngx_rtmp_session_t;
+
+struct ngx_rtmp_session_s {
     uint32_t                signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
     ngx_event_t             close;
@@ -262,6 +263,8 @@ typedef struct {
     unsigned                relay:1;
     unsigned                static_relay:1;
 
+    ngx_rtmp_session_t     *publisher;
+
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
 
@@ -287,7 +290,7 @@ typedef struct {
     size_t                  out_queue;
     size_t                  out_cork;
     ngx_chain_t            *out[0];
-} ngx_rtmp_session_t;
+};
 
 
 #if (NGX_WIN32)
