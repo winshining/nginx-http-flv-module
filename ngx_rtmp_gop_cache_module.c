@@ -536,7 +536,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     }
 
     if (ctx->audio_after_last_video_count
-            > NGX_PURE_AUDIO_ESTIMATE_MAX_COUNT)
+            > NGX_PURE_AUDIO_THRESHOLD_COUNT)
     {
         ngx_rtmp_gop_cleanup(s);
         return;

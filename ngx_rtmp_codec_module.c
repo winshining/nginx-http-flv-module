@@ -566,7 +566,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             return NGX_OK;
         }
 
-        ctx->pure_audio_estimate_count = 0;
+        ctx->pure_audio_threshold_count = 0;
 
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
