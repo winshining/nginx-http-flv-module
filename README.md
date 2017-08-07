@@ -34,11 +34,11 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Build
 
-* download [NGINX](http://nginx.org) and nginx-http-flv-module.
+download [NGINX](http://nginx.org) and nginx-http-flv-module.
 
-* uncompress them.
+uncompress them.
 
-* cd to NGINX source directory & run this:
+cd to NGINX source directory & run this:
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -46,17 +46,22 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Usage
 
-* publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+    publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
 The appname is used to match an application block in rtmp block (see below for details).
+
 The streamname can be specified at will.
+
 The default port for RTMP is 1935, if some other ports were used, ':port' must be specified.
 
-* subscribe: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
+    subscribe: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
 
 The dir is used to match location blocks in http block (see below for details).
+
 The default port for HTTP is 80, if some other ports were used, ':port' must be specified.
+
 The default server block matched is the first one in rtmp block, if the requested server block is not the first one, 'srv=index (index start from 0)' must be specified.
+
 The default application block matched is the first one in server block, if the requested application block is not the first one, 'app=xxx' must be specified.
 
 # Example nginx.conf
