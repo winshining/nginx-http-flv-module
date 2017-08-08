@@ -491,8 +491,6 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
     ngx_http_flv_live_send_message(s, pkt, 0);
     ngx_rtmp_free_shared_chain(cscf, pkt);
 
-    ctx->header_sent = 1;
-
     return NGX_OK;
 }
 
