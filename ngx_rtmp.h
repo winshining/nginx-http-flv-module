@@ -321,7 +321,7 @@ struct ngx_rtmp_session_s {
     size_t                      limit_rate;
     size_t                      limit_rate_after;
 
-    ngx_rtmp_session_t     *publisher;
+    ngx_rtmp_session_t         *publisher;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
