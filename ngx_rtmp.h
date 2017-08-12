@@ -168,9 +168,8 @@ typedef struct {
 #define NGX_RTMP_CONNECT                NGX_RTMP_MSG_MAX + 1
 #define NGX_RTMP_DISCONNECT             NGX_RTMP_MSG_MAX + 2
 #define NGX_RTMP_HANDSHAKE_DONE         NGX_RTMP_MSG_MAX + 3
-#define NGX_HTTP_FLV_LIVE_MSG           NGX_RTMP_MSG_MAX + 4
-#define NGX_HTTP_FLV_LIVE_REQ           NGX_RTMP_MSG_MAX + 5
-#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 6
+#define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 4
+#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 5
 
 
 /* RMTP control message types */
@@ -321,6 +320,8 @@ struct ngx_rtmp_session_s {
 
     size_t                      limit_rate;
     size_t                      limit_rate_after;
+
+    ngx_rtmp_session_t     *publisher;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */

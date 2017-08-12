@@ -32,45 +32,45 @@ extern ngx_module_t ngx_rtmp_module;
 
 
 typedef struct ngx_http_flv_live_srv_info_s {
-    ngx_uint_t srv_index;
+    ngx_uint_t  srv_index;
 } ngx_http_flv_live_srv_info_t;
 
 
 typedef struct ngx_http_flv_live_app_info_s {
-    ngx_uint_t app_index;
-	ngx_str_t  app_name;
+    ngx_uint_t  app_index;
+    ngx_str_t   app_name;
 } ngx_http_flv_live_app_info_t;
 
 
 typedef struct ngx_http_flv_live_app_s {
-    ngx_str_t                    hash_name;
-    ngx_http_flv_live_srv_info_t srv;
-    ngx_http_flv_live_app_info_t app;
+    ngx_str_t                     hash_name;
+    ngx_http_flv_live_srv_info_t  srv;
+    ngx_http_flv_live_app_info_t  app;
 } ngx_http_flv_live_app_t;
 
 
 typedef struct ngx_http_flv_live_ctx_s {
+    ngx_rtmp_session_t      *s;
     ngx_flag_t               flv_live;
     ngx_flag_t               chunked;
-    ngx_flag_t               joined;
+    ngx_flag_t               header_sent;
     ngx_http_flv_live_app_t  app;
     ngx_str_t                stream;
-    ngx_rtmp_session_t      *s;
 } ngx_http_flv_live_ctx_t;
 
 
 typedef struct ngx_http_flv_live_hash_s {
-    ngx_hash_init_t        hint;
-    ngx_hash_keys_arrays_t ha; /* temporary for hash */
-    ngx_hash_combined_t    hash;
+    ngx_hash_init_t         hint;
+    ngx_hash_keys_arrays_t  ha; /* temporary for hash */
+    ngx_hash_combined_t     hash;
 } ngx_http_flv_live_hash_t;
 
 
 typedef struct ngx_http_flv_live_conf_s {
-    ngx_flag_t               flv_live;
-    ngx_flag_t               chunked;
-    ngx_http_flv_live_hash_t app_hash;
-    ngx_http_flv_live_app_t  default_hash;
+    ngx_flag_t                flv_live;
+    ngx_flag_t                chunked;
+    ngx_http_flv_live_hash_t  app_hash;
+    ngx_http_flv_live_app_t   default_hash;
 } ngx_http_flv_live_conf_t;
 
 
@@ -85,6 +85,8 @@ typedef struct {
 } ngx_rtmp_process_handler_t;
 
 
+ngx_int_t ngx_http_flv_live_send_header(ngx_rtmp_session_t *s);
+void ngx_http_flv_live_start(ngx_rtmp_session_t *s);
 ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
         ngx_rtmp_core_srv_conf_t *cscf,
         ngx_rtmp_header_t *h,

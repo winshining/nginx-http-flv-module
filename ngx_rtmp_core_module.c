@@ -520,6 +520,7 @@ ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     char                       *rv;
     ngx_int_t                   i;
+    ngx_uint_t                  n;
     ngx_str_t                  *value;
     ngx_conf_t                  save;
     ngx_module_t              **modules;
@@ -570,6 +571,19 @@ ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     cacf->name = value[1];
     cscf = pctx->srv_conf[ngx_rtmp_core_module.ctx_index];
+
+    cacfp = cscf->applications.elts;
+    for (n = 0; n < cscf->applications.nelts; n++) {
+        if (cacf->name.len == cacfp[n]->name.len
+                && ngx_strncmp(cacf->name.data,
+                        cacfp[n]->name.data, cacf->name.len) == 0)
+        {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "duplicate application: \"%V\"", &cacf->name);
+
+            return NGX_CONF_ERROR;
+        }
+    }
 
     cacfp = ngx_array_push(&cscf->applications);
     if (cacfp == NULL) {

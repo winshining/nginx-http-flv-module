@@ -389,8 +389,13 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
 
         for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
             if (pctx->publishing == 0) {
-                ngx_rtmp_live_set_status(pctx->session, control, status,
+                if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+                    pctx->session->publisher = s;
+                    ngx_http_flv_live_start(pctx->session);
+                } else {
+                    ngx_rtmp_live_set_status(pctx->session, control, status,
                                          nstatus, active);
+                }
             }
         }
 
@@ -399,27 +404,31 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
 
     /* subscriber */
 
-    if (control && ngx_rtmp_send_message(s, control, 0) != NGX_OK) {
-        ngx_rtmp_finalize_session(s);
-        return;
-    }
+    if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+        ngx_http_flv_live_start(s);
+    } else {
+        if (control && ngx_rtmp_send_message(s, control, 0) != NGX_OK) {
+            ngx_rtmp_finalize_session(s);
+            return;
+        }
 
-    if (!ctx->silent) {
-        cl = status;
+        if (!ctx->silent) {
+            cl = status;
 
-        for (n = 0; n < nstatus; ++n, ++cl) {
-            if (*cl && ngx_rtmp_send_message(s, *cl, 0) != NGX_OK) {
-                ngx_rtmp_finalize_session(s);
-                return;
+            for (n = 0; n < nstatus; ++n, ++cl) {
+                if (*cl && ngx_rtmp_send_message(s, *cl, 0) != NGX_OK) {
+                    ngx_rtmp_finalize_session(s);
+                    return;
+                }
             }
         }
+
+        ctx->cs[0].active = 0;
+        ctx->cs[0].dropped = 0;
+
+        ctx->cs[1].active = 0;
+        ctx->cs[1].dropped = 0;
     }
-
-    ctx->cs[0].active = 0;
-    ctx->cs[0].dropped = 0;
-
-    ctx->cs[1].active = 0;
-    ctx->cs[1].dropped = 0;
 }
 
 
@@ -945,6 +954,19 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 }
 
                 hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+
+                if (!hctx->header_sent) {
+                    if ((!codec_ctx->avc_header || !codec_ctx->aac_header)
+                        && !codec_ctx->pure_audio)
+                    {
+                        ngx_rtmp_free_shared_chain(cscf, rpkt);
+                        continue;
+                    }
+
+                    hctx->header_sent = 1;
+                    ngx_http_flv_live_send_header(ss);
+                }
+
                 if (hctx->chunked) {
                     meta = codec_ctx->flv_meta_chunked;
                 } else {
