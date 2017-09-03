@@ -11,6 +11,8 @@
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
 #include "ngx_rtmp_streams.h"
+#include "ngx_rtmp_cmd_module.h"
+#include "modules/ngx_rtmp_proxy_module.h"
 
 
 #define NGX_RTMP_USER_START(s, tp)                                          \
@@ -53,6 +55,7 @@ static ngx_int_t
 ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
 {
     ngx_rtmp_core_srv_conf_t       *cscf;
+    ngx_rtmp_proxy_app_conf_t      *pacf;
     ngx_http_request_t             *r;
     ngx_int_t                       rc;
 
@@ -62,12 +65,16 @@ ngx_rtmp_send_shared_packet(ngx_rtmp_session_t *s, ngx_chain_t *cl)
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    /* rquest from http */
-    r = s->data;
-    if (r) {
-        ngx_rtmp_free_shared_chain(cscf, cl);
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
 
-        return NGX_OK;
+    if (pacf == NULL || pacf->upstream.upstream == NULL) {
+        /* rquest from http */
+        r = s->data;
+        if (r) {
+            ngx_rtmp_free_shared_chain(cscf, cl);
+
+            return NGX_OK;
+        }
     }
 
     rc = ngx_rtmp_send_message(s, cl, 0);

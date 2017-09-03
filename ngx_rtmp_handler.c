@@ -1,6 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Roman Arutyunyan 
+ * Copyright (C) Winshining 
  */
 
 
@@ -8,12 +9,13 @@
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
+#include "ngx_rtmp_cmd_module.h"
+#include "modules/ngx_rtmp_proxy_module.h"
 
 
 static void ngx_rtmp_recv(ngx_event_t *rev);
 static void ngx_rtmp_send(ngx_event_t *rev);
 static void ngx_rtmp_ping(ngx_event_t *rev);
-static ngx_int_t ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s);
 
 
 ngx_uint_t                  ngx_rtmp_naccepted;
@@ -84,21 +86,34 @@ void
 ngx_rtmp_cycle(ngx_rtmp_session_t *s)
 {
     ngx_connection_t           *c;
+    ngx_rtmp_proxy_app_conf_t  *pacf;
 
     c = s->connection;
-    c->read->handler =  ngx_rtmp_recv;
-    c->write->handler = ngx_rtmp_send;
+
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+
+    if (pacf && pacf->upstream.upstream) {
+        c->read->handler = ngx_rtmp_upstream_recv;
+        c->write->handler = ngx_rtmp_upstream_send;
+    } else {
+        c->read->handler =  ngx_rtmp_recv;
+        c->write->handler = ngx_rtmp_send;
+    }
 
     s->ping_evt.data = c;
     s->ping_evt.log = c->log;
     s->ping_evt.handler = ngx_rtmp_ping;
     ngx_rtmp_reset_ping(s);
 
-    ngx_rtmp_recv(c->read);
+    if (pacf && pacf->upstream.upstream) {
+        ngx_rtmp_upstream_recv(c->read);
+    } else {
+        ngx_rtmp_recv(c->read);
+    }
 }
 
 
-static ngx_chain_t *
+ngx_chain_t *
 ngx_rtmp_alloc_in_buf(ngx_rtmp_session_t *s)
 {
     ngx_chain_t        *cl;
@@ -888,7 +903,7 @@ ngx_rtmp_set_chunk_size(ngx_rtmp_session_t *s, ngx_uint_t size)
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s)
 {
     if (s->in_chunk_size_changing && s->in_old_pool) {

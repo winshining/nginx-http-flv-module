@@ -24,19 +24,7 @@ typedef struct ngx_rtmp_session_s   ngx_rtmp_session_t;
 
 
 #include "ngx_rtmp_variables.h"
-
-
-typedef void (*ngx_rtmp_client_request_handler_pt)(ngx_rtmp_session_t *s);
-
-typedef struct {
-    ngx_temp_file_t                     *temp_file;
-    ngx_chain_t                         *bufs;
-    ngx_buf_t                           *buf;
-    off_t                                received;
-    ngx_chain_t                         *free;
-    ngx_chain_t                         *busy;
-    ngx_rtmp_client_request_handler_pt   post_handler;
-} ngx_rtmp_request_t;
+#include "ngx_rtmp_script.h"
 
 
 #if (NGX_WIN32)
@@ -223,12 +211,12 @@ typedef struct {
 #endif
 
 
+typedef void (*ngx_rtmp_event_handler_pt)(ngx_rtmp_session_t *s);
+
 struct ngx_rtmp_session_s {
     uint32_t                    signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
     ngx_rtmp_upstream_t        *upstream;
-
-    ngx_rtmp_request_t         *request;
 
     ngx_str_t                   uri;
     ngx_str_t                   unparsed_uri;
@@ -245,6 +233,10 @@ struct ngx_rtmp_session_s {
     void                      **app_conf;
 
     void                       *data;
+    ngx_event_t                 push_evt;
+
+    ngx_rtmp_event_handler_pt   write_event_handler;
+    ngx_rtmp_event_handler_pt   read_event_handler;
 
     ngx_str_t                  *addr_text;
     ngx_flag_t                  connected;
@@ -293,9 +285,6 @@ struct ngx_rtmp_session_s {
     unsigned                    auto_pushed:1;
     unsigned                    relay:1;
     unsigned                    static_relay:1;
-
-    /* reading from client when upstream? */
-    unsigned                    reading_request:1;
 
     unsigned                    keepalive:1;
     unsigned                    lingering_close:1;
@@ -458,6 +447,9 @@ typedef struct {
     ngx_msec_t              lingering_timeout;
     ngx_msec_t              resolver_timeout;
 
+    ngx_resolver_t         *resolver;
+    ngx_path_t             *client_request_temp_path;
+
     ngx_flag_t              tcp_nopush;
     ngx_flag_t              tcp_nodelay;
 } ngx_rtmp_core_app_conf_t;
@@ -491,7 +483,7 @@ typedef struct {
 #define NGX_RTMP_SRV_CONF               0x04000000
 #define NGX_RTMP_APP_CONF               0x08000000
 #define NGX_RTMP_REC_CONF               0x10000000
-
+#define NGX_RTMP_UPS_CONF               0x20000000
 
 #define NGX_RTMP_MAIN_CONF_OFFSET  offsetof(ngx_rtmp_conf_ctx_t, main_conf)
 #define NGX_RTMP_SRV_CONF_OFFSET   offsetof(ngx_rtmp_conf_ctx_t, srv_conf)
@@ -531,6 +523,10 @@ void ngx_rtmp_client_handshake(ngx_rtmp_session_t *s, unsigned async);
 void ngx_rtmp_free_handshake_buffers(ngx_rtmp_session_t *s);
 void ngx_rtmp_cycle(ngx_rtmp_session_t *s);
 void ngx_rtmp_reset_ping(ngx_rtmp_session_t *s);
+
+ngx_chain_t *ngx_rtmp_alloc_in_buf(ngx_rtmp_session_t *s);
+ngx_int_t ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s);
+
 ngx_int_t ngx_rtmp_fire_event(ngx_rtmp_session_t *s, ngx_uint_t evt,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 
@@ -744,6 +740,9 @@ extern ngx_module_t                         ngx_rtmp_core_module;
 
 
 u_char *ngx_rtmp_log_error(ngx_log_t *log, u_char *buf, size_t len);
+
+
+#include "ngx_rtmp_upstream.h"
 
 
 #endif /* _NGX_RTMP_H_INCLUDED_ */

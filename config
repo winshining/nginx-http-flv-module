@@ -22,6 +22,8 @@ RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_limit_module                       \
                 ngx_rtmp_hls_module                         \
                 ngx_rtmp_dash_module                        \
+				ngx_rtmp_proxy_module                       \
+				ngx_rtmp_upstream_module                    \
                 "
 
 
@@ -32,73 +34,79 @@ RTMP_HTTP_MODULES="                                         \
                 "
 
 
-RTMP_DEPS="                                                 \
-                $ngx_addon_dir/ngx_rtmp_amf.h               \
-                $ngx_addon_dir/ngx_rtmp_bandwidth.h         \
-                $ngx_addon_dir/ngx_rtmp_cmd_module.h        \
-                $ngx_addon_dir/ngx_rtmp_codec_module.h      \
-                $ngx_addon_dir/ngx_rtmp_eval.h              \
-                $ngx_addon_dir/ngx_rtmp.h                   \
-                $ngx_addon_dir/ngx_rtmp_version.h           \
-                $ngx_addon_dir/ngx_rtmp_live_module.h       \
-                $ngx_addon_dir/ngx_rtmp_netcall_module.h    \
-                $ngx_addon_dir/ngx_rtmp_play_module.h       \
-                $ngx_addon_dir/ngx_rtmp_record_module.h     \
-                $ngx_addon_dir/ngx_rtmp_gop_cache_module.h  \
-                $ngx_addon_dir/ngx_rtmp_relay_module.h      \
-                $ngx_addon_dir/ngx_rtmp_streams.h           \
-                $ngx_addon_dir/ngx_rtmp_bitop.h             \
-                $ngx_addon_dir/ngx_rtmp_proxy_protocol.h    \
-                $ngx_addon_dir/ngx_rtmp_variables.h         \
-                $ngx_addon_dir/ngx_rtmp_script.h            \
-                $ngx_addon_dir/hls/ngx_rtmp_mpegts.h        \
-                $ngx_addon_dir/dash/ngx_rtmp_mp4.h          \
+RTMP_DEPS="                                                     \
+                $ngx_addon_dir/ngx_rtmp_amf.h                   \
+                $ngx_addon_dir/ngx_rtmp_bandwidth.h             \
+                $ngx_addon_dir/ngx_rtmp_cmd_module.h            \
+                $ngx_addon_dir/ngx_rtmp_codec_module.h          \
+                $ngx_addon_dir/ngx_rtmp_eval.h                  \
+                $ngx_addon_dir/ngx_rtmp.h                       \
+                $ngx_addon_dir/ngx_rtmp_version.h               \
+                $ngx_addon_dir/ngx_rtmp_live_module.h           \
+                $ngx_addon_dir/ngx_rtmp_netcall_module.h        \
+                $ngx_addon_dir/ngx_rtmp_play_module.h           \
+                $ngx_addon_dir/ngx_rtmp_record_module.h         \
+                $ngx_addon_dir/ngx_rtmp_gop_cache_module.h      \
+                $ngx_addon_dir/ngx_rtmp_relay_module.h          \
+                $ngx_addon_dir/ngx_rtmp_streams.h               \
+                $ngx_addon_dir/ngx_rtmp_bitop.h                 \
+                $ngx_addon_dir/ngx_rtmp_proxy_protocol.h        \
+                $ngx_addon_dir/ngx_rtmp_variables.h             \
+                $ngx_addon_dir/ngx_rtmp_script.h                \
+                $ngx_addon_dir/hls/ngx_rtmp_mpegts.h            \
+                $ngx_addon_dir/dash/ngx_rtmp_mp4.h              \
+                $ngx_addon_dir/ngx_rtmp_upstream.h              \
+                $ngx_addon_dir/modules/ngx_rtmp_proxy_module.h  \
+                $ngx_addon_dir/ngx_rtmp_upstream_round_robin.h  \
                 "
 
 
-RTMP_CORE_SRCS="                                            \
-                $ngx_addon_dir/ngx_rtmp.c                   \
-                $ngx_addon_dir/ngx_rtmp_init.c              \
-                $ngx_addon_dir/ngx_rtmp_handshake.c         \
-                $ngx_addon_dir/ngx_rtmp_handler.c           \
-                $ngx_addon_dir/ngx_rtmp_amf.c               \
-                $ngx_addon_dir/ngx_rtmp_send.c              \
-                $ngx_addon_dir/ngx_rtmp_shared.c            \
-                $ngx_addon_dir/ngx_rtmp_eval.c              \
-                $ngx_addon_dir/ngx_rtmp_receive.c           \
-                $ngx_addon_dir/ngx_rtmp_core_module.c       \
-                $ngx_addon_dir/ngx_rtmp_cmd_module.c        \
-                $ngx_addon_dir/ngx_rtmp_codec_module.c      \
-                $ngx_addon_dir/ngx_rtmp_access_module.c     \
-                $ngx_addon_dir/ngx_rtmp_record_module.c     \
-                $ngx_addon_dir/ngx_rtmp_gop_cache_module.c  \
-                $ngx_addon_dir/ngx_rtmp_live_module.c       \
-                $ngx_addon_dir/ngx_rtmp_play_module.c       \
-                $ngx_addon_dir/ngx_rtmp_flv_module.c        \
-                $ngx_addon_dir/ngx_rtmp_mp4_module.c        \
-                $ngx_addon_dir/ngx_rtmp_netcall_module.c    \
-                $ngx_addon_dir/ngx_rtmp_relay_module.c      \
-                $ngx_addon_dir/ngx_rtmp_bandwidth.c         \
-                $ngx_addon_dir/ngx_rtmp_exec_module.c       \
-                $ngx_addon_dir/ngx_rtmp_auto_push_module.c  \
-                $ngx_addon_dir/ngx_rtmp_notify_module.c     \
-                $ngx_addon_dir/ngx_rtmp_log_module.c        \
-                $ngx_addon_dir/ngx_rtmp_limit_module.c      \
-                $ngx_addon_dir/ngx_rtmp_bitop.c             \
-                $ngx_addon_dir/ngx_rtmp_proxy_protocol.c    \
-                $ngx_addon_dir/ngx_rtmp_variables.c         \
-                $ngx_addon_dir/ngx_rtmp_script.c            \
-                $ngx_addon_dir/hls/ngx_rtmp_hls_module.c    \
-                $ngx_addon_dir/dash/ngx_rtmp_dash_module.c  \
-                $ngx_addon_dir/hls/ngx_rtmp_mpegts.c        \
-                $ngx_addon_dir/dash/ngx_rtmp_mp4.c          \
+RTMP_CORE_SRCS="                                                \
+                $ngx_addon_dir/ngx_rtmp.c                       \
+                $ngx_addon_dir/ngx_rtmp_init.c                  \
+                $ngx_addon_dir/ngx_rtmp_handshake.c             \
+                $ngx_addon_dir/ngx_rtmp_handler.c               \
+                $ngx_addon_dir/ngx_rtmp_amf.c                   \
+                $ngx_addon_dir/ngx_rtmp_send.c                  \
+                $ngx_addon_dir/ngx_rtmp_shared.c                \
+                $ngx_addon_dir/ngx_rtmp_eval.c                  \
+                $ngx_addon_dir/ngx_rtmp_receive.c               \
+                $ngx_addon_dir/ngx_rtmp_core_module.c           \
+                $ngx_addon_dir/ngx_rtmp_cmd_module.c            \
+                $ngx_addon_dir/ngx_rtmp_codec_module.c          \
+                $ngx_addon_dir/ngx_rtmp_access_module.c         \
+                $ngx_addon_dir/ngx_rtmp_record_module.c         \
+                $ngx_addon_dir/ngx_rtmp_gop_cache_module.c      \
+                $ngx_addon_dir/ngx_rtmp_live_module.c           \
+                $ngx_addon_dir/ngx_rtmp_play_module.c           \
+                $ngx_addon_dir/ngx_rtmp_flv_module.c            \
+                $ngx_addon_dir/ngx_rtmp_mp4_module.c            \
+                $ngx_addon_dir/ngx_rtmp_netcall_module.c        \
+                $ngx_addon_dir/ngx_rtmp_relay_module.c          \
+                $ngx_addon_dir/ngx_rtmp_bandwidth.c             \
+                $ngx_addon_dir/ngx_rtmp_exec_module.c           \
+                $ngx_addon_dir/ngx_rtmp_auto_push_module.c      \
+                $ngx_addon_dir/ngx_rtmp_notify_module.c         \
+                $ngx_addon_dir/ngx_rtmp_log_module.c            \
+                $ngx_addon_dir/ngx_rtmp_limit_module.c          \
+                $ngx_addon_dir/ngx_rtmp_bitop.c                 \
+                $ngx_addon_dir/ngx_rtmp_proxy_protocol.c        \
+                $ngx_addon_dir/ngx_rtmp_variables.c             \
+                $ngx_addon_dir/ngx_rtmp_script.c                \
+                $ngx_addon_dir/ngx_rtmp_upstream.c              \
+                $ngx_addon_dir/hls/ngx_rtmp_hls_module.c        \
+                $ngx_addon_dir/dash/ngx_rtmp_dash_module.c      \
+                $ngx_addon_dir/hls/ngx_rtmp_mpegts.c            \
+                $ngx_addon_dir/dash/ngx_rtmp_mp4.c              \
+                $ngx_addon_dir/modules/ngx_rtmp_proxy_module.c  \
+                $ngx_addon_dir/ngx_rtmp_upstream_round_robin.c  \
                 "
 
 
-RTMP_HTTP_SRCS="                                            \
-                $ngx_addon_dir/ngx_rtmp_stat_module.c       \
-                $ngx_addon_dir/ngx_rtmp_control_module.c    \
-                $ngx_addon_dir/ngx_http_flv_live_module.c   \
+RTMP_HTTP_SRCS="                                                \
+                $ngx_addon_dir/ngx_rtmp_stat_module.c           \
+                $ngx_addon_dir/ngx_rtmp_control_module.c        \
+                $ngx_addon_dir/ngx_http_flv_live_module.c       \
                 "
 
 if [ -f auto/module ] ; then

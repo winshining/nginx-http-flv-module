@@ -6,92 +6,103 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_rtmp.h"
+#include "ngx_rtmp_cmd_module.h"
+#include "modules/ngx_rtmp_proxy_module.h"
 
 
-#define NGX_RTMP_CACHE            0
-#define NGX_RTMP_SSL              0
-#define NGX_RTMP_PROXY_TEMP_PATH  "rtmp_proxy_temp"
+static ngx_rtmp_publish_pt         next_publish;
+static ngx_rtmp_play_pt            next_play;
+static ngx_rtmp_delete_stream_pt   next_delete_stream;
+static ngx_rtmp_close_stream_pt    next_close_stream;
 
 
-typedef struct {
-    ngx_str_t                      key_start;
-    ngx_str_t                      schema;
-    ngx_str_t                      host_header;
-    ngx_str_t                      port;
-    ngx_str_t                      uri;
-} ngx_rtmp_proxy_vars_t;
+typedef struct ngx_rtmp_proxy_rewrite_s  ngx_rtmp_proxy_rewrite_t;
 
+typedef ngx_int_t (*ngx_rtmp_proxy_rewrite_pt)(ngx_rtmp_session_t *s,
+    ngx_table_elt_t *h, size_t prefix, size_t len,
+    ngx_rtmp_proxy_rewrite_t *pr);
 
-typedef struct {
-    ngx_rtmp_upstream_conf_t       upstream;
+struct ngx_rtmp_proxy_rewrite_s {
+    ngx_rtmp_proxy_rewrite_pt      handler;
 
-    ngx_array_t                   *proxy_lengths;
-    ngx_array_t                   *proxy_values;
-
-    ngx_array_t                   *redirects;
-
-    ngx_str_t                      location;
-    ngx_str_t                      url;
-
-#if (NGX_RTMP_CACHE)
-    ngx_rtmp_complex_value_t       cache_key;
+    union {
+        ngx_rtmp_complex_value_t   complex;
+#if (NGX_PCRE)
+        ngx_rtmp_regex_t          *regex;
 #endif
+    } pattern;
 
-    ngx_rtmp_proxy_vars_t          vars;
-
-#if (NGX_RTMP_SSL)
-    ngx_uint_t                     ssl;
-    ngx_uint_t                     ssl_protocols;
-    ngx_str_t                      ssl_ciphers;
-    ngx_uint_t                     ssl_verify_depth;
-    ngx_str_t                      ssl_trusted_certificate;
-    ngx_str_t                      ssl_crl;
-    ngx_str_t                      ssl_certificate;
-    ngx_str_t                      ssl_certificate_key;
-    ngx_array_t                   *ssl_passwords;
-#endif
-} ngx_rtmp_proxy_app_conf_t;
+    ngx_rtmp_complex_value_t       replacement;
+};
 
 
 typedef struct {
     ngx_rtmp_proxy_vars_t          vars;
-    off_t                          internal_body_length;
-
-    ngx_chain_t                   *free;
-    ngx_chain_t                   *busy;
+    ngx_event_t                    push_evt;
 } ngx_rtmp_proxy_ctx_t;
 
 
 static ngx_int_t ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s,
     ngx_rtmp_proxy_ctx_t *ctx, ngx_rtmp_proxy_app_conf_t *pacf);
-static ngx_int_t ngx_rtmp_proxy_create_request(ngx_rtmp_session_t *s);
-static ngx_int_t ngx_rtmp_proxy_reinit_request(ngx_rtmp_session_t *s);
-static void ngx_rtmp_proxy_abort_request(ngx_rtmp_session_t *s);
-static void ngx_rtmp_proxy_finalize_request(ngx_rtmp_session_t *s,
-    ngx_int_t rc); /* rc may be useless */
-static ngx_int_t ngx_rtmp_proxy_copy_filter(ngx_event_pipe_t *p,
-    ngx_buf_t *buf);
-
-static void *ngx_rtmp_proxy_create_main_conf(ngx_conf_t *cf);
+static ngx_int_t ngx_rtmp_proxy_host_variable(ngx_rtmp_session_t *s,
+    ngx_rtmp_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_rtmp_proxy_port_variable(ngx_rtmp_session_t *s,
+    ngx_rtmp_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s,
+    ngx_table_elt_t *h, size_t prefix);
+static ngx_int_t ngx_rtmp_proxy_rewrite(ngx_rtmp_session_t *s,
+    ngx_table_elt_t *h, size_t prefix, size_t len, ngx_str_t *replacement);
+static ngx_int_t ngx_rtmp_proxy_add_variables(ngx_conf_t *cf);
+static ngx_int_t ngx_rtmp_proxy_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
 static char *ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-
+static char *ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static ngx_int_t ngx_rtmp_proxy_rewrite_complex_handler(ngx_rtmp_session_t *s,
+    ngx_table_elt_t *h, size_t prefix,
+    size_t len, ngx_rtmp_proxy_rewrite_t *pr);
+static ngx_int_t ngx_rtmp_proxy_rewrite_regex(ngx_conf_t *cf,
+    ngx_rtmp_proxy_rewrite_t *pr, ngx_str_t *regex, ngx_uint_t caseless);
 static void ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v);
 
-static ngx_path_init_t  ngx_rtmp_proxy_temp_path = {
-    ngx_string(NGX_RTMP_PROXY_TEMP_PATH), { 1, 2, 0 }
+static ngx_int_t ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s,
+    ngx_rtmp_publish_t *v);
+static ngx_int_t ngx_rtmp_proxy_play(ngx_rtmp_session_t *s,
+    ngx_rtmp_play_t *v);
+static ngx_int_t ngx_rtmp_proxy_handshake_done(ngx_rtmp_session_t *s,
+     ngx_rtmp_header_t *h, ngx_chain_t *in);
+static ngx_int_t ngx_rtmp_proxy_delete_stream(ngx_rtmp_session_t *s,
+    ngx_rtmp_delete_stream_t *v);
+static ngx_int_t ngx_rtmp_proxy_close_stream(ngx_rtmp_session_t *s,
+    ngx_rtmp_close_stream_t *v);
+ngx_int_t ngx_rtmp_proxy_on_result(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
+ngx_int_t ngx_rtmp_proxy_on_error(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
+ngx_int_t ngx_rtmp_proxy_on_status(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
+
+
+static ngx_conf_bitmask_t  ngx_rtmp_proxy_next_upstream_masks[] = {
+    { ngx_string("error"), NGX_RTMP_UPSTREAM_FT_ERROR },
+    { ngx_string("timeout"), NGX_RTMP_UPSTREAM_FT_TIMEOUT },
+    { ngx_string("rtmp_500"), NGX_RTMP_UPSTREAM_FT_RTMP_500 },
+    { ngx_string("rtmp_502"), NGX_RTMP_UPSTREAM_FT_RTMP_502 },
+    { ngx_string("rtmp_403"), NGX_RTMP_UPSTREAM_FT_RTMP_403 },
+    { ngx_string("rtmp_404"), NGX_RTMP_UPSTREAM_FT_RTMP_404 },
+    { ngx_string("off"), NGX_RTMP_UPSTREAM_FT_OFF },
+    { ngx_null_string, 0 }
 };
 
 
 static ngx_command_t  ngx_rtmp_proxy_commands[] = {
 
     { ngx_string("proxy_pass"),
-        NGX_RTMP_APP_CONF||NGX_RTMP_LMT_CONF|NGX_CONF_TAKE1,
+        NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
         ngx_rtmp_proxy_pass,
         NGX_RTMP_APP_CONF_OFFSET,
         0,
@@ -99,37 +110,9 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
 
     { ngx_string("proxy_redirect"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE12,
-        ngx_http_proxy_redirect,
+        ngx_rtmp_proxy_redirect,
         NGX_RTMP_APP_CONF_OFFSET,
         0,
-        NULL },
-
-    { ngx_string("proxy_store"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_http_proxy_store,
-        NGX_RTMP_APP_CONF_OFFSET,
-        0,
-        NULL },
-
-    { ngx_string("proxy_store_access"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE123,
-        ngx_conf_set_access_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.store_access),
-        NULL },
-
-    { ngx_string("proxy_buffering"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.buffering),
-        NULL },
-
-    { ngx_string("proxy_request_buffering"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.request_buffering),
         NULL },
 
     { ngx_string("proxy_ignore_client_abort"),
@@ -141,7 +124,7 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
 
     { ngx_string("proxy_bind"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE12,
-        ngx_http_upstream_bind_set_slot,
+        ngx_rtmp_upstream_bind_set_slot,
         NGX_RTMP_APP_CONF_OFFSET,
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.local),
         NULL },
@@ -160,81 +143,11 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.send_timeout),
         NULL },
 
-    { ngx_string("proxy_send_lowat"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_size_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.send_lowat),
-        &ngx_http_proxy_lowat_post },
-
-    { ngx_string("proxy_intercept_errors"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.intercept_errors),
-        NULL },
-/*
-    { ngx_string("proxy_set_header"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE2,
-        ngx_conf_set_keyval_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, headers_source),
-        NULL },
-
-    { ngx_string("proxy_headers_hash_max_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_num_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, headers_hash_max_size),
-        NULL },
-
-    { ngx_string("proxy_headers_hash_bucket_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_num_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, headers_hash_bucket_size),
-        NULL },
-
-    { ngx_string("proxy_pass_request_headers"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.pass_request_headers),
-        NULL },
-
-    { ngx_string("proxy_pass_request_body"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.pass_request_body),
-        NULL },
-*/
-    { ngx_string("proxy_buffer_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_size_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.buffer_size),
-        NULL },
-
     { ngx_string("proxy_read_timeout"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
         ngx_conf_set_msec_slot,
         NGX_RTMP_APP_CONF_OFFSET,
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.read_timeout),
-        NULL },
-
-    { ngx_string("proxy_buffers"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE2,
-        ngx_conf_set_bufs_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.bufs),
-        NULL },
-
-    { ngx_string("proxy_busy_buffers_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_size_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.busy_buffers_size_conf),
         NULL },
 
     { ngx_string("proxy_limit_rate"),
@@ -244,135 +157,12 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.limit_rate),
         NULL },
 
-#if (NGX_RTMP_CACHE)
-
-    { ngx_string("proxy_cache"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_http_proxy_cache,
-        NGX_RTMP_APP_CONF_OFFSET,
-        0,
-        NULL },
-
-    { ngx_string("proxy_cache_key"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_http_proxy_cache_key,
-        NGX_RTMP_APP_CONF_OFFSET,
-        0,
-        NULL },
-
-    { ngx_string("proxy_cache_path"),
-        NGX_RTMP_MAIN_CONF|NGX_CONF_2MORE,
-        ngx_http_file_cache_set_slot,
-        NGX_RTMP_MAIN_CONF_OFFSET,
-        offsetof(ngx_http_proxy_main_conf_t, caches),
-        &ngx_http_proxy_module },
-
-    { ngx_string("proxy_cache_bypass"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_http_set_predicate_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_bypass),
-        NULL },
-
-    { ngx_string("proxy_no_cache"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_http_set_predicate_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.no_cache),
-        NULL },
-
-    { ngx_string("proxy_cache_valid"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_http_file_cache_valid_set_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_valid),
-        NULL },
-
-    { ngx_string("proxy_cache_min_uses"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_num_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_min_uses),
-        NULL },
-
-    { ngx_string("proxy_cache_max_range_offset"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_off_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_max_range_offset),
-        NULL },
-
-    { ngx_string("proxy_cache_use_stale"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_conf_set_bitmask_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_use_stale),
-        &ngx_http_proxy_next_upstream_masks },
-
-    { ngx_string("proxy_cache_lock"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_lock),
-        NULL },
-
-    { ngx_string("proxy_cache_lock_timeout"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_msec_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_lock_timeout),
-        NULL },
-
-    { ngx_string("proxy_cache_lock_age"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_msec_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_lock_age),
-        NULL },
-
-    { ngx_string("proxy_cache_revalidate"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_revalidate),
-        NULL },
-
-    { ngx_string("proxy_cache_background_update"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.cache_background_update),
-        NULL },
-
-#endif
-
-    { ngx_string("proxy_temp_path"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1234,
-        ngx_conf_set_path_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.temp_path),
-        NULL },
-
-    { ngx_string("proxy_max_temp_file_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_size_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.max_temp_file_size_conf),
-        NULL },
-
-    { ngx_string("proxy_temp_file_write_size"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_size_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.temp_file_write_size_conf),
-        NULL },
-
     { ngx_string("proxy_next_upstream"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
         ngx_conf_set_bitmask_slot,
         NGX_RTMP_APP_CONF_OFFSET,
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.next_upstream),
-        &ngx_http_proxy_next_upstream_masks },
+        &ngx_rtmp_proxy_next_upstream_masks },
 
     { ngx_string("proxy_next_upstream_tries"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -387,160 +177,226 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
         NGX_RTMP_APP_CONF_OFFSET,
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.next_upstream_timeout),
         NULL },
-/*
-    { ngx_string("proxy_pass_header"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_array_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.pass_headers),
-        NULL },
-
-    { ngx_string("proxy_hide_header"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_array_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.hide_headers),
-        NULL },
-
-    { ngx_string("proxy_ignore_headers"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_conf_set_bitmask_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ignore_headers),
-        &ngx_http_upstream_ignore_headers_masks },
-*/
-#if (NGX_RTMP_SSL)
-
-    { ngx_string("proxy_ssl_session_reuse"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ssl_session_reuse),
-        NULL },
-
-    { ngx_string("proxy_ssl_protocols"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
-        ngx_conf_set_bitmask_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_protocols),
-        &ngx_http_proxy_ssl_protocols },
-
-    { ngx_string("proxy_ssl_ciphers"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_ciphers),
-        NULL },
-
-    { ngx_string("proxy_ssl_name"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_http_set_complex_value_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ssl_name),
-        NULL },
-
-    { ngx_string("proxy_ssl_server_name"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ssl_server_name),
-        NULL },
-
-    { ngx_string("proxy_ssl_verify"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ssl_verify),
-        NULL },
-
-    { ngx_string("proxy_ssl_verify_depth"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_num_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_verify_depth),
-        NULL },
-
-    { ngx_string("proxy_ssl_trusted_certificate"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_trusted_certificate),
-        NULL },
-
-    { ngx_string("proxy_ssl_crl"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_crl),
-        NULL },
-
-    { ngx_string("proxy_ssl_certificate"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_certificate),
-        NULL },
-
-    { ngx_string("proxy_ssl_certificate_key"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_conf_set_str_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, ssl_certificate_key),
-        NULL },
-
-    { ngx_string("proxy_ssl_password_file"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-        ngx_http_proxy_ssl_password_file,
-        NGX_RTMP_APP_CONF_OFFSET,
-        0,
-        NULL },
-
-#endif
 
     ngx_null_command
 };
 
 
-static void
-ngx_rtmp_proxy_abort_request(ngx_rtmp_session_t *s)
-{
-    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "abort rtmp proxy request");
+static ngx_rtmp_module_t  ngx_rtmp_proxy_module_ctx = {
+    ngx_rtmp_proxy_add_variables,          /* preconfiguration */
+    ngx_rtmp_proxy_postconfiguration,      /* postconfiguration */
 
-    return;
+    NULL,                                  /* create main configuration */
+    NULL,                                  /* init main configuration */
+
+    NULL,                                  /* create server configuration */
+    NULL,                                  /* merge server configuration */
+
+    ngx_rtmp_proxy_create_app_conf,        /* create application configuration */
+    ngx_rtmp_proxy_merge_app_conf          /* merge application configuration */
+};
+
+
+ngx_module_t  ngx_rtmp_proxy_module = {
+    NGX_MODULE_V1,
+    &ngx_rtmp_proxy_module_ctx,            /* module context */
+    ngx_rtmp_proxy_commands,               /* module directives */
+    NGX_RTMP_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_rtmp_variable_t  ngx_rtmp_proxy_vars[] = {
+
+    { ngx_string("proxy_host"), NULL, ngx_rtmp_proxy_host_variable, 0,
+      NGX_RTMP_VAR_CHANGEABLE|NGX_RTMP_VAR_NOCACHEABLE|NGX_RTMP_VAR_NOHASH, 0 },
+
+    { ngx_string("proxy_port"), NULL, ngx_rtmp_proxy_port_variable, 0,
+      NGX_RTMP_VAR_CHANGEABLE|NGX_RTMP_VAR_NOCACHEABLE|NGX_RTMP_VAR_NOHASH, 0 },
+
+    { ngx_null_string, NULL, NULL, 0, 0, 0 }
+};
+
+
+static ngx_int_t
+ngx_rtmp_proxy_host_variable(ngx_rtmp_session_t *s,
+    ngx_rtmp_variable_value_t *v, uintptr_t data)
+{
+    ngx_rtmp_proxy_ctx_t  *ctx;
+
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_proxy_module);
+
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->len = ctx->vars.host_header.len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = ctx->vars.host_header.data;
+
+    return NGX_OK;
 }
 
 
-static void
-ngx_rtmp_proxy_finalize_request(ngx_rtmp_session_t *s,
-    ngx_int_t rc)
+static ngx_int_t
+ngx_rtmp_proxy_port_variable(ngx_rtmp_session_t *s,
+    ngx_rtmp_variable_value_t *v, uintptr_t data)
 {
-    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "finalize rtmp proxy request");
+    ngx_rtmp_proxy_ctx_t  *ctx;
 
-    return;
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_proxy_module);
+
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->len = ctx->vars.port.len;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = ctx->vars.port.data;
+
+    return NGX_OK;
+} 
+
+
+static ngx_int_t
+ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
+    size_t prefix)
+{
+    size_t                      len;
+    ngx_int_t                   rc;
+    ngx_uint_t                  i;
+    ngx_rtmp_proxy_rewrite_t   *pr;
+    ngx_rtmp_proxy_app_conf_t  *plaf;
+
+    plaf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+
+    pr = plaf->redirects->elts;
+
+    if (pr == NULL) {
+        return NGX_DECLINED;
+    }
+
+    len = h->value.len - prefix;
+
+    for (i = 0; i < plaf->redirects->nelts; i++) {
+        rc = pr[i].handler(s, h, prefix, len, &pr[i]);
+
+        if (rc != NGX_DECLINED) {
+            return rc;
+        }
+    }
+
+    return NGX_DECLINED;
+}
+
+ 
+static ngx_int_t
+ngx_rtmp_proxy_rewrite(ngx_rtmp_session_t *s, ngx_table_elt_t *h, size_t prefix,
+    size_t len, ngx_str_t *replacement)
+{
+    u_char  *p, *data;
+    size_t   new_len;
+
+    new_len = replacement->len + h->value.len - len;
+
+    if (replacement->len > len) {
+        data = ngx_pnalloc(s->connection->pool, new_len + 1);
+        if (data == NULL) {
+            return NGX_ERROR;
+        }
+
+        p = ngx_copy(data, h->value.data, prefix);
+        p = ngx_copy(p, replacement->data, replacement->len);
+
+        ngx_memcpy(p, h->value.data + prefix + len,
+                   h->value.len - len - prefix + 1);
+
+        h->value.data = data;
+    } else {
+        p = ngx_copy(h->value.data + prefix, replacement->data,
+                     replacement->len);
+
+        ngx_memmove(p, h->value.data + prefix + len,
+                    h->value.len - len - prefix + 1);
+    }
+
+    h->value.len = new_len;
+
+    return NGX_OK;
 }
 
 
-static void *
-ngx_rtmp_proxy_create_main_conf(ngx_conf_t *cf)
+static ngx_int_t
+ngx_rtmp_proxy_add_variables(ngx_conf_t *cf)
 {
-    ngx_rtmp_proxy_main_conf_t    *conf;
+    ngx_rtmp_variable_t  *var, *v;
 
-    conf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_proxy_main_conf_t));
-    if (conf == NULL) {
-        return NULL;
+    for (v = ngx_rtmp_proxy_vars; v->name.len; v++) {
+        var = ngx_rtmp_add_variable(cf, &v->name, v->flags);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+
+        var->get_handler = v->get_handler;
+        var->data = v->data;
     }
 
-#if (NGX_RTMP_CACHE)
-    if (ngx_array_init(&conf->caches, cf->pool, 4,
-           sizeof(ngx_rtmp_file_cache_t *)) != NGX_OK)
-    {
-        return NULL;
-    }
-#endif
+    return NGX_OK;
+}
 
-    return conf;
+
+static ngx_int_t
+ngx_rtmp_proxy_postconfiguration(ngx_conf_t *cf)
+{
+    ngx_rtmp_core_main_conf_t          *cmcf;
+    ngx_rtmp_handler_pt                *h;
+    ngx_rtmp_amf_handler_t             *ch;
+
+    cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
+
+    h = ngx_array_push(&cmcf->events[NGX_RTMP_HANDSHAKE_DONE]);
+    *h = ngx_rtmp_proxy_handshake_done;
+
+    /* chain handlers */
+
+    next_publish = ngx_rtmp_publish;
+    ngx_rtmp_publish = ngx_rtmp_proxy_publish;
+
+    next_play = ngx_rtmp_play;
+    ngx_rtmp_play = ngx_rtmp_proxy_play;
+
+    next_delete_stream = ngx_rtmp_delete_stream;
+    ngx_rtmp_delete_stream = ngx_rtmp_proxy_delete_stream;
+
+    next_close_stream = ngx_rtmp_close_stream;
+    ngx_rtmp_close_stream = ngx_rtmp_proxy_close_stream;
+
+    ch = ngx_array_push(&cmcf->amf);
+    ngx_str_set(&ch->name, "_result");
+    ch->handler = ngx_rtmp_proxy_on_result;
+
+    ch = ngx_array_push(&cmcf->amf);
+    ngx_str_set(&ch->name, "_error");
+    ch->handler = ngx_rtmp_proxy_on_error;
+
+    ch = ngx_array_push(&cmcf->amf);
+    ngx_str_set(&ch->name, "onStatus");
+    ch->handler = ngx_rtmp_proxy_on_status;
+
+    return NGX_OK;
 }
 
 
@@ -554,7 +410,21 @@ ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    ngx_str_set(&conf->upstream.module, "rtmp_proxy");
+    conf->upstream.next_upstream_tries = NGX_CONF_UNSET_UINT;
+    conf->upstream.ignore_client_abort = NGX_CONF_UNSET;
+
+    conf->upstream.local = NGX_CONF_UNSET_PTR;
+
+    conf->upstream.connect_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.send_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.read_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.next_upstream_timeout = NGX_CONF_UNSET_MSEC;
+
+    conf->upstream.limit_rate = NGX_CONF_UNSET_SIZE;
+
+    conf->redirect = NGX_CONF_UNSET;
+
+    ngx_str_set(&conf->upstream.module, "proxy");
 
     return conf;
 }
@@ -566,109 +436,218 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_proxy_app_conf_t  *prev = parent;
     ngx_rtmp_proxy_app_conf_t  *conf = child;
 
-#if (NGX_RTMP_CACHE)
-    if (conf->upstream.store > 0) {
-        conf->upstream.cache = 0;
+    u_char                     *p;
+    ngx_rtmp_core_app_conf_t   *claf;
+    ngx_rtmp_proxy_rewrite_t   *pr;
+
+    ngx_conf_merge_uint_value(conf->upstream.next_upstream_tries,
+                              prev->upstream.next_upstream_tries, 0);
+
+    ngx_conf_merge_value(conf->upstream.ignore_client_abort,
+                              prev->upstream.ignore_client_abort, 0);
+
+    ngx_conf_merge_ptr_value(conf->upstream.local,
+                              prev->upstream.local, NULL);
+
+    ngx_conf_merge_msec_value(conf->upstream.connect_timeout,
+                              prev->upstream.connect_timeout, 60000);
+
+    ngx_conf_merge_msec_value(conf->upstream.send_timeout,
+                              prev->upstream.send_timeout, 60000);
+
+    ngx_conf_merge_msec_value(conf->upstream.read_timeout,
+                              prev->upstream.read_timeout, 60000);
+
+    ngx_conf_merge_msec_value(conf->upstream.next_upstream_timeout,
+                              prev->upstream.next_upstream_timeout, 0);
+
+    ngx_conf_merge_size_value(conf->upstream.limit_rate,
+                              prev->upstream.limit_rate, 0);
+
+    ngx_conf_merge_bitmask_value(conf->upstream.next_upstream,
+                              prev->upstream.next_upstream,
+                              (NGX_CONF_BITMASK_SET
+                               |NGX_RTMP_UPSTREAM_FT_ERROR
+                               |NGX_RTMP_UPSTREAM_FT_TIMEOUT));
+
+    if (conf->upstream.next_upstream & NGX_RTMP_UPSTREAM_FT_OFF) {
+        conf->upstream.next_upstream = NGX_CONF_BITMASK_SET
+                                       |NGX_RTMP_UPSTREAM_FT_OFF;
     }
 
-    if (conf->upstream.cache > 0) {
-        conf->upstream.store = 0;
+    ngx_conf_merge_value(conf->redirect, prev->redirect, 1);
+
+    if (conf->redirect) {
+        if (conf->redirects == NULL) {
+            conf->redirects = prev->redirects;
+        }
+
+        if (conf->redirects == NULL && conf->url.data) {
+            conf->redirects = ngx_array_create(cf->pool, 1,
+                                             sizeof(ngx_rtmp_proxy_rewrite_t));
+            if (conf->redirects == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            pr = ngx_array_push(conf->redirects);
+            if (pr == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ngx_memzero(&pr->pattern.complex,
+                        sizeof(ngx_rtmp_complex_value_t));
+
+            ngx_memzero(&pr->replacement, sizeof(ngx_rtmp_complex_value_t));
+
+            pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
+
+            if (conf->vars.uri.len) {
+                pr->pattern.complex.value = conf->url;
+                pr->replacement.value = conf->application;
+            } else {
+                pr->pattern.complex.value.len = conf->url.len
+                                                + sizeof("/") - 1;
+
+                p = ngx_pnalloc(cf->pool, pr->pattern.complex.value.len);
+                if (p == NULL) {
+                    return NGX_CONF_ERROR;
+                }
+
+                pr->pattern.complex.value.data = p;
+
+                p = ngx_cpymem(p, conf->url.data, conf->url.len);
+                *p = '/';
+
+                ngx_str_set(&pr->replacement.value, "/");
+            }
+        }
     }
-#endif
+
+    claf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_core_module);
+
+    if (claf->noname
+        && conf->upstream.upstream == NULL && conf->proxy_lengths == NULL)
+    {
+        conf->upstream.upstream = prev->upstream.upstream;
+        conf->application = prev->application;
+        conf->vars = prev->vars;
+
+        conf->proxy_lengths = prev->proxy_lengths;
+        conf->proxy_values = prev->proxy_values;
+    }
 
     return NGX_CONF_OK;
 }
 
 
 static ngx_int_t
-ngx_rtmp_proxy_handler(ngx_rtmp_session_t *s)
+ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
-    ngx_int_t                    rc;
     ngx_rtmp_upstream_t         *u;
     ngx_rtmp_proxy_ctx_t        *ctx;
     ngx_rtmp_proxy_app_conf_t   *pacf;
-#if (NGX_RTMP_CACHE)
-    ngx_rtmp_proxy_main_conf_t  *pmcf;
-#endif
 
-    if (ngx_rtmp_upstream_create(s) != NGX_OK) {
-        return NGX_ERROR;
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+
+    if (pacf == NULL || pacf->upstream.upstream == NULL) {
+        goto next;
     }
 
-    ctx = ngx_pcalloc(s->pool, sizeof(ngx_rtmp_proxy_ctx_t));
+    if (ngx_rtmp_upstream_create(s) != NGX_OK) {
+        goto next;
+    }
+
+    ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_proxy_ctx_t));
     if (ctx == NULL) {
-        return NGX_ERROR;
+        goto next;
     }
 
     ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_proxy_module);
-
-    pacf = ngx_rtmp_get_module_loc_conf(s, ngx_rtmp_proxy_module);
 
     u = s->upstream;
 
     if (pacf->proxy_lengths == NULL) {
         ctx->vars = pacf->vars;
         u->schema = pacf->vars.schema;
-#if (NGX_RTMP_SSL)
-        u->ssl = (pacf->upstream.ssl != NULL);
-#endif
-
     } else {
         if (ngx_rtmp_proxy_eval(s, ctx, pacf) != NGX_OK) {
-            return NGX_ERROR;
+            goto next;
         }
     }
 
-    u->output.tag = (ngx_buf_tag_t) &ngx_rtmp_proxy_module;
-
     u->conf = &pacf->upstream;
-
-#if (NGX_RTMP_CACHE)
-    pmcf = ngx_http_get_module_main_conf(s, ngx_rtmp_proxy_module);
-
-    u->caches = &pmcf->caches;
-    u->create_key = ngx_rtmp_proxy_create_key;
-#endif
-
-    u->create_request = ngx_rtmp_proxy_create_request;
-    u->reinit_request = ngx_rtmp_proxy_reinit_request;
-    u->abort_request = ngx_rtmp_proxy_abort_request;
-    u->finalize_request = ngx_rtmp_proxy_finalize_request;
-    r->state = 0;
 
     if (pacf->redirects) {
         u->rewrite_redirect = ngx_rtmp_proxy_rewrite_redirect;
     }
 
-    u->buffering = pacf->upstream.buffering;
+    ctx->push_evt.data = s;
+    ctx->push_evt.log = s->connection->log;
+    ctx->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
 
-    u->pipe = ngx_pcalloc(s->pool, sizeof(ngx_event_pipe_t));
-    if (u->pipe == NULL) {
-        return NGX_ERROR;
+    s->push_evt = ctx->push_evt;
+
+    ngx_rtmp_upstream_push_reconnect(&ctx->push_evt);
+
+next:
+    return next_publish(s, v);
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
+{
+    return next_play(s, v);
+}
+
+
+static ngx_int_t ngx_rtmp_proxy_handshake_done(ngx_rtmp_session_t *s,
+     ngx_rtmp_header_t *h, ngx_chain_t *in)
+{
+    return ngx_rtmp_upstream_handshake_done(s, h, in);
+}
+
+static ngx_int_t
+ngx_rtmp_proxy_delete_stream(ngx_rtmp_session_t *s, ngx_rtmp_delete_stream_t *v)
+{
+    ngx_rtmp_upstream_close(s);
+
+    return next_delete_stream(s, v);
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
+{
+    ngx_rtmp_upstream_main_conf_t  *umcf;
+
+    umcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_upstream_module);
+    if (umcf && !umcf->session_upstream) {
+        ngx_rtmp_upstream_close(s);
     }
 
-    u->pipe->input_filter = ngx_rtmp_proxy_copy_filter;
-    u->pipe->input_ctx = s;
+    return next_close_stream(s, v);
+}
 
-    u->input_filter_init = ngx_rtmp_proxy_input_filter_init;
-    u->input_filter = ngx_rtmp_proxy_non_buffered_copy_filter;
-    u->input_filter_ctx = s;
 
-    if (!pacf->upstream.request_buffering
-        && pacf->body_values == NULL && pacf->upstream.pass_request_body)
-    {
-        r->request_body_no_buffering = 1;
-    }
-/*
-    refers to ngx_rtmp_core_listen 
- 
-    rc = ngx_http_read_client_request_body(r, ngx_http_upstream_init);
+ngx_int_t ngx_rtmp_proxy_on_result(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in)
+{
+    return ngx_rtmp_upstream_on_result(s, h, in);
+}
 
-    if (rc >= NGX_RTMP_SPECIAL_RESPONSE) {
-        return rc;
-    }
-*/
-    return NGX_DONE;
+
+ngx_int_t ngx_rtmp_proxy_on_error(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in)
+{
+    return ngx_rtmp_upstream_on_error(s, h, in);
+}
+
+
+ngx_int_t ngx_rtmp_proxy_on_status(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in)
+{
+    return ngx_rtmp_upstream_on_status(s, h, in);
 }
 
 
@@ -681,9 +660,9 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
     u_short               port;
     ngx_str_t             proxy;
     ngx_url_t             url;
-    ngx_http_upstream_t  *u;
+    ngx_rtmp_upstream_t  *u;
 
-    if (ngx_http_script_run(s, &proxy, pacf->proxy_lengths->elts, 0,
+    if (ngx_rtmp_script_run(s, &proxy, pacf->proxy_lengths->elts, 0,
                             pacf->proxy_values->elts)
         == NULL)
     {
@@ -695,18 +674,6 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
     {
         add = 7;
         port = 1935;
-
-#if (NGX_RTMP_SSL)
-
-    } else if (proxy.len > 8
-               && ngx_strncasecmp(proxy.data, (u_char *) "rtmps://", 8) == 0)
-    {
-        add = 8;
-        port = 443;
-        s->upstream->ssl = 1;
-
-#endif
-
     } else {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "invalid URL prefix in \"%V\"", &proxy);
@@ -726,7 +693,7 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
     url.uri_part = 1;
     url.no_resolve = 1;
 
-    if (ngx_parse_url(s->pool, &url) != NGX_OK) {
+    if (ngx_parse_url(s->connection->pool, &url) != NGX_OK) {
         if (url.err) {
             ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                           "%s in upstream \"%V\"", url.err, &url.url);
@@ -737,7 +704,7 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
 
     if (url.uri.len) {
         if (url.uri.data[0] == '?') {
-            p = ngx_pnalloc(s->pool, url.uri.len + 1);
+            p = ngx_pnalloc(s->connection->pool, url.uri.len + 1);
             if (p == NULL) {
                 return NGX_ERROR;
             }
@@ -752,9 +719,10 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
 
     ctx->vars.key_start = u->schema;
 
-    ngx_http_proxy_set_vars(&url, &ctx->vars);
+    ngx_rtmp_proxy_set_vars(&url, &ctx->vars);
 
-    u->resolved = ngx_pcalloc(s->pool, sizeof(ngx_rtmp_upstream_resolved_t));
+    u->resolved = ngx_pcalloc(s->connection->pool,
+                                        sizeof(ngx_rtmp_upstream_resolved_t));
     if (u->resolved == NULL) {
         return NGX_ERROR;
     }
@@ -774,31 +742,331 @@ ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s, ngx_rtmp_proxy_ctx_t *ctx,
 }
 
 
-static ngx_int_t
-ngx_rtmp_proxy_reinit_request(ngx_rtmp_session_t *s)
-{
-    s->upstream->pipe->input_filter = ngx_rtmp_proxy_copy_filter;
-    s->upstream->input_filter = ngx_rtmp_proxy_non_buffered_copy_filter;
-    s->state = 0;
-
-    return NGX_OK;
-}
-
-
 static char *
 ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_rtmp_proxy_app_conf_t   *pacf;
-    ngx_rtmp_core_app_conf_t    *cacf;
+    ngx_rtmp_proxy_app_conf_t  *pacf;
+
+    size_t                      add;
+    u_short                     port;
+    ngx_str_t                  *value, *url;
+    ngx_url_t                   u;
+    ngx_uint_t                  n;
+    ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_script_compile_t   sc;
 
     pacf = conf;
+
     if (pacf->upstream.upstream || pacf->proxy_lengths) {
         return "is duplicate";
     }
 
-    cacf->handler = ngx_rtmp_proxy_handler;
+    cacf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_core_module);
+
+    value = cf->args->elts;
+
+    url = &value[1];
+
+    n = ngx_rtmp_script_variables_count(url);
+
+    if (n) {
+        ngx_memzero(&sc, sizeof(ngx_rtmp_script_compile_t));
+
+        sc.cf = cf;
+        sc.source = url;
+        sc.lengths = &pacf->proxy_lengths;
+        sc.values = &pacf->proxy_values;
+        sc.variables = n;
+        sc.complete_lengths = 1;
+        sc.complete_values = 1;
+
+        if (ngx_rtmp_script_compile(&sc) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
+
+        return NGX_CONF_OK;
+    }
+
+    if (ngx_strncasecmp(url->data, (u_char *) "rtmp://", 7) == 0) {
+        add = 7;
+        port = 1935;
+    } else {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid URL prefix");
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_memzero(&u, sizeof(ngx_url_t));
+
+    u.url.len = url->len - add;
+    u.url.data = url->data + add;
+    u.default_port = port;
+    u.uri_part = 1;
+    u.no_resolve = 1;
+
+    pacf->upstream.upstream = ngx_rtmp_upstream_add(cf, &u, 0);
+    if (pacf->upstream.upstream == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    pacf->vars.schema.len = add;
+    pacf->vars.schema.data = url->data;
+    pacf->vars.key_start = pacf->vars.schema;
+
+    ngx_rtmp_proxy_set_vars(&u, &pacf->vars);
+
+    pacf->application = cacf->name;
+
+    if (cacf->named
+#if (NGX_PCRE)
+        || cacf->regex
+#endif
+    ) {
+        if (pacf->vars.uri.len) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "\"proxy_pass\" cannot have URI part in "
+                               "application given by regular expression, "
+                               "or inside named application");
+            return NGX_CONF_ERROR;
+        }
+
+        pacf->application.len = 0;
+    }
+
+    pacf->url = *url;
 
     return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_rewrite_complex_handler(ngx_rtmp_session_t *s,
+    ngx_table_elt_t *h, size_t prefix,
+    size_t len, ngx_rtmp_proxy_rewrite_t *pr)
+{
+    ngx_str_t  pattern, replacement;
+
+    if (ngx_rtmp_complex_value(s, &pr->pattern.complex, &pattern) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (pattern.len > len
+        || ngx_rstrncmp(h->value.data + prefix, pattern.data,
+                        pattern.len) != 0)
+    {
+        return NGX_DECLINED;
+    }
+
+    if (ngx_rtmp_complex_value(s, &pr->replacement, &replacement) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return ngx_rtmp_proxy_rewrite(s, h, prefix, pattern.len, &replacement);
+}
+
+
+#if (NGX_PCRE)
+
+static ngx_int_t
+ngx_rtmp_proxy_rewrite_regex_handler(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
+    size_t prefix, size_t len, ngx_rtmp_proxy_rewrite_t *pr)
+{
+    ngx_str_t  pattern, replacement;
+
+    pattern.len = len;
+    pattern.data = h->value.data + prefix;
+
+    if (ngx_rtmp_regex_exec(s, pr->pattern.regex, &pattern) != NGX_OK) {
+        return NGX_DECLINED;
+    }
+
+    if (ngx_rtmp_complex_value(s, &pr->replacement, &replacement) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (prefix == 0 && h->value.len == len) {
+        h->value = replacement;
+        return NGX_OK;
+    }
+
+    return ngx_rtmp_proxy_rewrite(s, h, prefix, len, &replacement);
+}
+
+#endif
+
+
+static char *
+ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_rtmp_proxy_app_conf_t *plaf = conf;
+
+    u_char                            *p;
+    ngx_str_t                         *value;
+    ngx_rtmp_proxy_rewrite_t          *pr;
+    ngx_rtmp_compile_complex_value_t   ccv;
+
+    if (plaf->redirect == 0) {
+        return NGX_CONF_OK;
+    }
+
+    plaf->redirect = 1;
+
+    value = cf->args->elts;
+
+    if (cf->args->nelts == 2) {
+        if (ngx_strcmp(value[1].data, "off") == 0) {
+            plaf->redirect = 0;
+            plaf->redirects = NULL;
+            return NGX_CONF_OK;
+        }
+
+        if (ngx_strcmp(value[1].data, "false") == 0) {
+            ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                           "invalid parameter \"false\", use \"off\" instead");
+            plaf->redirect = 0;
+            plaf->redirects = NULL;
+            return NGX_CONF_OK;
+        }
+
+        if (ngx_strcmp(value[1].data, "default") != 0) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "invalid parameter \"%V\"", &value[1]);
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    if (plaf->redirects == NULL) {
+        plaf->redirects = ngx_array_create(cf->pool, 1,
+                                           sizeof(ngx_rtmp_proxy_rewrite_t));
+        if (plaf->redirects == NULL) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    pr = ngx_array_push(plaf->redirects);
+    if (pr == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_strcmp(value[1].data, "default") == 0) {
+        if (plaf->proxy_lengths) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "\"proxy_redirect default\" cannot be used "
+                               "with \"proxy_pass\" directive with variables");
+            return NGX_CONF_ERROR;
+        }
+
+        if (plaf->url.data == NULL) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "\"proxy_redirect default\" should be placed "
+                               "after the \"proxy_pass\" directive");
+            return NGX_CONF_ERROR;
+        }
+
+        pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
+
+        ngx_memzero(&pr->pattern.complex, sizeof(ngx_rtmp_complex_value_t));
+        ngx_memzero(&pr->replacement, sizeof(ngx_rtmp_complex_value_t));
+
+        if (plaf->vars.uri.len) {
+            pr->pattern.complex.value = plaf->url;
+            pr->replacement.value = plaf->application;
+        } else {
+            pr->pattern.complex.value.len = plaf->url.len + sizeof("/") - 1;
+
+            p = ngx_pnalloc(cf->pool, pr->pattern.complex.value.len);
+            if (p == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            pr->pattern.complex.value.data = p;
+
+            p = ngx_cpymem(p, plaf->url.data, plaf->url.len);
+            *p = '/';
+
+            ngx_str_set(&pr->replacement.value, "/");
+        }
+
+        return NGX_CONF_OK;
+    }
+
+    if (value[1].data[0] == '~') {
+        value[1].len--;
+        value[1].data++;
+
+        if (value[1].data[0] == '*') {
+            value[1].len--;
+            value[1].data++;
+
+            if (ngx_rtmp_proxy_rewrite_regex(cf, pr, &value[1], 1) != NGX_OK) {
+                return NGX_CONF_ERROR;
+            }
+        } else {
+            if (ngx_rtmp_proxy_rewrite_regex(cf, pr, &value[1], 0) != NGX_OK) {
+                return NGX_CONF_ERROR;
+            }
+        }
+    } else {
+        ngx_memzero(&ccv, sizeof(ngx_rtmp_compile_complex_value_t));
+
+        ccv.cf = cf;
+        ccv.value = &value[1];
+        ccv.complex_value = &pr->pattern.complex;
+
+        if (ngx_rtmp_compile_complex_value(&ccv) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
+
+        pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
+    }
+
+    ngx_memzero(&ccv, sizeof(ngx_rtmp_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[2];
+    ccv.complex_value = &pr->replacement;
+
+    if (ngx_rtmp_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_rewrite_regex(ngx_conf_t *cf, ngx_rtmp_proxy_rewrite_t *pr,
+    ngx_str_t *regex, ngx_uint_t caseless)
+{
+#if (NGX_PCRE)
+    u_char               errstr[NGX_MAX_CONF_ERRSTR];
+    ngx_regex_compile_t  rc;
+
+    ngx_memzero(&rc, sizeof(ngx_regex_compile_t));
+
+    rc.pattern = *regex;
+    rc.err.len = NGX_MAX_CONF_ERRSTR;
+    rc.err.data = errstr;
+
+    if (caseless) {
+        rc.options = NGX_REGEX_CASELESS;
+    }
+
+    pr->pattern.regex = ngx_rtmp_regex_compile(cf, &rc);
+    if (pr->pattern.regex == NULL) {
+        return NGX_ERROR;
+    }
+
+    pr->handler = ngx_rtmp_proxy_rewrite_regex_handler;
+
+    return NGX_OK;
+
+#else
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "using regex \"%V\" requires PCRE library", regex);
+    return NGX_ERROR;
+
+#endif
 }
 
 
@@ -806,18 +1074,12 @@ static void
 ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v)
 {
     if (u->family != AF_UNIX) {
-
         if (u->no_port || u->port == u->default_port) {
-
             v->host_header = u->host;
 
-            if (u->default_port == 80) {
-                ngx_str_set(&v->port, "80");
-
-            } else {
-                ngx_str_set(&v->port, "443");
+            if (u->default_port == 1935) {
+                ngx_str_set(&v->port, "1935");
             }
-
         } else {
             v->host_header.len = u->host.len + 1 + u->port_text.len;
             v->host_header.data = u->host.data;
@@ -825,7 +1087,6 @@ ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v)
         }
 
         v->key_start.len += v->host_header.len;
-
     } else {
         ngx_str_set(&v->host_header, "localhost");
         ngx_str_null(&v->port);

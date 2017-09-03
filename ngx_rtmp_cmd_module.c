@@ -500,6 +500,14 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+    s->stream.len = ngx_strlen(v.name);
+    s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
+    if (s->stream.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(s->stream.data, v.name, ngx_strlen(v.name));
+
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,

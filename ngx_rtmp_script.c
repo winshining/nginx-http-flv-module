@@ -8,7 +8,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_rtmp_script.h"
+#include "ngx_rtmp.h"
 
 
 static ngx_int_t ngx_rtmp_script_init_arrays(ngx_rtmp_script_compile_t *sc);

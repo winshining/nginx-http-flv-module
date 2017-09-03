@@ -10,6 +10,7 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_relay_module.h"
 #include "ngx_rtmp_auto_push_module.h"
+#include "modules/ngx_rtmp_proxy_module.h"
 
 
 static ngx_rtmp_publish_pt          next_publish;
@@ -539,6 +540,13 @@ ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
     ngx_rtmp_auto_push_conf_t      *apcf;
     ngx_rtmp_auto_push_ctx_t       *ctx;
+    ngx_rtmp_proxy_app_conf_t      *pacf;
+
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+
+    if (pacf && pacf->upstream.upstream) {
+        goto next;
+    }
 
     if (s->auto_pushed || (s->relay && !s->static_relay)) {
         goto next;

@@ -12,6 +12,10 @@
 #include "ngx_rtmp.h"
 
 
+#define NGX_RTMP_CLIENT_TEMP_PATH    "client_request_temp"
+
+
+static ngx_int_t ngx_rtmp_core_preconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_core_create_main_conf(ngx_conf_t *cf);
 static void *ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent,
@@ -26,6 +30,15 @@ static char *ngx_rtmp_core_listen(ngx_conf_t *cf, ngx_command_t *cmd,
 static char *ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
+static char *ngx_rtmp_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static char *ngx_rtmp_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
+static char *ngx_rtmp_core_keepalive(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
+
+static ngx_conf_post_t  ngx_rtmp_core_lowat_post =
+    { ngx_rtmp_core_lowat_check };
 
 ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 
@@ -33,6 +46,11 @@ ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 static ngx_conf_deprecated_t  ngx_conf_deprecated_so_keepalive = {
     ngx_conf_deprecated, "so_keepalive",
     "so_keepalive\" parameter of the \"listen"
+};
+
+
+static ngx_path_init_t ngx_rtmp_client_temp_path = {
+    ngx_string(NGX_RTMP_CLIENT_TEMP_PATH), { 0, 0, 0 }
 };
 
 
@@ -158,12 +176,122 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, buflen),
       NULL },
 
+    /* for upstream */
+    { ngx_string("client_request_buffer_size"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, client_request_buffer_size),
+      NULL },
+
+    { ngx_string("client_request_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, client_request_timeout),
+      NULL },
+
+    { ngx_string("client_request_temp_path"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1234,
+      ngx_conf_set_path_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, client_request_temp_path),
+      NULL },
+
+    { ngx_string("tcp_nopush"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, tcp_nopush),
+      NULL },
+
+    { ngx_string("tcp_nodelay"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, tcp_nodelay),
+      NULL },
+
+    { ngx_string("send_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, send_timeout),
+      NULL },
+
+    { ngx_string("send_lowat"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, send_lowat),
+      &ngx_rtmp_core_lowat_post },
+
+    { ngx_string("postpone_output"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, postpone_output),
+      NULL },
+
+    { ngx_string("limit_rate"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
+                        /*|NGX_RTMP_LIF_CONF*/
+                        |NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, limit_rate),
+      NULL },
+
+    { ngx_string("limit_rate_after"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
+                        /*|NGX_RTMP_LIF_CONF*/
+                        |NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, limit_rate_after),
+      NULL },
+
+    { ngx_string("keepalive_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE12,
+      ngx_rtmp_core_keepalive,
+      NGX_RTMP_APP_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("lingering_time"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, lingering_time),
+      NULL },
+
+    { ngx_string("lingering_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, lingering_timeout),
+      NULL },
+
+    { ngx_string("resolver"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_1MORE,
+      ngx_rtmp_core_resolver,
+      NGX_RTMP_APP_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("resolver_timeout"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, resolver_timeout),
+      NULL },
+
       ngx_null_command
 };
 
 
 static ngx_rtmp_module_t  ngx_rtmp_core_module_ctx = {
-    NULL,                                   /* preconfiguration */
+    ngx_rtmp_core_preconfiguration,         /* preconfiguration */
     NULL,                                   /* postconfiguration */
     ngx_rtmp_core_create_main_conf,         /* create main configuration */
     NULL,                                   /* init main configuration */
@@ -188,6 +316,13 @@ ngx_module_t  ngx_rtmp_core_module = {
     NULL,                                  /* exit master */
     NGX_MODULE_V1_PADDING
 };
+
+
+static ngx_int_t
+ngx_rtmp_core_preconfiguration(ngx_conf_t *cf)
+{
+	return ngx_rtmp_variables_add_core_vars(cf);
+}
 
 
 static void *
@@ -309,6 +444,20 @@ ngx_rtmp_core_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->client_request_buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->client_request_timeout = NGX_CONF_UNSET_MSEC;
+    conf->tcp_nopush = NGX_CONF_UNSET;
+    conf->tcp_nodelay = NGX_CONF_UNSET;
+    conf->send_timeout = NGX_CONF_UNSET_MSEC;
+    conf->send_lowat = NGX_CONF_UNSET_SIZE;
+    conf->postpone_output = NGX_CONF_UNSET_SIZE;
+    conf->limit_rate = NGX_CONF_UNSET_SIZE;
+    conf->limit_rate_after = NGX_CONF_UNSET_SIZE;
+    conf->keepalive_timeout = NGX_CONF_UNSET_MSEC;
+    conf->lingering_time = NGX_CONF_UNSET_MSEC;
+    conf->lingering_timeout = NGX_CONF_UNSET_MSEC;
+    conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
+
     return conf;
 }
 
@@ -319,8 +468,57 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_core_app_conf_t *prev = parent;
     ngx_rtmp_core_app_conf_t *conf = child;
 
-    (void)prev;
-    (void)conf;
+    ngx_conf_merge_size_value(conf->client_request_buffer_size,
+                              prev->client_request_buffer_size,
+                              (size_t) 2 * ngx_pagesize);
+    ngx_conf_merge_msec_value(conf->client_request_timeout,
+                              prev->client_request_timeout, 60000);
+
+    ngx_conf_merge_value(conf->tcp_nopush, prev->tcp_nopush, 0);
+    ngx_conf_merge_value(conf->tcp_nodelay, prev->tcp_nodelay, 1);
+
+    ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 60000);
+    ngx_conf_merge_size_value(conf->send_lowat, prev->send_lowat, 0);
+
+    ngx_conf_merge_size_value(conf->postpone_output, prev->postpone_output,
+                              1460);
+    ngx_conf_merge_size_value(conf->limit_rate, prev->limit_rate, 0);
+    ngx_conf_merge_size_value(conf->limit_rate_after, prev->limit_rate_after,
+                              0);
+    ngx_conf_merge_msec_value(conf->keepalive_timeout,
+                              prev->keepalive_timeout, 75000);
+    ngx_conf_merge_msec_value(conf->lingering_time,
+                              prev->lingering_time, 30000);
+    ngx_conf_merge_msec_value(conf->lingering_timeout,
+                              prev->lingering_timeout, 5000);
+    ngx_conf_merge_msec_value(conf->resolver_timeout,
+                              prev->resolver_timeout, 30000);
+
+    if (conf->resolver == NULL) {
+
+        if (prev->resolver == NULL) {
+
+            /*
+             * create dummy resolver in rtmp {} context
+             * to inherit it in all servers
+             */
+
+            prev->resolver = ngx_resolver_create(cf, NULL, 0);
+            if (prev->resolver == NULL) {
+                return NGX_CONF_ERROR;
+            }
+        }
+
+        conf->resolver = prev->resolver;
+    }
+
+    if (ngx_conf_merge_path_value(cf, &conf->client_request_temp_path,
+                              prev->client_request_temp_path,
+                              &ngx_rtmp_client_temp_path)
+        != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }
@@ -601,6 +799,90 @@ ngx_rtmp_core_application(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     *cf= save;
 
     return rv;
+}
+
+
+static char *
+ngx_rtmp_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_rtmp_core_app_conf_t  *cacf = conf;
+
+    ngx_str_t  *value;
+
+    if (cacf->resolver) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    cacf->resolver = ngx_resolver_create(cf, &value[1], cf->args->nelts - 1);
+    if (cacf->resolver == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_rtmp_core_lowat_check(ngx_conf_t *cf, void *post, void *data)
+{
+#if (NGX_FREEBSD)
+    ssize_t *np = data;
+
+    if ((u_long) *np >= ngx_freebsd_net_inet_tcp_sendspace) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "\"send_lowat\" must be less than %d "
+                           "(sysctl net.inet.tcp.sendspace)",
+                           ngx_freebsd_net_inet_tcp_sendspace);
+
+        return NGX_CONF_ERROR;
+    }
+
+#elif !(NGX_HAVE_SO_SNDLOWAT)
+    ssize_t *np = data;
+
+    ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                       "\"send_lowat\" is not supported, ignored");
+
+    *np = 0;
+
+#endif
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_rtmp_core_keepalive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_rtmp_core_app_conf_t *cacf = conf;
+
+    ngx_str_t  *value;
+
+    if (cacf->keepalive_timeout != NGX_CONF_UNSET_MSEC) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    cacf->keepalive_timeout = ngx_parse_time(&value[1], 0);
+
+    if (cacf->keepalive_timeout == (ngx_msec_t) NGX_ERROR) {
+        return "invalid value";
+    }
+
+    if (cf->args->nelts == 2) {
+        return NGX_CONF_OK;
+    }
+/*
+    cacf->keepalive_header = ngx_parse_time(&value[2], 1);
+
+    if (cacf->keepalive_header == (time_t) NGX_ERROR) {
+        return "invalid value";
+    }
+*/
+    return NGX_CONF_OK;
 }
 
 

@@ -1208,10 +1208,17 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
-    /* request from http */
-    r = s->data;
-    if (r) {
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
+    if (ctx == NULL) {
         goto next;
+    }
+
+    if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+        /* request from http */
+        r = s->data;
+        if (r) {
+            goto next;
+        }
     }
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
@@ -1222,11 +1229,6 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     /* join stream as subscriber */
 
     ngx_rtmp_live_join(s, v->name, 0);
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-    if (ctx == NULL) {
-        goto next;
-    }
 
     ctx->silent = v->silent;
 
