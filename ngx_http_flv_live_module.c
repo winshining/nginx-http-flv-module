@@ -752,6 +752,11 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
+    /* for upstream */
+    if (s->relay) {
+        goto next;
+    }
+
     r = s->data;
     if (r == NULL) {
         goto next;

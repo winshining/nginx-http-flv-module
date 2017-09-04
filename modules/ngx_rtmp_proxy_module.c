@@ -7,6 +7,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include "ngx_rtmp_cmd_module.h"
+#include "ngx_rtmp_live_module.h"
 #include "modules/ngx_rtmp_proxy_module.h"
 
 
@@ -753,6 +754,7 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_url_t                   u;
     ngx_uint_t                  n;
     ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_live_app_conf_t   *lacf;
     ngx_rtmp_script_compile_t   sc;
 
     pacf = conf;
@@ -760,6 +762,8 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (pacf->upstream.upstream || pacf->proxy_lengths) {
         return "is duplicate";
     }
+
+    lacf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_live_module);
 
     cacf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_core_module);
 
@@ -782,6 +786,10 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         if (ngx_rtmp_script_compile(&sc) != NGX_OK) {
             return NGX_CONF_ERROR;
+        }
+
+        if (lacf) {
+            lacf->live = 1;
         }
 
         return NGX_CONF_OK;
@@ -833,6 +841,10 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     pacf->url = *url;
+
+    if (lacf) {
+        lacf->live = 1;
+    }
 
     return NGX_CONF_OK;
 }
