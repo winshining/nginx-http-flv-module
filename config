@@ -22,8 +22,8 @@ RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_limit_module                       \
                 ngx_rtmp_hls_module                         \
                 ngx_rtmp_dash_module                        \
-				ngx_rtmp_proxy_module                       \
-				ngx_rtmp_upstream_module                    \
+                ngx_rtmp_proxy_module                       \
+                ngx_rtmp_upstream_module                    \
                 "
 
 
