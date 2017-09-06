@@ -37,9 +37,8 @@ static void ngx_rtmp_upstream_rd_check_broken_connection(ngx_rtmp_session_t *s);
 static void ngx_rtmp_upstream_wr_check_broken_connection(ngx_rtmp_session_t *s);
 static void ngx_rtmp_upstream_check_broken_connection(ngx_rtmp_session_t *s,
     ngx_event_t *ev);
-
-#if 0
 static ngx_int_t ngx_rtmp_upstream_test_connect(ngx_connection_t *c);
+#if 0
 static ngx_int_t ngx_rtmp_output_filter(void *data,
     ngx_chain_t *chain);
 #endif
@@ -828,7 +827,6 @@ ngx_rtmp_upstream_check_broken_connection(ngx_rtmp_session_t *s,
  * becomes both writeable and readable, the function used for 
  * distinguishing the two conditions 
 **/
-#if 0
 static ngx_int_t
 ngx_rtmp_upstream_test_connect(ngx_connection_t *c)
 {
@@ -880,6 +878,7 @@ ngx_rtmp_upstream_test_connect(ngx_connection_t *c)
 }
 
 
+#if 0
 static ngx_int_t
 ngx_rtmp_output_filter(void *data, ngx_chain_t *chain)
 {
@@ -1276,7 +1275,7 @@ ngx_rtmp_upstream_finalize_session(ngx_rtmp_session_t *s,
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "finalize rtmp upstream request: %i", rc);
-
+#if 0
     if (u->cleanup == NULL) {
         /* the request was already finalized */
         ngx_rtmp_finalize_session(s);
@@ -1285,7 +1284,7 @@ ngx_rtmp_upstream_finalize_session(ngx_rtmp_session_t *s,
 
     *u->cleanup = NULL;
     u->cleanup = NULL;
-
+#endif
     if (u->resolved && u->resolved->ctx) {
         ngx_resolve_name_done(u->resolved->ctx);
         u->resolved->ctx = NULL;
@@ -1313,7 +1312,7 @@ ngx_rtmp_upstream_finalize_session(ngx_rtmp_session_t *s,
 
     s->connection->log->action = "sending to client";
 
-    if (!u->handshake_done
+    if (!u->handshake_sent
         || rc == NGX_RTMP_REQUEST_TIME_OUT
         || rc == NGX_RTMP_CLIENT_CLOSED_REQUEST)
     {
@@ -2122,12 +2121,25 @@ found:
 upstream:
 
     rc = ngx_event_connect_peer(&u->peer);
-    if (rc != NGX_OK && rc != NGX_AGAIN ) {
+    if (rc == NGX_ERROR) {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "upstream: connection failed");
 
         ngx_rtmp_upstream_finalize_session(s, u,
                                            NGX_RTMP_INTERNAL_SERVER_ERROR);
+        return;
+    }
+
+    if (rc == NGX_BUSY) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                "upstream: no live upstreams");
+        ngx_rtmp_upstream_finalize_session(s, u,
+                                           NGX_RTMP_UPSTREAM_FT_NOLIVE);
+        return;
+    }
+
+    if (rc == NGX_DECLINED) {
+        ngx_rtmp_upstream_next(s, u, NGX_RTMP_UPSTREAM_FT_ERROR);
         return;
     }
 
@@ -2423,6 +2435,13 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
 #if (NGX_STAT_STUB)
     (void) ngx_atomic_fetch_add(ngx_stat_active, 1);
 #endif
+
+    if (ngx_rtmp_upstream_test_connect(c) != NGX_OK) {
+        ngx_rtmp_upstream_next(s, s->upstream, NGX_RTMP_UPSTREAM_FT_ERROR);
+        return NULL;
+    }
+
+    s->upstream->handshake_sent = 0;
 
     ngx_rtmp_client_handshake(rs, 1);
     return rctx;

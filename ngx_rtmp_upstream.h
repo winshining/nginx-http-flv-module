@@ -236,7 +236,7 @@ struct ngx_rtmp_upstream_s {
 
     unsigned                         keepalive:1;
 
-    unsigned                         handshake_done:1;
+    unsigned                         handshake_sent:1;
 };
 
 

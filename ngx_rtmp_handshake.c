@@ -492,7 +492,7 @@ ngx_rtmp_handshake_send(ngx_event_t *wev)
 {
     ngx_int_t                   n;
     ngx_connection_t           *c;
-    ngx_rtmp_session_t         *s;
+    ngx_rtmp_session_t         *s, *downstream;
     ngx_buf_t                  *b;
 
     c = wev->data;
@@ -537,6 +537,13 @@ ngx_rtmp_handshake_send(ngx_event_t *wev)
 
     if (wev->active) {
         ngx_del_event(wev, NGX_WRITE_EVENT, 0);
+    }
+
+    if (s->hs_stage == NGX_RTMP_HANDSHAKE_CLIENT_SEND_CHALLENGE) {
+        downstream = s->data;
+        if (downstream) {
+            downstream->upstream->handshake_sent = 1;
+        }
     }
 
     ++s->hs_stage;
