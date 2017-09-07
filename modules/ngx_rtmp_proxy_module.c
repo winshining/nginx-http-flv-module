@@ -549,7 +549,9 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
 
-    if (pacf == NULL || pacf->upstream.upstream == NULL) {
+    if (pacf == NULL
+        || (pacf->upstream.upstream == NULL && pacf->proxy_lengths == NULL))
+    {
         goto next;
     }
 

@@ -544,7 +544,7 @@ ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
 
-    if (pacf && pacf->upstream.upstream) {
+    if (pacf && (pacf->upstream.upstream || pacf->proxy_lengths)) {
         goto next;
     }
 
