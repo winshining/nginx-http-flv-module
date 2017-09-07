@@ -220,16 +220,8 @@ struct ngx_rtmp_upstream_s {
     ngx_rtmp_upstream_conf_t        *conf;
     ngx_rtmp_upstream_srv_conf_t    *upstream;
 
-    /* to downstream */
-    ngx_chain_t                     *out_bufs;
-    /* not to downstream yet */
-    ngx_chain_t                     *busy_bufs;
-    ngx_chain_t                     *free_bufs;
-
     ngx_int_t                      (*rewrite_redirect)(ngx_rtmp_session_t *s,
                                          ngx_table_elt_t *h, size_t prefix);
-
-    ngx_rtmp_cleanup_pt             *cleanup;
 
     ngx_str_t                        schema;
     ngx_str_t                        uri;

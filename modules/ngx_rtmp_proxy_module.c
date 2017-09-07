@@ -39,7 +39,6 @@ struct ngx_rtmp_proxy_rewrite_s {
 
 typedef struct {
     ngx_rtmp_proxy_vars_t          vars;
-    ngx_event_t                    push_evt;
 } ngx_rtmp_proxy_ctx_t;
 
 
@@ -582,13 +581,11 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         u->rewrite_redirect = ngx_rtmp_proxy_rewrite_redirect;
     }
 
-    ctx->push_evt.data = s;
-    ctx->push_evt.log = s->connection->log;
-    ctx->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
+    s->push_evt.data = s;
+    s->push_evt.log = s->connection->log;
+    s->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
 
-    s->push_evt = ctx->push_evt;
-
-    ngx_rtmp_upstream_push_reconnect(&ctx->push_evt);
+    ngx_rtmp_upstream_push_reconnect(&s->push_evt);
 
 next:
     return next_publish(s, v);

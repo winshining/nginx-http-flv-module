@@ -50,7 +50,6 @@ static ngx_int_t ngx_rtmp_write_filter(ngx_rtmp_session_t *s,
 
 static void ngx_rtmp_upstream_next(ngx_rtmp_session_t *s,
     ngx_rtmp_upstream_t *u, ngx_uint_t ft_type);
-static void ngx_rtmp_upstream_cleanup(void *data);
 static void ngx_rtmp_upstream_finalize_session(ngx_rtmp_session_t *s,
     ngx_rtmp_upstream_t *u, ngx_int_t rc);
 
@@ -154,10 +153,6 @@ ngx_rtmp_upstream_create(ngx_rtmp_session_t *s)
     ngx_rtmp_upstream_t  *u;
 
     u = s->upstream;
-
-    if (u && u->cleanup) {
-        ngx_rtmp_upstream_cleanup(s);
-    }
 
     u = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_upstream_t));
     if (u == NULL) {
@@ -1252,18 +1247,6 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
     }
 
     ngx_rtmp_upstream_push_reconnect(&s->push_evt);
-}
-
-
-static void
-ngx_rtmp_upstream_cleanup(void *data)
-{
-    ngx_rtmp_session_t *s = data;
-
-    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "cleanup rtmp upstream request: \"%V\"", &s->uri);
-
-    ngx_rtmp_upstream_finalize_session(s, s->upstream, NGX_DONE);
 }
 
 
@@ -2441,6 +2424,7 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
         return NULL;
     }
 
+    rs->data = s;
     s->upstream->handshake_sent = 0;
 
     ngx_rtmp_client_handshake(rs, 1);
@@ -2525,9 +2509,6 @@ ngx_rtmp_upstream_relay_create(ngx_rtmp_session_t *s, ngx_str_t *name,
     if (play_ctx == NULL) {
         return NGX_ERROR;
     }
-
-    /* for upstream */
-    play_ctx->session->data = s;
 
     hash = ngx_hash_key(name->data, name->len);
     cctx = &umcf->ctx[hash % umcf->nbuckets];
