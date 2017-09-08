@@ -12,9 +12,6 @@
 #include "ngx_rtmp.h"
 
 
-#define NGX_RTMP_CLIENT_TEMP_PATH    "client_request_temp"
-
-
 static ngx_int_t ngx_rtmp_core_preconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_core_create_main_conf(ngx_conf_t *cf);
 static void *ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf);
@@ -46,11 +43,6 @@ ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 static ngx_conf_deprecated_t  ngx_conf_deprecated_so_keepalive = {
     ngx_conf_deprecated, "so_keepalive",
     "so_keepalive\" parameter of the \"listen"
-};
-
-
-static ngx_path_init_t ngx_rtmp_client_temp_path = {
-    ngx_string(NGX_RTMP_CLIENT_TEMP_PATH), { 0, 0, 0 }
 };
 
 
@@ -177,27 +169,6 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       NULL },
 
     /* for upstream */
-    { ngx_string("client_request_buffer_size"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_size_slot,
-      NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_core_app_conf_t, client_request_buffer_size),
-      NULL },
-
-    { ngx_string("client_request_timeout"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
-      NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_core_app_conf_t, client_request_timeout),
-      NULL },
-
-    { ngx_string("client_request_temp_path"),
-      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1234,
-      ngx_conf_set_path_slot,
-      NGX_RTMP_APP_CONF_OFFSET,
-      offsetof(ngx_rtmp_core_app_conf_t, client_request_temp_path),
-      NULL },
-
     { ngx_string("tcp_nopush"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -444,8 +415,6 @@ ngx_rtmp_core_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    conf->client_request_buffer_size = NGX_CONF_UNSET_SIZE;
-    conf->client_request_timeout = NGX_CONF_UNSET_MSEC;
     conf->tcp_nopush = NGX_CONF_UNSET;
     conf->tcp_nodelay = NGX_CONF_UNSET;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
@@ -467,12 +436,6 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_rtmp_core_app_conf_t *prev = parent;
     ngx_rtmp_core_app_conf_t *conf = child;
-
-    ngx_conf_merge_size_value(conf->client_request_buffer_size,
-                              prev->client_request_buffer_size,
-                              (size_t) 2 * ngx_pagesize);
-    ngx_conf_merge_msec_value(conf->client_request_timeout,
-                              prev->client_request_timeout, 60000);
 
     ngx_conf_merge_value(conf->tcp_nopush, prev->tcp_nopush, 0);
     ngx_conf_merge_value(conf->tcp_nodelay, prev->tcp_nodelay, 1);
@@ -510,14 +473,6 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
         }
 
         conf->resolver = prev->resolver;
-    }
-
-    if (ngx_conf_merge_path_value(cf, &conf->client_request_temp_path,
-                              prev->client_request_temp_path,
-                              &ngx_rtmp_client_temp_path)
-        != NGX_OK)
-    {
-        return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;

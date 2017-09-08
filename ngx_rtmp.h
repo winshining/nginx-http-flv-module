@@ -435,14 +435,12 @@ typedef struct {
     unsigned                noname:1; /* "if () {}" block or limit_except */
     unsigned                named:1;
 
-    size_t                  client_request_buffer_size;
     size_t                  send_lowat;
     size_t                  postpone_output;
     size_t                  limit_rate;
     size_t                  limit_rate_after;
     size_t                  sendfile_max_chunk;
 
-    ngx_msec_t              client_request_timeout;
     ngx_msec_t              send_timeout;
     ngx_msec_t              keepalive_timeout;
     ngx_msec_t              lingering_time;
@@ -450,7 +448,6 @@ typedef struct {
     ngx_msec_t              resolver_timeout;
 
     ngx_resolver_t         *resolver;
-    ngx_path_t             *client_request_temp_path;
 
     ngx_flag_t              tcp_nopush;
     ngx_flag_t              tcp_nodelay;
