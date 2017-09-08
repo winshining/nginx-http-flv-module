@@ -44,10 +44,6 @@ static ngx_int_t ngx_rtmp_variable_server_addr(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_variable_server_port(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_rtmp_variable_scheme(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_rtmp_variable_rtmps(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data);
 static void ngx_rtmp_variable_set_args(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_variable_is_args(ngx_rtmp_session_t *s,
@@ -93,13 +89,6 @@ static ngx_rtmp_variable_t  ngx_rtmp_core_variables[] = {
     { ngx_string("server_addr"), NULL, ngx_rtmp_variable_server_addr, 0, 0, 0 },
 
     { ngx_string("server_port"), NULL, ngx_rtmp_variable_server_port, 0, 0, 0 },
-
-    { ngx_string("server_protocol"), NULL, ngx_rtmp_variable_request,
-      offsetof(ngx_rtmp_session_t, rtmp_protocol), 0, 0 },
-
-    { ngx_string("scheme"), NULL, ngx_rtmp_variable_scheme, 0, 0, 0 },
-
-    { ngx_string("rtmps"), NULL, ngx_rtmp_variable_rtmps, 0, 0, 0 },
 
     { ngx_string("request_uri"), NULL, ngx_rtmp_variable_request,
       offsetof(ngx_rtmp_session_t, unparsed_uri), 0, 0 },
@@ -713,12 +702,8 @@ static ngx_int_t
 ngx_rtmp_variable_host(ngx_rtmp_session_t *s, ngx_rtmp_variable_value_t *v,
     uintptr_t data)
 {
-    ngx_rtmp_core_srv_conf_t  *cscf;
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-
-    v->len = cscf->server_name.len;
-    v->data = cscf->server_name.data;
+    v->len = s->host.len;
+    v->data = s->host.data;
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;
@@ -903,58 +888,6 @@ ngx_rtmp_variable_server_port(ngx_rtmp_session_t *s,
     if (port > 0 && port < 65536) {
         v->len = ngx_sprintf(v->data, "%ui", port) - v->data;
     }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_rtmp_variable_scheme(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data)
-{
-#if (NGX_RTMP_SSL)
-
-    if (s->connection->ssl) {
-        v->len = sizeof("https") - 1;
-        v->valid = 1;
-        v->no_cacheable = 0;
-        v->not_found = 0;
-        v->data = (u_char *) "https";
-
-        return NGX_OK;
-    }
-
-#endif
-
-    v->len = sizeof("http") - 1;
-    v->valid = 1;
-    v->no_cacheable = 0;
-    v->not_found = 0;
-    v->data = (u_char *) "http";
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_rtmp_variable_rtmps(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data)
-{
-#if (NGX_RTMP_SSL)
-
-    if (s->connection->ssl) {
-        v->len = sizeof("on") - 1;
-        v->valid = 1;
-        v->no_cacheable = 0;
-        v->not_found = 0;
-        v->data = (u_char *) "on";
-
-        return NGX_OK;
-    }
-
-#endif
-
-    *v = ngx_rtmp_variable_null_value;
 
     return NGX_OK;
 }

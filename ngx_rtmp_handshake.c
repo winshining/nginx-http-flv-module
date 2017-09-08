@@ -587,6 +587,7 @@ void
 ngx_rtmp_handshake(ngx_rtmp_session_t *s)
 {
     ngx_connection_t           *c;
+    ngx_time_t                 *tp;
 
     c = s->connection;
     c->read->handler =  ngx_rtmp_handshake_recv;
@@ -598,6 +599,10 @@ ngx_rtmp_handshake(ngx_rtmp_session_t *s)
     s->hs_buf = ngx_rtmp_alloc_handshake_buffer(s);
     s->hs_stage = NGX_RTMP_HANDSHAKE_SERVER_RECV_CHALLENGE;
 
+    tp = ngx_timeofday();
+    s->start_sec = tp->sec;
+    s->start_msec = tp->msec;
+
     ngx_rtmp_handshake_recv(c->read);
 }
 
@@ -606,6 +611,7 @@ void
 ngx_rtmp_client_handshake(ngx_rtmp_session_t *s, unsigned async)
 {
     ngx_connection_t           *c;
+    ngx_time_t                 *tp;
 
     c = s->connection;
     c->read->handler =  ngx_rtmp_handshake_recv;
@@ -632,6 +638,10 @@ ngx_rtmp_client_handshake(ngx_rtmp_session_t *s, unsigned async)
         }
         return;
     }
+
+    tp = ngx_timeofday();
+    s->start_sec = tp->sec;
+    s->start_msec = tp->msec;
 
     ngx_rtmp_handshake_send(c->write);
 }
