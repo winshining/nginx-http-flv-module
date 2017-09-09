@@ -221,6 +221,7 @@ struct ngx_rtmp_session_s {
     ngx_str_t                   host;
     ngx_str_t                   port_text;
     ngx_int_t                   port;
+    ngx_buf_t                   request_line;
     ngx_str_t                   uri;
     ngx_str_t                   unparsed_uri;
 
@@ -287,6 +288,28 @@ struct ngx_rtmp_session_s {
     unsigned                    auto_pushed:1;
     unsigned                    relay:1;
     unsigned                    static_relay:1;
+
+    unsigned                    uri_changed:1;
+    unsigned                    uri_changes:4;
+
+    /* URI with "/." and on Win32 with "//" */
+    unsigned                    complex_uri:1;
+    /* URI with "%" */
+    unsigned                    quoted_uri:1;
+    /* URI with "+" */
+    unsigned                    plus_in_uri:1;
+    /* URI with " " */
+    unsigned                    space_in_uri:1;
+
+    u_char                     *uri_start;
+    u_char                     *uri_end;
+    u_char                     *args_start;
+    u_char                     *schema_start;
+    u_char                     *schema_end;
+    u_char                     *host_start;
+    u_char                     *host_end;
+    u_char                     *port_start;
+    u_char                     *port_end;
 
     unsigned                    keepalive:1;
     unsigned                    lingering_close:1;
@@ -419,6 +442,7 @@ typedef struct ngx_rtmp_core_srv_conf_s {
 
     ngx_rtmp_conf_ctx_t    *ctx;
     ngx_str_t               server_name;
+    ngx_flag_t              merge_slashes;
     ngx_flag_t              listen_parsed;
 } ngx_rtmp_core_srv_conf_t;
 
@@ -740,6 +764,11 @@ extern ngx_module_t                         ngx_rtmp_core_module;
 
 u_char *ngx_rtmp_log_error(ngx_log_t *log, u_char *buf, size_t len);
 
+
+ngx_int_t ngx_rtmp_parse_request_line(ngx_rtmp_session_t *s, ngx_buf_t *b);
+ngx_int_t ngx_rtmp_process_request_uri(ngx_rtmp_session_t *s);
+ngx_int_t ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s,
+    ngx_uint_t merge_slashes);
 
 #include "ngx_rtmp_upstream.h"
 

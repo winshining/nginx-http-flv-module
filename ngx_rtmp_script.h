@@ -108,6 +108,52 @@ typedef struct {
 
 typedef struct {
     ngx_rtmp_script_code_pt     code;
+    uintptr_t                   n;
+} ngx_rtmp_script_copy_capture_code_t;
+
+
+#if (NGX_PCRE)
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
+    ngx_rtmp_regex_t           *regex;
+    ngx_array_t                *lengths;
+    uintptr_t                   size;
+    uintptr_t                   status;
+    uintptr_t                   next;
+
+    unsigned                    test:1;
+    unsigned                    negative_test:1;
+    unsigned                    uri:1;
+    unsigned                    args:1;
+
+    /* add the s->args to the new arguments */
+    unsigned                    add_args:1;
+
+    unsigned                    redirect:1;
+    unsigned                    break_cycle:1;
+
+    ngx_str_t                   name;
+} ngx_rtmp_script_regex_code_t;
+
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
+
+    unsigned                    uri:1;
+    unsigned                    args:1;
+
+    /* add the s->args to the new arguments */
+    unsigned                    add_args:1;
+
+    unsigned                    redirect:1;
+} ngx_rtmp_script_regex_end_code_t;
+
+#endif
+
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
     uintptr_t                   conf_prefix;
 } ngx_rtmp_script_full_name_code_t;
 
@@ -155,6 +201,8 @@ size_t ngx_rtmp_script_copy_len_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_copy_code(ngx_rtmp_script_engine_t *e);
 size_t ngx_rtmp_script_copy_var_len_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_copy_var_code(ngx_rtmp_script_engine_t *e);
+size_t ngx_rtmp_script_copy_capture_len_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_copy_capture_code(ngx_rtmp_script_engine_t *e);
 size_t ngx_rtmp_script_mark_args_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_start_args_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_complex_value_code(ngx_rtmp_script_engine_t *e);

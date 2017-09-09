@@ -18,6 +18,10 @@ static ngx_int_t ngx_rtmp_script_add_copy_code(ngx_rtmp_script_compile_t *sc,
 static ngx_int_t ngx_rtmp_script_add_var_code(ngx_rtmp_script_compile_t *sc,
     ngx_str_t *name);
 static ngx_int_t ngx_rtmp_script_add_args_code(ngx_rtmp_script_compile_t *sc);
+#if (NGX_PCRE)
+static ngx_int_t ngx_rtmp_script_add_capture_code(ngx_rtmp_script_compile_t *sc,
+    ngx_uint_t n);
+#endif
 static ngx_int_t
     ngx_rtmp_script_add_full_name_code(ngx_rtmp_script_compile_t *sc);
 static size_t ngx_rtmp_script_full_name_len_code(ngx_rtmp_script_engine_t *e);
@@ -345,6 +349,33 @@ ngx_rtmp_script_compile(ngx_rtmp_script_compile_t *sc)
 
             if (++i == sc->source->len) {
                 goto invalid_variable;
+            }
+
+            if (sc->source->data[i] >= '1' && sc->source->data[i] <= '9') {
+#if (NGX_PCRE)
+                ngx_uint_t  n;
+
+                n = sc->source->data[i] - '0';
+
+                if (sc->captures_mask & ((ngx_uint_t) 1 << n)) {
+                    sc->dup_capture = 1;
+                }
+
+                sc->captures_mask |= (ngx_uint_t) 1 << n;
+
+                if (ngx_rtmp_script_add_capture_code(sc, n) != NGX_OK) {
+                    return NGX_ERROR;
+                }
+
+                i++;
+
+                continue;
+#else
+                ngx_conf_log_error(NGX_LOG_EMERG, sc->cf, 0,
+                                   "using variable \"$%c\" requires "
+                                   "PCRE library", sc->source->data[i]);
+                return NGX_ERROR;
+#endif
             }
 
             if (sc->source->data[i] == '{') {
@@ -871,6 +902,123 @@ ngx_rtmp_script_start_args_code(ngx_rtmp_script_engine_t *e)
     e->args = e->pos;
     e->ip += sizeof(uintptr_t);
 }
+
+
+#if (NGX_PCRE)
+
+static ngx_int_t
+ngx_rtmp_script_add_capture_code(ngx_rtmp_script_compile_t *sc, ngx_uint_t n)
+{
+    ngx_rtmp_script_copy_capture_code_t  *code;
+
+    code = ngx_rtmp_script_add_code(*sc->lengths,
+                                    sizeof(ngx_rtmp_script_copy_capture_code_t),
+                                    NULL);
+    if (code == NULL) {
+        return NGX_ERROR;
+    }
+
+    code->code = (ngx_rtmp_script_code_pt)
+                      ngx_rtmp_script_copy_capture_len_code;
+    code->n = 2 * n;
+
+
+    code = ngx_rtmp_script_add_code(*sc->values,
+                                    sizeof(ngx_rtmp_script_copy_capture_code_t),
+                                    &sc->main);
+    if (code == NULL) {
+        return NGX_ERROR;
+    }
+
+    code->code = ngx_rtmp_script_copy_capture_code;
+    code->n = 2 * n;
+
+    if (sc->ncaptures < n) {
+        sc->ncaptures = n;
+    }
+
+    return NGX_OK;
+}
+
+
+size_t
+ngx_rtmp_script_copy_capture_len_code(ngx_rtmp_script_engine_t *e)
+{
+    int                                  *cap;
+    u_char                               *p;
+    ngx_uint_t                            n;
+    ngx_rtmp_session_t                   *s;
+    ngx_rtmp_script_copy_capture_code_t  *code;
+
+    s = e->request;
+
+    code = (ngx_rtmp_script_copy_capture_code_t *) e->ip;
+
+    e->ip += sizeof(ngx_rtmp_script_copy_capture_code_t);
+
+    n = code->n;
+
+    if (n < s->ncaptures) {
+
+        cap = s->captures;
+
+        if ((e->is_args || e->quote)
+            && (e->request->quoted_uri || e->request->plus_in_uri))
+        {
+            p = s->captures_data;
+
+            return cap[n + 1] - cap[n]
+                   + 2 * ngx_escape_uri(NULL, &p[cap[n]], cap[n + 1] - cap[n],
+                                        NGX_ESCAPE_ARGS);
+        } else {
+            return cap[n + 1] - cap[n];
+        }
+    }
+
+    return 0;
+}
+
+
+void
+ngx_rtmp_script_copy_capture_code(ngx_rtmp_script_engine_t *e)
+{
+    int                                  *cap;
+    u_char                               *p, *pos;
+    ngx_uint_t                            n;
+    ngx_rtmp_session_t                   *s;
+    ngx_rtmp_script_copy_capture_code_t  *code;
+
+    s = e->request;
+
+    code = (ngx_rtmp_script_copy_capture_code_t *) e->ip;
+
+    e->ip += sizeof(ngx_rtmp_script_copy_capture_code_t);
+
+    n = code->n;
+
+    pos = e->pos;
+
+    if (n < s->ncaptures) {
+
+        cap = s->captures;
+        p = s->captures_data;
+
+        if ((e->is_args || e->quote)
+            && (e->request->quoted_uri || e->request->plus_in_uri))
+        {
+            e->pos = (u_char *) ngx_escape_uri(pos, &p[cap[n]],
+                                               cap[n + 1] - cap[n],
+                                               NGX_ESCAPE_ARGS);
+        } else {
+            e->pos = ngx_copy(pos, &p[cap[n]], cap[n + 1] - cap[n]);
+        }
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script capture: \"%*s\"", e->pos - pos, pos);
+}
+
+#endif
 
 
 static ngx_int_t

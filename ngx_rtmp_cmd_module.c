@@ -312,53 +312,55 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    if (s->tc_url.len <= ngx_strlen("rtmp://")
-        || ngx_strncasecmp(s->tc_url.data,
-                          (u_char *) "rtmp://", ngx_strlen("rtmp://")))
-    {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "connect: invalid tc_url: '%V'", &s->tc_url);
-        return NGX_ERROR;
-    }
-
-    host = s->tc_url.data + ngx_strlen("rtmp://");
-    s->host.len = 0;
-    s->host.data = host;
-
-    port = ngx_strlchr(host, host + ngx_strlen(host), ':');
-    if (port == NULL) {
-        /* default port */
-        s->port = 1935;
-
-        s->port_text.data = (u_char *) "1935";
-        s->port_text.len = 4;
-    } else {
-        s->host.len = port - s->host.data;
-        s->port_text.data = ++port;
-    }
-
-    if (s->host.len == 0) {
-        /* no port */
-        host = s->host.data;
-        p = ngx_strlchr(host, host + ngx_strlen(host), '/');
-        s->host.len =
-                p ? (size_t) (p - s->host.data) : ngx_strlen(s->host.data);
-    } else {
-        port = s->port_text.data;
-        p = ngx_strlchr(port, port + ngx_strlen(port), '/');
-        s->port_text.len =
-                p ? (size_t) (p - s->port_text.data)
-                  : ngx_strlen(s->port_text.data);
-        s->port = ngx_atoi(s->port_text.data, s->port_text.len);
-        if (s->port == NGX_ERROR || (s->port <= 0 || s->port > 65535)) {
+    if (s->relay && s->data) {
+        if (s->tc_url.len <= ngx_strlen("rtmp://")
+            || ngx_strncasecmp(s->tc_url.data,
+                              (u_char *) "rtmp://", ngx_strlen("rtmp://")))
+        {
             ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                          "connect: invalid port: '%V'", &s->port_text);
+                          "connect: invalid tc_url: '%V'", &s->tc_url);
             return NGX_ERROR;
         }
-    }
 
-    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                  "connect: host='%V', port='%V'", &s->host, &s->port_text);
+        host = s->tc_url.data + ngx_strlen("rtmp://");
+        s->host.len = 0;
+        s->host.data = host;
+
+        port = ngx_strlchr(host, host + ngx_strlen(host), ':');
+        if (port == NULL) {
+            /* default port */
+            s->port = 1935;
+
+            s->port_text.data = (u_char *) "1935";
+            s->port_text.len = 4;
+        } else {
+            s->host.len = port - s->host.data;
+            s->port_text.data = ++port;
+        }
+
+        if (s->host.len == 0) {
+            /* no port */
+            host = s->host.data;
+            p = ngx_strlchr(host, host + ngx_strlen(host), '/');
+            s->host.len =
+                    p ? (size_t) (p - s->host.data) : ngx_strlen(s->host.data);
+        } else {
+            port = s->port_text.data;
+            p = ngx_strlchr(port, port + ngx_strlen(port), '/');
+            s->port_text.len =
+                    p ? (size_t) (p - s->port_text.data)
+                      : ngx_strlen(s->port_text.data);
+            s->port = ngx_atoi(s->port_text.data, s->port_text.len);
+            if (s->port == NGX_ERROR || (s->port <= 0 || s->port > 65535)) {
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                              "connect: invalid port: '%V'", &s->port_text);
+                return NGX_ERROR;
+            }
+        }
+
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "connect: host='%V', port='%V'", &s->host, &s->port_text);
+    }
 
     object_encoding = v->object_encoding;
 
@@ -540,6 +542,8 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           &v.type, sizeof(v.type) },
     };
 
+    size_t request_line_len = 0;
+
     ngx_memzero(&v, sizeof(v));
 
     if (ngx_rtmp_receive_amf(s, in, in_elts,
@@ -560,38 +564,50 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
-    s->unparsed_uri.len = 1 + s->app.len;
+    request_line_len = s->tc_url.len;
 
     if (s->stream.len) {
-        s->unparsed_uri.len += 1 + s->stream.len;
+        request_line_len += 1 + s->stream.len;
     }
-
-    s->uri.len = s->unparsed_uri.len;
-    s->uri.data = ngx_pcalloc(s->connection->pool, s->uri.len);
-    if (s->uri.data == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "publish: failed to ngx_pcalloc for uri");
-
-        return NGX_ERROR;
-    }
-
-    ngx_snprintf(s->uri.data, s->uri.len, "/%V/%V", &s->app, &s->stream);
 
     if (v.args[0]) {
-        s->unparsed_uri.len += ngx_strlen(v.args);
+        request_line_len += 1 + ngx_strlen(v.args);
     }
 
-    s->unparsed_uri.data = ngx_pcalloc(s->connection->pool,
-                                       s->unparsed_uri.len);
-    if (s->unparsed_uri.data == NULL) {
+    s->request_line.pos = ngx_pcalloc(s->connection->pool,
+                                                    request_line_len + 1);
+    if (s->request_line.pos == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "publish: failed to ngx_pcalloc for unparsed_uri");
+                      "publish: failed to ngx_pcalloc for request_line");
 
         return NGX_ERROR;
     }
 
-    ngx_snprintf(s->unparsed_uri.data, s->unparsed_uri.len, "/%V/%V%s",
-                                              &s->app, &s->stream, v.args);
+    s->request_line.start = s->request_line.pos;
+    s->request_line.last = s->request_line.pos + request_line_len + 1;
+    s->request_line.end = s->request_line.last;
+
+    if (v.args[0]) {
+        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V?%s",
+                                         &s->tc_url, &s->stream, v.args) = CR;
+    } else {
+        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V",
+                                               &s->tc_url, &s->stream) = CR;
+    }
+
+    if (ngx_rtmp_parse_request_line(s, &s->request_line) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                  "publish: invalid request line: '%s'", s->request_line.pos);
+        ngx_rtmp_finalize_session(s);
+
+        return NGX_ERROR;
+    }
+
+    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
+        ngx_rtmp_finalize_session(s);
+
+        return NGX_ERROR;
+    }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "publish: name='%s' args='%s' type=%s silent=%d",
@@ -641,6 +657,8 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           &v.reset, 0 }
     };
 
+    size_t request_line_len = 0;
+
     ngx_memzero(&v, sizeof(v));
 
     if (ngx_rtmp_receive_amf(s, in, in_elts,
@@ -661,38 +679,50 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
-    s->unparsed_uri.len = 1 + s->app.len;
+    request_line_len = s->tc_url.len;
 
     if (s->stream.len) {
-        s->unparsed_uri.len += 1 + s->stream.len;
+        request_line_len += 1 + s->stream.len;
     }
-
-    s->uri.len = s->unparsed_uri.len;
-    s->uri.data = ngx_pcalloc(s->connection->pool, s->uri.len);
-    if (s->uri.data == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "play: failed to ngx_pcalloc for uri");
-
-        return NGX_ERROR;
-    }
-
-    ngx_snprintf(s->uri.data, s->uri.len, "/%V/%V", &s->app, &s->stream);
 
     if (v.args[0]) {
-        s->unparsed_uri.len += ngx_strlen(v.args);
+        request_line_len += ngx_strlen(v.args);
     }
 
-    s->unparsed_uri.data = ngx_pcalloc(s->connection->pool,
-                                       s->unparsed_uri.len);
-    if (s->unparsed_uri.data == NULL) {
+    s->request_line.pos = ngx_pcalloc(s->connection->pool,
+                                                      request_line_len + 1);
+    if (s->request_line.pos == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "play: failed to ngx_pcalloc for unparsed_uri");
+                      "publish: failed to ngx_pcalloc for request_line");
 
         return NGX_ERROR;
     }
 
-    ngx_snprintf(s->unparsed_uri.data, s->unparsed_uri.len, "/%V/%V%s",
-                                              &s->app, &s->stream, v.args);
+    s->request_line.start = s->request_line.pos;
+    s->request_line.last = s->request_line.pos + request_line_len + 1;
+    s->request_line.end = s->request_line.last;
+
+    if (v.args[0]) {
+        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V?%s",
+                                         &s->tc_url, &s->stream, v.args) = CR;
+    } else {
+        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V",
+                                               &s->tc_url, &s->stream) = CR;
+    }
+
+    if (ngx_rtmp_parse_request_line(s, &s->request_line) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                  "publish: invalid request line: '%s'", s->request_line.pos);
+        ngx_rtmp_finalize_session(s);
+
+        return NGX_ERROR;
+    }
+
+    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
+        ngx_rtmp_finalize_session(s);
+
+        return NGX_ERROR;
+    }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "play: name='%s' args='%s' start=%i duration=%i "
