@@ -1291,7 +1291,8 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
             ctx->app.hash_name.data, ctx->app.hash_name.len);
     if (value == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to find configured app: \"%V\"", &ctx->app);
+                "flv live: failed to find configured app: \"%V\"",
+                &ctx->app.hash_name);
         
         return NGX_ERROR;
     }
