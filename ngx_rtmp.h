@@ -218,8 +218,6 @@ struct ngx_rtmp_session_s {
 
     ngx_rtmp_upstream_t        *upstream;
 
-    ngx_str_t                   host;
-    ngx_str_t                   port_text;
     ngx_int_t                   port;
     ngx_buf_t                   request_line;
     ngx_str_t                   uri;

@@ -702,8 +702,8 @@ static ngx_int_t
 ngx_rtmp_variable_host(ngx_rtmp_session_t *s, ngx_rtmp_variable_value_t *v,
     uintptr_t data)
 {
-    v->len = s->host.len;
-    v->data = s->host.data;
+    v->len = s->host_end - s->host_start;
+    v->data = s->host_start;
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;

@@ -199,7 +199,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ngx_rtmp_core_app_conf_t  **cacfp;
     ngx_uint_t                  n;
     ngx_rtmp_header_t           h;
-    u_char                     *p, *host, *port;
+    u_char                     *p;
 
     static double               trans;
     static double               capabilities = NGX_RTMP_CAPABILITIES;
@@ -310,56 +310,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                       "connect: application not found: '%V'", &s->app);
         return NGX_ERROR;
-    }
-
-    if (s->relay && s->data) {
-        if (s->tc_url.len <= ngx_strlen("rtmp://")
-            || ngx_strncasecmp(s->tc_url.data,
-                              (u_char *) "rtmp://", ngx_strlen("rtmp://")))
-        {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                          "connect: invalid tc_url: '%V'", &s->tc_url);
-            return NGX_ERROR;
-        }
-
-        host = s->tc_url.data + ngx_strlen("rtmp://");
-        s->host.len = 0;
-        s->host.data = host;
-
-        port = ngx_strlchr(host, host + ngx_strlen(host), ':');
-        if (port == NULL) {
-            /* default port */
-            s->port = 1935;
-
-            s->port_text.data = (u_char *) "1935";
-            s->port_text.len = 4;
-        } else {
-            s->host.len = port - s->host.data;
-            s->port_text.data = ++port;
-        }
-
-        if (s->host.len == 0) {
-            /* no port */
-            host = s->host.data;
-            p = ngx_strlchr(host, host + ngx_strlen(host), '/');
-            s->host.len =
-                    p ? (size_t) (p - s->host.data) : ngx_strlen(s->host.data);
-        } else {
-            port = s->port_text.data;
-            p = ngx_strlchr(port, port + ngx_strlen(port), '/');
-            s->port_text.len =
-                    p ? (size_t) (p - s->port_text.data)
-                      : ngx_strlen(s->port_text.data);
-            s->port = ngx_atoi(s->port_text.data, s->port_text.len);
-            if (s->port == NGX_ERROR || (s->port <= 0 || s->port > 65535)) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                              "connect: invalid port: '%V'", &s->port_text);
-                return NGX_ERROR;
-            }
-        }
-
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                      "connect: host='%V', port='%V'", &s->host, &s->port_text);
     }
 
     object_encoding = v->object_encoding;
