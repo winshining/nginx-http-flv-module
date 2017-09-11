@@ -64,6 +64,14 @@ static char *ngx_rtmp_upstream_init_main_conf(ngx_conf_t *cf, void *conf);
 static ngx_int_t ngx_rtmp_upstream_set_local(ngx_rtmp_session_t *s,
     ngx_rtmp_upstream_t *u, ngx_rtmp_upstream_local_t *local);
 
+static void ngx_rtmp_upstream_handler(ngx_event_t *ev);
+static void ngx_rtmp_upstream_send_handshake_handler(ngx_rtmp_session_t *s,
+    ngx_rtmp_upstream_t *u);
+static void ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s,
+    ngx_rtmp_upstream_t *u);
+static void ngx_rtmp_upstream_empty_handler(ngx_rtmp_session_t *s,
+    ngx_rtmp_upstream_t *u);
+
 static ngx_int_t ngx_rtmp_upstream_copy_str(ngx_pool_t *pool,
     ngx_str_t *dst, ngx_str_t *src);
 static ngx_rtmp_upstream_ctx_t *ngx_rtmp_upstream_create_connection(
@@ -260,8 +268,10 @@ ngx_rtmp_upstream_recv(ngx_event_t *rev)
 
     c = rev->data;
     s = c->data;
+
     downstream = s->data;
     u = downstream->upstream;
+
     b = NULL;
     old_pos = NULL;
     old_size = 0;
@@ -546,14 +556,16 @@ void
 ngx_rtmp_upstream_send(ngx_event_t *wev)
 {
     ngx_connection_t           *c;
-    ngx_rtmp_session_t         *s;
+    ngx_rtmp_session_t         *s, *downstream;
     ngx_int_t                   n;
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_upstream_t        *u;
 
     c = wev->data;
     s = c->data;
-    u = s->upstream;
+
+    downstream = s->data;
+    u = downstream->upstream;
 
     if (c->destroyed) {
         return;
@@ -579,7 +591,7 @@ ngx_rtmp_upstream_send(ngx_event_t *wev)
         n = c->send(c, s->out_bpos, s->out_chain->buf->last - s->out_bpos);
 
         if (n == NGX_AGAIN || n == 0) {
-            ngx_add_timer(c->write, s->timeout);
+            ngx_add_timer(c->write, u->conf->send_timeout);
             if (ngx_handle_write_event(c->write, 0) != NGX_OK) {
                 ngx_rtmp_finalize_session(s);
             }
@@ -1258,16 +1270,7 @@ ngx_rtmp_upstream_finalize_session(ngx_rtmp_session_t *s,
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "finalize rtmp upstream request: %i", rc);
-#if 0
-    if (u->cleanup == NULL) {
-        /* the request was already finalized */
-        ngx_rtmp_finalize_session(s);
-        return;
-    }
 
-    *u->cleanup = NULL;
-    u->cleanup = NULL;
-#endif
     if (u->resolved && u->resolved->ctx) {
         ngx_resolve_name_done(u->resolved->ctx);
         u->resolved->ctx = NULL;
@@ -1946,26 +1949,14 @@ ngx_rtmp_upstream_push_reconnect(ngx_event_t *ev)
 {
     ngx_str_t                      *host;
     ngx_uint_t                      i;
-    ngx_rtmp_upstream_target_t      at;
-    u_char                          path[sizeof("unix:") + NGX_MAX_PATH];
-    u_char                          flash_ver[sizeof("APSH ,") +
-                                              NGX_INT_T_LEN * 2];
-    u_char                          tc_url[NGX_RTMP_MAX_NAME];
-    u_char                          play_path[NGX_RTMP_MAX_NAME];
-    ngx_str_t                       name;
-    ngx_pid_t                       pid;
-    ngx_file_info_t                 fi;
-    size_t                          add;
     ngx_int_t                       rc;
-    u_char                         *p, *old;
-    ngx_str_t                      *url;
     ngx_resolver_ctx_t             *ctx, temp;
     ngx_rtmp_upstream_t            *u;
     ngx_rtmp_core_app_conf_t       *cacf;
     ngx_rtmp_upstream_srv_conf_t   *uscf, **uscfp;
     ngx_rtmp_upstream_main_conf_t  *umcf;
     ngx_rtmp_session_t             *s;
-    struct sockaddr_un             *saun;
+    ngx_connection_t               *c;
 
     s = ev->data;
     u = s->upstream;
@@ -2126,6 +2117,89 @@ upstream:
         return;
     }
 
+    /* rc == NGX_OK || rc == NGX_AGAIN || rc == NGX_DONE */
+
+    c = u->peer.connection;
+
+    c->data = s;
+
+    c->write->handler = ngx_rtmp_upstream_handler;
+    c->read->handler = ngx_rtmp_upstream_handler;
+
+    u->write_event_handler = ngx_rtmp_upstream_send_handshake_handler;
+    u->read_event_handler = ngx_rtmp_upstream_empty_handler;
+
+    if (rc == NGX_AGAIN) {
+        ngx_add_timer(c->write, u->conf->connect_timeout);
+        return;
+    }
+
+    ngx_rtmp_upstream_send_handshake(s, u);
+}
+
+
+static void
+ngx_rtmp_upstream_handler(ngx_event_t *ev)
+{
+    ngx_connection_t     *c;
+    ngx_rtmp_session_t   *s;
+    ngx_rtmp_upstream_t  *u;
+
+    c = ev->data;
+    /* downstream session */
+    s = c->data;
+
+    u = s->upstream;
+    c = s->connection;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, c->log, 0,
+                   "rtmp upstream request: \"%V?%V\"", &s->uri, &s->args);
+
+    if (ev->write) {
+        u->write_event_handler(s, u);
+    } else {
+        u->read_event_handler(s, u);
+    }
+}
+
+
+static void
+ngx_rtmp_upstream_send_handshake_handler(ngx_rtmp_session_t *s,
+    ngx_rtmp_upstream_t *u)
+{
+    ngx_connection_t  *c;
+
+    c = u->peer.connection;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp upstream send request handler");
+
+    if (c->write->timedout) {
+        ngx_rtmp_upstream_next(s, u, NGX_RTMP_UPSTREAM_FT_TIMEOUT);
+        return;
+    }
+
+    ngx_rtmp_upstream_send_handshake(s, u);
+}
+
+
+static void
+ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
+{
+    ngx_rtmp_upstream_target_t      at;
+    u_char                          path[sizeof("unix:") + NGX_MAX_PATH];
+    u_char                          flash_ver[sizeof("APSH ,") +
+                                              NGX_INT_T_LEN * 2];
+    u_char                          tc_url[NGX_RTMP_MAX_NAME];
+    u_char                          play_path[NGX_RTMP_MAX_NAME];
+    ngx_str_t                       name;
+    ngx_pid_t                       pid;
+    ngx_file_info_t                 fi;
+    size_t                          add;
+    u_char                         *p, *old;
+    ngx_str_t                      *url;
+    struct sockaddr_un             *saun;
+
     name = s->stream;
     ngx_memzero(&at, sizeof(at));
     ngx_str_set(&at.page_url, "nginx-upstream-push");
@@ -2144,76 +2218,76 @@ upstream:
     url = &at.url.url;
 
     switch (u->peer.type) {
-    case AF_UNIX:
-        saun = (struct sockaddr_un *)u->peer.sockaddr;
+        case AF_UNIX:
+            saun = (struct sockaddr_un *)u->peer.sockaddr;
 
-        p = ngx_snprintf(path, sizeof(path) - 1, "unix:%s", saun->sun_path);
-        *p = 0;
+            p = ngx_snprintf(path, sizeof(path) - 1, "unix:%s", saun->sun_path);
+            *p = 0;
 
-        if (ngx_file_info(path + sizeof("unix:") - 1, &fi) != NGX_OK) {
-            ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                           "upstream_push: " ngx_file_info_n " failed: "
-                           "pid=%P socket='%s'" "url='%V' name='%V'",
-                           pid, path, url, &name);
+            if (ngx_file_info(path + sizeof("unix:") - 1, &fi) != NGX_OK) {
+                ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                               "upstream_push: " ngx_file_info_n " failed: "
+                               "pid=%P socket='%s'" "url='%V' name='%V'",
+                               pid, path, url, &name);
 
-            ngx_rtmp_upstream_finalize_session(s, u,
-                                               NGX_RTMP_INTERNAL_SERVER_ERROR);
-            return;
-        }
+                ngx_rtmp_upstream_finalize_session(s, u,
+                                                   NGX_RTMP_INTERNAL_SERVER_ERROR);
+                return;
+            }
 
-        url->data = path;
-        url->len = p - path;
+            url->data = path;
+            url->len = p - path;
 
-        break;
+            break;
 
-    default:
-        if (s->tc_url.len > 7
-            && ngx_strncasecmp(s->tc_url.data, (u_char *) "rtmp://", 7) == 0)
-        {
-            add = 7;
-        } else {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                          "invalid URL prefix in \"%V\"", &s->tc_url);
-            ngx_rtmp_upstream_finalize_session(s, u,
-                                               NGX_RTMP_BAD_REQUEST);
-            return;
-        }
-
-        ngx_memzero(tc_url, sizeof(tc_url));
-        ngx_memcpy(tc_url, u->peer.name->data, u->peer.name->len);
-
-        url->data = s->tc_url.data + add;
-        url->len = s->tc_url.len - add;
-        p = url->data;
-        p = ngx_strlchr(p, url->data + url->len, '/');
-        if (p == NULL) {
-            url->data = u->peer.name->data;
-            url->len = u->peer.name->len;
-        } else {
-            /* check if there is one more '/' */
-            old = ++p;
-
-            p = ngx_strlchr(p, url->data + url->len, '/');
-            if (p) {
+        default:
+            if (s->tc_url.len > 7
+                && ngx_strncasecmp(s->tc_url.data, (u_char *) "rtmp://", 7) == 0)
+            {
+                add = 7;
+            } else {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                              "invalid URL in \"%V\"", &s->tc_url);
+                              "invalid URL prefix in \"%V\"", &s->tc_url);
                 ngx_rtmp_upstream_finalize_session(s, u,
                                                    NGX_RTMP_BAD_REQUEST);
                 return;
             }
 
-            url->len = url->data + url->len - old;
-            url->data = old;
-            url->data--;
-            url->len++;
+            ngx_memzero(tc_url, sizeof(tc_url));
+            ngx_memcpy(tc_url, u->peer.name->data, u->peer.name->len);
 
-            p = ngx_snprintf(tc_url + u->peer.name->len, url->len, "%s",
-                             url->data);
-            *p = 0;
+            url->data = s->tc_url.data + add;
+            url->len = s->tc_url.len - add;
+            p = url->data;
+            p = ngx_strlchr(p, url->data + url->len, '/');
+            if (p == NULL) {
+                url->data = u->peer.name->data;
+                url->len = u->peer.name->len;
+            } else {
+                /* check if there is one more '/' */
+                old = ++p;
 
-            url->data = tc_url;
-            url->len = p - tc_url;
-        }
+                p = ngx_strlchr(p, url->data + url->len, '/');
+                if (p) {
+                    ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                                  "invalid URL in \"%V\"", &s->tc_url);
+                    ngx_rtmp_upstream_finalize_session(s, u,
+                                                       NGX_RTMP_BAD_REQUEST);
+                    return;
+                }
+
+                url->len = url->data + url->len - old;
+                url->data = old;
+                url->data--;
+                url->len++;
+
+                p = ngx_snprintf(tc_url + u->peer.name->len, url->len, "%s",
+                                 url->data);
+                *p = 0;
+
+                url->data = tc_url;
+                url->len = p - tc_url;
+            }
     }
 
     at.url.uri_part = 1;
@@ -2241,6 +2315,16 @@ upstream:
         ngx_rtmp_upstream_finalize_session(s, u,
                                            NGX_RTMP_INTERNAL_SERVER_ERROR);
     }
+}
+
+
+static void
+ngx_rtmp_upstream_empty_handler(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
+{
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp request empty handler");
+
+    return;
 }
 
 
@@ -2427,7 +2511,11 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
     rs->data = s;
     s->upstream->handshake_sent = 0;
 
-    ngx_rtmp_client_handshake(rs, 1);
+    if (c->write->ready) {
+        ngx_rtmp_client_handshake(rs, 0);
+    } else {
+        ngx_rtmp_client_handshake(rs, 1);
+    }
     return rctx;
 
 clear:

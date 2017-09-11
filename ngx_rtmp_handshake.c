@@ -631,6 +631,10 @@ ngx_rtmp_client_handshake(ngx_rtmp_session_t *s, unsigned async)
         return;
     }
 
+    tp = ngx_timeofday();
+    s->start_sec = tp->sec;
+    s->start_msec = tp->msec;
+
     if (async) {
         ngx_add_timer(c->write, s->timeout);
         if (ngx_handle_write_event(c->write, 0) != NGX_OK) {
@@ -638,10 +642,6 @@ ngx_rtmp_client_handshake(ngx_rtmp_session_t *s, unsigned async)
         }
         return;
     }
-
-    tp = ngx_timeofday();
-    s->start_sec = tp->sec;
-    s->start_msec = tp->msec;
 
     ngx_rtmp_handshake_send(c->write);
 }
