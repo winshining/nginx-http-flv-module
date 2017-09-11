@@ -68,6 +68,8 @@ static ngx_int_t ngx_rtmp_proxy_rewrite_complex_handler(ngx_rtmp_session_t *s,
 static ngx_int_t ngx_rtmp_proxy_rewrite_regex(ngx_conf_t *cf,
     ngx_rtmp_proxy_rewrite_t *pr, ngx_str_t *regex, ngx_uint_t caseless);
 static void ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v);
+static char *ngx_rtmp_proxy_lowat_check(ngx_conf_t *cf, void *post,
+    void *data);
 
 static ngx_int_t ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s,
     ngx_rtmp_publish_t *v);
@@ -85,6 +87,10 @@ ngx_int_t ngx_rtmp_proxy_on_error(ngx_rtmp_session_t *s,
     ngx_rtmp_header_t *h, ngx_chain_t *in);
 ngx_int_t ngx_rtmp_proxy_on_status(ngx_rtmp_session_t *s,
     ngx_rtmp_header_t *h, ngx_chain_t *in);
+
+
+static ngx_conf_post_t  ngx_rtmp_proxy_lowat_post =
+    { ngx_rtmp_proxy_lowat_check };
 
 
 static ngx_conf_bitmask_t  ngx_rtmp_proxy_next_upstream_masks[] = {
@@ -142,6 +148,13 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
         NGX_RTMP_APP_CONF_OFFSET,
         offsetof(ngx_rtmp_proxy_app_conf_t, upstream.send_timeout),
         NULL },
+
+    { ngx_string("proxy_send_lowat"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_proxy_app_conf_t, upstream.send_lowat),
+      &ngx_rtmp_proxy_lowat_post },
 
     { ngx_string("proxy_read_timeout"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -419,6 +432,7 @@ ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf)
     conf->upstream.send_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.read_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.next_upstream_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.send_lowat = NGX_CONF_UNSET_SIZE;
 
     conf->upstream.limit_rate = NGX_CONF_UNSET_SIZE;
 
@@ -460,6 +474,9 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->upstream.next_upstream_timeout,
                               prev->upstream.next_upstream_timeout, 0);
+
+    ngx_conf_merge_size_value(conf->upstream.send_lowat,
+                              prev->upstream.send_lowat, 0);
 
     ngx_conf_merge_size_value(conf->upstream.limit_rate,
                               prev->upstream.limit_rate, 0);
@@ -1105,5 +1122,34 @@ ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v)
     }
 
     v->uri = u->uri;
+}
+
+
+static char *
+ngx_rtmp_proxy_lowat_check(ngx_conf_t *cf, void *post, void *data)
+{
+#if (NGX_FREEBSD)
+    ssize_t *np = data;
+
+    if ((u_long) *np >= ngx_freebsd_net_inet_tcp_sendspace) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "\"proxy_send_lowat\" must be less than %d "
+                           "(sysctl net.inet.tcp.sendspace)",
+                           ngx_freebsd_net_inet_tcp_sendspace);
+
+        return NGX_CONF_ERROR;
+    }
+
+#elif !(NGX_HAVE_SO_SNDLOWAT)
+    ssize_t *np = data;
+
+    ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                       "\"proxy_send_lowat\" is not supported, ignored");
+
+    *np = 0;
+
+#endif
+
+    return NGX_CONF_OK;
 }
 

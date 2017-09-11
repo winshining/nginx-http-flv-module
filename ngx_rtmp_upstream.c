@@ -329,6 +329,12 @@ ngx_rtmp_upstream_recv(ngx_event_t *rev)
                 if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
                     ngx_rtmp_finalize_session(s);
                 }
+
+                if (c->read->active && !c->read->ready) {
+                    ngx_add_timer(c->read, u->conf->read_timeout);
+                } else if (c->read->timer_set) {
+                    ngx_del_timer(c->read);
+                }
                 return;
             }
 
@@ -592,7 +598,9 @@ ngx_rtmp_upstream_send(ngx_event_t *wev)
 
         if (n == NGX_AGAIN || n == 0) {
             ngx_add_timer(c->write, u->conf->send_timeout);
-            if (ngx_handle_write_event(c->write, 0) != NGX_OK) {
+            if (ngx_handle_write_event(c->write, u->conf->send_lowat)
+                != NGX_OK)
+            {
                 ngx_rtmp_finalize_session(s);
             }
             return;
@@ -2354,6 +2362,7 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
     ngx_rtmp_addr_conf_t           *addr_conf;
     ngx_rtmp_conf_ctx_t            *addr_ctx;
     ngx_rtmp_session_t             *rs;
+    ngx_rtmp_upstream_t            *u;
     ngx_peer_connection_t          *pc;
     ngx_connection_t               *c;
     ngx_pool_t                     *pool;
@@ -2455,7 +2464,8 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
         }
     }
 
-    pc = &s->upstream->peer;
+    u = s->upstream;
+    pc = &u->peer;
 
     if (target->url.naddrs == 0) {
         ngx_log_error(NGX_LOG_ERR, umcf->log, 0,
@@ -2504,12 +2514,13 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
 #endif
 
     if (ngx_rtmp_upstream_test_connect(c) != NGX_OK) {
-        ngx_rtmp_upstream_next(s, s->upstream, NGX_RTMP_UPSTREAM_FT_ERROR);
+        ngx_rtmp_upstream_next(s, u, NGX_RTMP_UPSTREAM_FT_ERROR);
         return NULL;
     }
 
     rs->data = s;
-    s->upstream->handshake_sent = 0;
+    rs->timeout = u->conf->connect_timeout;
+    u->handshake_sent = 0;
 
     if (c->write->ready) {
         ngx_rtmp_client_handshake(rs, 0);
