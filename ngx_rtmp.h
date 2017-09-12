@@ -211,8 +211,6 @@ typedef struct {
 #endif
 
 
-typedef void (*ngx_rtmp_event_handler_pt)(ngx_rtmp_session_t *s);
-
 struct ngx_rtmp_session_s {
     uint32_t                    signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
@@ -235,9 +233,6 @@ struct ngx_rtmp_session_s {
 
     void                       *data;
     ngx_event_t                 push_evt;
-
-    ngx_rtmp_event_handler_pt   write_event_handler;
-    ngx_rtmp_event_handler_pt   read_event_handler;
 
     ngx_str_t                  *addr_text;
     ngx_flag_t                  connected;

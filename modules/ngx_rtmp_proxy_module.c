@@ -121,13 +121,6 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
         0,
         NULL },
 
-    { ngx_string("proxy_ignore_client_abort"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
-        ngx_conf_set_flag_slot,
-        NGX_RTMP_APP_CONF_OFFSET,
-        offsetof(ngx_rtmp_proxy_app_conf_t, upstream.ignore_client_abort),
-        NULL },
-
     { ngx_string("proxy_bind"),
         NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE12,
         ngx_rtmp_upstream_bind_set_slot,
@@ -424,7 +417,6 @@ ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf)
     }
 
     conf->upstream.next_upstream_tries = NGX_CONF_UNSET_UINT;
-    conf->upstream.ignore_client_abort = NGX_CONF_UNSET;
 
     conf->upstream.local = NGX_CONF_UNSET_PTR;
 
@@ -456,9 +448,6 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->upstream.next_upstream_tries,
                               prev->upstream.next_upstream_tries, 0);
-
-    ngx_conf_merge_value(conf->upstream.ignore_client_abort,
-                              prev->upstream.ignore_client_abort, 0);
 
     ngx_conf_merge_ptr_value(conf->upstream.local,
                               prev->upstream.local, NULL);
