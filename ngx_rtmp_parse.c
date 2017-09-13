@@ -446,7 +446,7 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
 
         /*
          * we use "ch = *p++" inside the cycle, it is safe,
-         * because after the URI there is a character: '\0'
+         * because after the URI there is a character: '\r'
          */
 
         ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
@@ -712,11 +712,15 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
 
 done:
 
-    s->uri.len = u - s->uri.data;
+    s->uri.len = *u == CR ? (u - s->uri.data) : (u - s->uri.data + 1);
 
     return NGX_OK;
 
 args:
+
+    if (*s->uri_end == CR) {
+        s->uri_end -= 1;
+    }
 
     while (p < s->uri_end) {
         if (*p++ != '#') {

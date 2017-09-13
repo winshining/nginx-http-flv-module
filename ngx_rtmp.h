@@ -285,6 +285,8 @@ struct ngx_rtmp_session_s {
     unsigned                    uri_changed:1;
     unsigned                    uri_changes:4;
 
+    unsigned                    upstream_retrying:1;
+
     /* URI with "/." and on Win32 with "//" */
     unsigned                    complex_uri:1;
     /* URI with "%" */

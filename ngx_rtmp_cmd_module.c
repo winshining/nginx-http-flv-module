@@ -534,7 +534,7 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     s->request_line.start = s->request_line.pos;
-    s->request_line.last = s->request_line.pos + request_line_len + 1;
+    s->request_line.last = s->request_line.pos + request_line_len;
     s->request_line.end = s->request_line.last;
 
     if (v.args[0]) {

@@ -1037,6 +1037,7 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
     }
 
     if (s->connection->error) {
+        s->upstream_retrying = 0;
         ngx_rtmp_upstream_finalize_session(s, u,
                                               NGX_RTMP_CLIENT_CLOSED_REQUEST);
         return;
@@ -1064,6 +1065,8 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         ngx_close_connection(u->peer.connection);
         u->peer.connection = NULL;
     }
+
+    s->upstream_retrying = 1;
 
     ngx_rtmp_upstream_push_reconnect(&s->push_evt);
 }
@@ -2114,8 +2117,10 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
                    pid, path, &name);
 
     if (ngx_rtmp_upstream_push(s, &name, &at) != NGX_OK) {
-        ngx_rtmp_upstream_finalize_session(s, u,
-                                           NGX_RTMP_INTERNAL_SERVER_ERROR);
+        if (!s->upstream_retrying) {
+            ngx_rtmp_upstream_finalize_session(s, u,
+                                               NGX_RTMP_INTERNAL_SERVER_ERROR);
+        }
     }
 }
 
@@ -2312,6 +2317,7 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
         return NULL;
     }
 
+    s->upstream_retrying = 0;
     rs->data = s;
     rs->timeout = u->conf->connect_timeout;
     u->handshake_sent = 0;

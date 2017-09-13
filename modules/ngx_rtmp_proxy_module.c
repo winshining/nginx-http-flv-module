@@ -592,6 +592,7 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     s->push_evt.data = s;
     s->push_evt.log = s->connection->log;
     s->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
+    s->upstream_retrying = 0;
 
     ngx_rtmp_upstream_push_reconnect(&s->push_evt);
 
