@@ -1049,6 +1049,7 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         || ((u->conf->next_upstream & ft_type) != ft_type)
         || (timeout && ngx_current_msec - u->peer.start_time >= timeout))
     {
+        s->upstream_retrying = 0;
         ngx_rtmp_upstream_finalize_session(s, u, status);
         return;
     }
