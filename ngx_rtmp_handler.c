@@ -10,7 +10,6 @@
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
 #include "ngx_rtmp_cmd_module.h"
-#include "modules/ngx_rtmp_proxy_module.h"
 
 
 static void ngx_rtmp_recv(ngx_event_t *rev);
@@ -86,13 +85,12 @@ void
 ngx_rtmp_cycle(ngx_rtmp_session_t *s)
 {
     ngx_connection_t           *c;
-    ngx_rtmp_proxy_app_conf_t  *pacf;
+    ngx_rtmp_upstream_t        *u;
 
     c = s->connection;
+    u = s->data;
 
-    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
-
-    if (pacf && (pacf->upstream.upstream || pacf->proxy_lengths)) {
+    if (s->relay && u) {
         c->read->handler = ngx_rtmp_upstream_recv;
         c->write->handler = ngx_rtmp_upstream_send;
     } else {
@@ -105,7 +103,7 @@ ngx_rtmp_cycle(ngx_rtmp_session_t *s)
     s->ping_evt.handler = ngx_rtmp_ping;
     ngx_rtmp_reset_ping(s);
 
-    if (pacf && (pacf->upstream.upstream || pacf->proxy_lengths)) {
+    if (s->relay && u) {
         ngx_rtmp_upstream_recv(c->read);
     } else {
         ngx_rtmp_recv(c->read);

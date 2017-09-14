@@ -11,7 +11,6 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_codec_module.h"
 #include "ngx_http_flv_live_module.h"
-#include "modules/ngx_rtmp_proxy_module.h"
 
 
 static ngx_rtmp_publish_pt              next_publish;
@@ -1202,7 +1201,6 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_live_ctx_t            *ctx;
     ngx_http_request_t             *r;
-    ngx_rtmp_proxy_app_conf_t      *pacf;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
 
@@ -1210,9 +1208,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
-    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
-
-    if (pacf == NULL ||  pacf->upstream.upstream == NULL) {
+    if (!s->relay) {
         /* request from http */
         r = s->data;
         if (r) {
