@@ -302,6 +302,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         {
             /* found app! */
             s->app_conf = (*cacfp)->app_conf;
+            s->valid_application = 1;
             break;
         }
     }
@@ -524,30 +525,28 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         request_line_len += 1 + ngx_strlen(v.args);
     }
 
-    s->request_line.pos = ngx_pcalloc(s->connection->pool,
-                                                    request_line_len + 1);
-    if (s->request_line.pos == NULL) {
+    s->request_line = ngx_create_temp_buf(s->connection->pool,
+                                          request_line_len + 1);
+    if (s->request_line == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "publish: failed to ngx_pcalloc for request_line");
 
         return NGX_ERROR;
     }
 
-    s->request_line.start = s->request_line.pos;
-    s->request_line.last = s->request_line.pos + request_line_len;
-    s->request_line.end = s->request_line.last;
-
     if (v.args[0]) {
-        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V?%s",
+        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V?%s",
                                          &s->tc_url, &s->stream, v.args) = CR;
     } else {
-        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V",
+        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V",
                                                &s->tc_url, &s->stream) = CR;
     }
 
-    if (ngx_rtmp_parse_request_line(s, &s->request_line) != NGX_OK) {
+    s->request_line->last += request_line_len;
+
+    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                  "publish: invalid request line: '%s'", s->request_line.pos);
+                  "publish: invalid request line: '%s'", s->request_line->pos);
         ngx_rtmp_finalize_session(s);
 
         return NGX_ERROR;
@@ -639,30 +638,28 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         request_line_len += ngx_strlen(v.args);
     }
 
-    s->request_line.pos = ngx_pcalloc(s->connection->pool,
-                                                      request_line_len + 1);
-    if (s->request_line.pos == NULL) {
+    s->request_line = ngx_create_temp_buf(s->connection->pool,
+                                          request_line_len);
+    if (s->request_line == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "publish: failed to ngx_pcalloc for request_line");
 
         return NGX_ERROR;
     }
 
-    s->request_line.start = s->request_line.pos;
-    s->request_line.last = s->request_line.pos + request_line_len + 1;
-    s->request_line.end = s->request_line.last;
-
     if (v.args[0]) {
-        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V?%s",
+        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V?%s",
                                          &s->tc_url, &s->stream, v.args) = CR;
     } else {
-        *ngx_snprintf(s->request_line.pos, request_line_len, "%V/%V",
+        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V",
                                                &s->tc_url, &s->stream) = CR;
     }
 
-    if (ngx_rtmp_parse_request_line(s, &s->request_line) != NGX_OK) {
+    s->request_line->last += request_line_len;
+
+    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                  "publish: invalid request line: '%s'", s->request_line.pos);
+                  "publish: invalid request line: '%s'", s->request_line->pos);
         ngx_rtmp_finalize_session(s);
 
         return NGX_ERROR;

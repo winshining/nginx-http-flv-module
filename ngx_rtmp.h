@@ -217,7 +217,7 @@ struct ngx_rtmp_session_s {
     ngx_rtmp_upstream_t        *upstream;
 
     ngx_int_t                   port;
-    ngx_buf_t                   request_line;
+    ngx_buf_t                  *request_line;
     ngx_str_t                   uri;
     ngx_str_t                   unparsed_uri;
 
@@ -316,6 +316,7 @@ struct ngx_rtmp_session_s {
     unsigned                    request_file_log_level:3;
     unsigned                    request_no_buffering:1;
 
+    unsigned                    valid_application:1;
     unsigned                    valid_unparsed_uri:1;
 
     /* sending to client when downstream */

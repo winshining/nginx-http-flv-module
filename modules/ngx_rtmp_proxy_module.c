@@ -44,6 +44,7 @@ typedef struct {
 
 static ngx_int_t ngx_rtmp_proxy_eval(ngx_rtmp_session_t *s,
     ngx_rtmp_proxy_ctx_t *ctx, ngx_rtmp_proxy_app_conf_t *pacf);
+static ngx_int_t ngx_rtmp_proxy_create_request_line(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_proxy_host_variable(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_proxy_port_variable(ngx_rtmp_session_t *s,
@@ -585,6 +586,8 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     u->conf = &pacf->upstream;
 
+    u->create_request_line = ngx_rtmp_proxy_create_request_line;
+
     if (pacf->redirects) {
         u->rewrite_redirect = ngx_rtmp_proxy_rewrite_redirect;
     }
@@ -655,6 +658,103 @@ ngx_int_t ngx_rtmp_proxy_on_status(ngx_rtmp_session_t *s,
     ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     return ngx_rtmp_upstream_on_status(s, h, in);
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_create_request_line(ngx_rtmp_session_t *s)
+{
+    size_t                        len, uri_len, app_len;
+    uintptr_t                     escape;
+    ngx_buf_t                    *b;
+    ngx_uint_t                    unparsed_uri;
+    ngx_rtmp_upstream_t          *u;
+    ngx_rtmp_proxy_ctx_t         *ctx;
+    ngx_rtmp_proxy_app_conf_t    *pacf;
+
+    u = s->upstream;
+
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_proxy_module);
+
+    /* schema & host */
+    len = u->schema.len;
+    len += ctx->vars.host_header.len;
+
+    escape = 0;
+    app_len = 0;
+    unparsed_uri = 0;
+
+    if (pacf->proxy_lengths && ctx->vars.uri.len) {
+        uri_len = ctx->vars.uri.len;
+    } else if (ctx->vars.uri.len == 0 && s->valid_unparsed_uri) {
+        unparsed_uri = 1;
+        uri_len = s->unparsed_uri.len;
+    } else {
+        /* application has no slash */
+        app_len = (s->valid_application && ctx->vars.uri.len) ?
+        (pacf->application.len + 1): 0;
+
+        if (s->quoted_uri || s->space_in_uri/* TODO: || s->internal */) {
+            escape = 2 * ngx_escape_uri(NULL, s->uri.data + app_len,
+                                        s->uri.len - app_len, NGX_ESCAPE_URI);
+        }
+
+        uri_len = ctx->vars.uri.len + s->uri.len - app_len + escape
+        + sizeof("?") - 1 + s->args.len;
+    }
+
+    if (uri_len == 0) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "zero length URI to proxy");
+        return NGX_ERROR;
+    }
+
+    len += uri_len;
+
+    b = ngx_create_temp_buf(s->connection->pool, len);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    /* schema & host[:port] */
+    b->last = ngx_copy(b->last, u->schema.data, u->schema.len);
+    b->last = ngx_copy(b->last, ctx->vars.host_header.data,
+                                                  ctx->vars.host_header.len);
+
+    u->uri.data = b->last;
+
+    if (pacf->proxy_lengths && ctx->vars.uri.len) {
+        b->last = ngx_copy(b->last, ctx->vars.uri.data, ctx->vars.uri.len);
+    } else if (unparsed_uri) {
+        b->last = ngx_copy(b->last, s->unparsed_uri.data, s->unparsed_uri.len);
+    } else {
+        if (s->valid_application) {
+            b->last = ngx_copy(b->last, ctx->vars.uri.data, ctx->vars.uri.len);
+        }
+
+        if (escape) {
+            ngx_escape_uri(b->last, s->uri.data + app_len,
+                           s->uri.len - app_len, NGX_ESCAPE_URI);
+            b->last += s->uri.len - app_len + escape;
+        } else {
+            b->last = ngx_copy(b->last, s->uri.data + app_len,
+                               s->uri.len - app_len);
+        }
+
+        if (s->args.len > 0) {
+            *b->last++ = '?';
+            b->last = ngx_copy(b->last, s->args.data, s->args.len);
+        }
+    }
+
+    b->flush = 1;
+
+    u->uri.len = b->last - u->uri.data;
+    u->request_line = b;
+
+    return NGX_OK;
 }
 
 

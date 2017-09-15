@@ -211,6 +211,8 @@ struct ngx_rtmp_upstream_s {
 
     ngx_peer_connection_t            peer;
 
+    ngx_buf_t                       *request_line;
+
     ngx_output_chain_ctx_t           output;
     ngx_chain_writer_ctx_t           writer;
 
@@ -220,6 +222,7 @@ struct ngx_rtmp_upstream_s {
     ngx_rtmp_upstream_conf_t        *conf;
     ngx_rtmp_upstream_srv_conf_t    *upstream;
 
+    ngx_int_t                      (*create_request_line)(ngx_rtmp_session_t *s);
     ngx_int_t                      (*rewrite_redirect)(ngx_rtmp_session_t *s,
                                          ngx_table_elt_t *h, size_t prefix);
 
