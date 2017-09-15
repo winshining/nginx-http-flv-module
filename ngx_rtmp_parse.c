@@ -718,10 +718,6 @@ done:
 
 args:
 
-    if (*s->uri_end == CR) {
-        s->uri_end -= 1;
-    }
-
     while (p < s->uri_end) {
         if (*p++ != '#') {
             continue;

@@ -285,11 +285,11 @@ ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
     ngx_int_t                   rc;
     ngx_uint_t                  i;
     ngx_rtmp_proxy_rewrite_t   *pr;
-    ngx_rtmp_proxy_app_conf_t  *plaf;
+    ngx_rtmp_proxy_app_conf_t  *pacf;
 
-    plaf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
+    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
 
-    pr = plaf->redirects->elts;
+    pr = pacf->redirects->elts;
 
     if (pr == NULL) {
         return NGX_DECLINED;
@@ -297,7 +297,7 @@ ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
 
     len = h->value.len - prefix;
 
-    for (i = 0; i < plaf->redirects->nelts; i++) {
+    for (i = 0; i < pacf->redirects->nelts; i++) {
         rc = pr[i].handler(s, h, prefix, len, &pr[i]);
 
         if (rc != NGX_DECLINED) {
@@ -915,33 +915,33 @@ ngx_rtmp_proxy_rewrite_regex_handler(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
 static char *
 ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_rtmp_proxy_app_conf_t *plaf = conf;
+    ngx_rtmp_proxy_app_conf_t *pacf = conf;
 
     u_char                            *p;
     ngx_str_t                         *value;
     ngx_rtmp_proxy_rewrite_t          *pr;
     ngx_rtmp_compile_complex_value_t   ccv;
 
-    if (plaf->redirect == 0) {
+    if (pacf->redirect == 0) {
         return NGX_CONF_OK;
     }
 
-    plaf->redirect = 1;
+    pacf->redirect = 1;
 
     value = cf->args->elts;
 
     if (cf->args->nelts == 2) {
         if (ngx_strcmp(value[1].data, "off") == 0) {
-            plaf->redirect = 0;
-            plaf->redirects = NULL;
+            pacf->redirect = 0;
+            pacf->redirects = NULL;
             return NGX_CONF_OK;
         }
 
         if (ngx_strcmp(value[1].data, "false") == 0) {
             ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
                            "invalid parameter \"false\", use \"off\" instead");
-            plaf->redirect = 0;
-            plaf->redirects = NULL;
+            pacf->redirect = 0;
+            pacf->redirects = NULL;
             return NGX_CONF_OK;
         }
 
@@ -952,28 +952,28 @@ ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    if (plaf->redirects == NULL) {
-        plaf->redirects = ngx_array_create(cf->pool, 1,
+    if (pacf->redirects == NULL) {
+        pacf->redirects = ngx_array_create(cf->pool, 1,
                                            sizeof(ngx_rtmp_proxy_rewrite_t));
-        if (plaf->redirects == NULL) {
+        if (pacf->redirects == NULL) {
             return NGX_CONF_ERROR;
         }
     }
 
-    pr = ngx_array_push(plaf->redirects);
+    pr = ngx_array_push(pacf->redirects);
     if (pr == NULL) {
         return NGX_CONF_ERROR;
     }
 
     if (ngx_strcmp(value[1].data, "default") == 0) {
-        if (plaf->proxy_lengths) {
+        if (pacf->proxy_lengths) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "\"proxy_redirect default\" cannot be used "
                                "with \"proxy_pass\" directive with variables");
             return NGX_CONF_ERROR;
         }
 
-        if (plaf->url.data == NULL) {
+        if (pacf->url.data == NULL) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "\"proxy_redirect default\" should be placed "
                                "after the \"proxy_pass\" directive");
@@ -985,11 +985,11 @@ ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_memzero(&pr->pattern.complex, sizeof(ngx_rtmp_complex_value_t));
         ngx_memzero(&pr->replacement, sizeof(ngx_rtmp_complex_value_t));
 
-        if (plaf->vars.uri.len) {
-            pr->pattern.complex.value = plaf->url;
-            pr->replacement.value = plaf->application;
+        if (pacf->vars.uri.len) {
+            pr->pattern.complex.value = pacf->url;
+            pr->replacement.value = pacf->application;
         } else {
-            pr->pattern.complex.value.len = plaf->url.len + sizeof("/") - 1;
+            pr->pattern.complex.value.len = pacf->url.len + sizeof("/") - 1;
 
             p = ngx_pnalloc(cf->pool, pr->pattern.complex.value.len);
             if (p == NULL) {
@@ -998,7 +998,7 @@ ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
             pr->pattern.complex.value.data = p;
 
-            p = ngx_cpymem(p, plaf->url.data, plaf->url.len);
+            p = ngx_cpymem(p, pacf->url.data, pacf->url.len);
             *p = '/';
 
             ngx_str_set(&pr->replacement.value, "/");
