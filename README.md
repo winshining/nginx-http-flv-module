@@ -4,9 +4,9 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Features
 
-* HTTP-based FLV streaming (subscribe).
+* HTTP-based FLV live streaming (subscribe).
 
-* GOP cache for low latency (experimental, for details, please see [BLSS](https://github.com/gnolizuh/BLSS)).
+* GOP cache for low latency (experimental).
 
 * 'Transfer-Encoding: chunked' response supported.
 
@@ -95,8 +95,8 @@ The default application block matched is the first one in server block, if the r
             }
 
             location /live {
-                flv_live on;
-                chunked  on;
+                flv_live on; #open flv live streaming (subscribe)
+                chunked  on; #open 'Transfer-Encoding: chunked' response
             }
         }
     }
@@ -115,7 +115,7 @@ The default application block matched is the first one in server block, if the r
 
             application myapp {
                 live on;
-                gop_cache on;
+                gop_cache on; #open GOP cache for low latency
             }
         }
     }
