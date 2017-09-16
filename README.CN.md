@@ -12,6 +12,10 @@
 
 * rtmp配置的server块中可以省略'listen'配置项。
 
+* 支持反向代理（试验）。
+
+* 支持负载均衡（轮询，试验）。
+
 # 支持的系统
 
 * Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
@@ -117,6 +121,30 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
                 live on;
                 gop_cache on; #打开GOP缓存，降低播放延迟
             }
+        }
+
+        server {
+            listen 1945;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1985;
+
+            application myapp {
+                proxy_pass rtmp://balance;
+            }
+        }
+
+        upstream balance {
+            #打开负载均衡
+
+            server localhost:1935;
+            server localhost:1945;
         }
     }
 

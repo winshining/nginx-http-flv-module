@@ -12,6 +12,10 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * Missing 'listen' directive in rtmp server block will be OK.
 
+* Reverse proxy supported (experimental).
+
+* Load balance (round robin) supported (experimental).
+
 # Systems supported
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).
@@ -117,6 +121,30 @@ The default application block matched is the first one in server block, if the r
                 live on;
                 gop_cache on; #open GOP cache for low latency
             }
+        }
+
+        server {
+            listen 1945;
+
+            application myapp {
+                live on;
+                gop_cache on; #open GOP cache for low latency
+            }
+        }
+
+        server {
+            listen 1985;
+
+            application myapp {
+                proxy_pass rtmp://balance; #open reverse proxy
+            }
+        }
+
+        upstream balance {
+            #open load balance
+
+            server localhost:1935;
+            server localhost:1945;
         }
     }
 
