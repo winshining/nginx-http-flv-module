@@ -935,6 +935,10 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         handler = ngx_rtmp_process_handlers[pctx->protocol];
 
+        if (rpkt) {
+            ngx_rtmp_free_shared_chain(cscf, rpkt);
+        }
+
         rpkt = handler->append_message_pt(ss, &ch, &lh, in);
         if (rpkt == NULL) {
             /* request from http closed */
