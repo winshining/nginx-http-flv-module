@@ -38,8 +38,8 @@ static ngx_int_t ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
 
 
 static ngx_int_t ngx_rtmp_gop_cache_postconfiguration(ngx_conf_t *cf);
-static void *ngx_rtmp_gop_cache_create_loc_conf(ngx_conf_t *cf);
-static char *ngx_rtmp_gop_cache_merge_loc_conf(ngx_conf_t *cf,
+static void *ngx_rtmp_gop_cache_create_app_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_gop_cache_merge_app_conf(ngx_conf_t *cf,
         void *parent, void *child);
 
 
@@ -49,30 +49,30 @@ extern ngx_module_t                ngx_http_flv_live_module;
 
 static ngx_command_t ngx_rtmp_gop_cache_commands[] = {
     { ngx_string("gop_cache"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_flag_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
+      NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_gop_cache_app_conf_t, gop_cache),
       NULL },
 
     { ngx_string("gop_max_frame_count"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
+      NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_gop_cache_app_conf_t, gop_max_frame_count),
       NULL },
 
     { ngx_string("gop_max_video_count"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
+      NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_gop_cache_app_conf_t, gop_max_video_count),
       NULL },
 
     { ngx_string("gop_max_audio_count"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
+      NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_gop_cache_app_conf_t, gop_max_audio_count),
       NULL },
 
@@ -87,8 +87,8 @@ static ngx_rtmp_module_t ngx_rtmp_gop_cache_module_ctx = {
     NULL,
     NULL,
     NULL,
-    ngx_rtmp_gop_cache_create_loc_conf,   /* create location configuration */
-    ngx_rtmp_gop_cache_merge_loc_conf     /* merge location configuration */
+    ngx_rtmp_gop_cache_create_app_conf,   /* create application configuration */
+    ngx_rtmp_gop_cache_merge_app_conf     /* merge application configuration */
 };
 
 
@@ -109,7 +109,7 @@ ngx_module_t ngx_rtmp_gop_cache_module = {
 
 
 void *
-ngx_rtmp_gop_cache_create_loc_conf(ngx_conf_t *cf)
+ngx_rtmp_gop_cache_create_app_conf(ngx_conf_t *cf)
 {
     ngx_rtmp_gop_cache_app_conf_t *gacf;
 
@@ -129,7 +129,7 @@ ngx_rtmp_gop_cache_create_loc_conf(ngx_conf_t *cf)
 
 
 char *
-ngx_rtmp_gop_cache_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_rtmp_gop_cache_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_rtmp_gop_cache_app_conf_t        *prev = parent;
     ngx_rtmp_gop_cache_app_conf_t        *conf = child;
