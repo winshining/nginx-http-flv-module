@@ -206,7 +206,7 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
 
     { ngx_string("limit_rate"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
-                        /*|NGX_RTMP_LIF_CONF*/
+                        |NGX_RTMP_LIF_CONF
                         |NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -215,7 +215,7 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
 
     { ngx_string("limit_rate_after"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
-                        /*|NGX_RTMP_LIF_CONF*/
+                        |NGX_RTMP_LIF_CONF
                         |NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -847,6 +847,56 @@ ngx_rtmp_core_keepalive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 */
     return NGX_CONF_OK;
+}
+
+
+ngx_int_t
+ngx_rtmp_set_disable_symlinks(ngx_rtmp_session_t *s,
+    ngx_rtmp_core_app_conf_t *cacf, ngx_str_t *path, ngx_open_file_info_t *of)
+{
+#if (NGX_HAVE_OPENAT)
+    u_char     *p;
+    ngx_str_t   from;
+
+    of->disable_symlinks = cacf->disable_symlinks;
+
+    if (cacf->disable_symlinks_from == NULL) {
+        return NGX_OK;
+    }
+
+    if (ngx_rtmp_complex_value(s, cacf->disable_symlinks_from, &from)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    if (from.len == 0
+        || from.len > path->len
+        || ngx_memcmp(path->data, from.data, from.len) != 0)
+    {
+        return NGX_OK;
+    }
+
+    if (from.len == path->len) {
+        of->disable_symlinks = NGX_DISABLE_SYMLINKS_OFF;
+        return NGX_OK;
+    }
+
+    p = path->data + from.len;
+
+    if (*p == '/') {
+        of->disable_symlinks_from = from.len;
+        return NGX_OK;
+    }
+
+    p--;
+
+    if (*p == '/') {
+        of->disable_symlinks_from = from.len - 1;
+    }
+#endif
+
+    return NGX_OK;
 }
 
 

@@ -160,6 +160,38 @@ typedef struct {
 
 typedef struct {
     ngx_rtmp_script_code_pt     code;
+    uintptr_t                   status;
+    ngx_rtmp_complex_value_t    text;
+} ngx_rtmp_script_return_code_t;
+
+
+typedef enum {
+    ngx_rtmp_script_file_plain = 0,
+    ngx_rtmp_script_file_not_plain,
+    ngx_rtmp_script_file_dir,
+    ngx_rtmp_script_file_not_dir,
+    ngx_rtmp_script_file_exists,
+    ngx_rtmp_script_file_not_exists,
+    ngx_rtmp_script_file_exec,
+    ngx_rtmp_script_file_not_exec
+} ngx_rtmp_script_file_op_e;
+
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
+    uintptr_t                   op;
+} ngx_rtmp_script_file_code_t;
+
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
+    uintptr_t                   next;
+    void                      **app_conf;
+} ngx_rtmp_script_if_code_t;
+
+
+typedef struct {
+    ngx_rtmp_script_code_pt     code;
     ngx_array_t                *lengths;
 } ngx_rtmp_script_complex_value_code_t;
 
@@ -205,6 +237,16 @@ size_t ngx_rtmp_script_copy_capture_len_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_copy_capture_code(ngx_rtmp_script_engine_t *e);
 size_t ngx_rtmp_script_mark_args_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_start_args_code(ngx_rtmp_script_engine_t *e);
+#if (NGX_PCRE)
+void ngx_rtmp_script_regex_start_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_regex_end_code(ngx_rtmp_script_engine_t *e);
+#endif
+void ngx_rtmp_script_return_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_break_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_if_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_equal_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_not_equal_code(ngx_rtmp_script_engine_t *e);
+void ngx_rtmp_script_file_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_complex_value_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_value_code(ngx_rtmp_script_engine_t *e);
 void ngx_rtmp_script_set_var_code(ngx_rtmp_script_engine_t *e);

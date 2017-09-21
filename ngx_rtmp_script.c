@@ -906,6 +906,267 @@ ngx_rtmp_script_start_args_code(ngx_rtmp_script_engine_t *e)
 
 #if (NGX_PCRE)
 
+void
+ngx_rtmp_script_regex_start_code(ngx_rtmp_script_engine_t *e)
+{
+    size_t                         len;
+    ngx_int_t                      rc;
+    ngx_uint_t                     n;
+    ngx_rtmp_session_t            *s;
+    ngx_rtmp_script_engine_t       le;
+    ngx_rtmp_script_len_code_pt    lcode;
+    ngx_rtmp_script_regex_code_t  *code;
+
+    code = (ngx_rtmp_script_regex_code_t *) e->ip;
+
+    s = e->request;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp script regex: \"%V\"", &code->name);
+
+    if (code->uri) {
+        e->line = s->uri;
+    } else {
+        e->sp--;
+        e->line.len = e->sp->len;
+        e->line.data = e->sp->data;
+    }
+
+    rc = ngx_rtmp_regex_exec(s, code->regex, &e->line);
+
+    if (rc == NGX_DECLINED) {
+        if (e->log || (s->connection->log->log_level & NGX_LOG_DEBUG_RTMP)) {
+            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                          "\"%V\" does not match \"%V\"",
+                          &code->name, &e->line);
+        }
+
+        s->ncaptures = 0;
+
+        if (code->test) {
+            if (code->negative_test) {
+                e->sp->len = 1;
+                e->sp->data = (u_char *) "1";
+
+            } else {
+                e->sp->len = 0;
+                e->sp->data = (u_char *) "";
+            }
+
+            e->sp++;
+
+            e->ip += sizeof(ngx_rtmp_script_regex_code_t);
+            return;
+        }
+
+        e->ip += code->next;
+        return;
+    }
+
+    if (rc == NGX_ERROR) {
+        e->ip = ngx_rtmp_script_exit;
+        e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
+        return;
+    }
+
+    if (e->log || (s->connection->log->log_level & NGX_LOG_DEBUG_RTMP)) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                      "\"%V\" matches \"%V\"", &code->name, &e->line);
+    }
+
+    if (code->test) {
+        if (code->negative_test) {
+            e->sp->len = 0;
+            e->sp->data = (u_char *) "";
+
+        } else {
+            e->sp->len = 1;
+            e->sp->data = (u_char *) "1";
+        }
+
+        e->sp++;
+
+        e->ip += sizeof(ngx_rtmp_script_regex_code_t);
+        return;
+    }
+
+    if (code->status) {
+        e->status = code->status;
+
+        if (!code->redirect) {
+            e->ip = ngx_rtmp_script_exit;
+            return;
+        }
+    }
+
+    if (code->uri) {
+        s->internal = 1;
+        s->valid_unparsed_uri = 0;
+
+        if (code->break_cycle) {
+            s->valid_application = 0;
+            s->uri_changed = 0;
+
+        } else {
+            s->uri_changed = 1;
+        }
+    }
+
+    if (code->lengths == NULL) {
+        e->buf.len = code->size;
+
+        if (code->uri) {
+            if (s->ncaptures && (s->quoted_uri || s->plus_in_uri)) {
+                e->buf.len += 2 * ngx_escape_uri(NULL, s->uri.data, s->uri.len,
+                                                 NGX_ESCAPE_ARGS);
+            }
+        }
+
+        for (n = 2; n < s->ncaptures; n += 2) {
+            e->buf.len += s->captures[n + 1] - s->captures[n];
+        }
+
+    } else {
+        ngx_memzero(&le, sizeof(ngx_rtmp_script_engine_t));
+
+        le.ip = code->lengths->elts;
+        le.line = e->line;
+        le.request = s;
+        le.quote = code->redirect;
+
+        len = 0;
+
+        while (*(uintptr_t *) le.ip) {
+            lcode = *(ngx_rtmp_script_len_code_pt *) le.ip;
+            len += lcode(&le);
+        }
+
+        e->buf.len = len;
+    }
+
+    if (code->add_args && s->args.len) {
+        e->buf.len += s->args.len + 1;
+    }
+
+    e->buf.data = ngx_pnalloc(s->connection->pool, e->buf.len);
+    if (e->buf.data == NULL) {
+        e->ip = ngx_rtmp_script_exit;
+        e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
+        return;
+    }
+
+    e->quote = code->redirect;
+
+    e->pos = e->buf.data;
+
+    e->ip += sizeof(ngx_rtmp_script_regex_code_t);
+}
+
+
+void
+ngx_rtmp_script_regex_end_code(ngx_rtmp_script_engine_t *e)
+{
+    u_char                            *dst, *src;
+    ngx_rtmp_session_t                *s;
+    ngx_rtmp_script_regex_end_code_t  *code;
+
+    code = (ngx_rtmp_script_regex_end_code_t *) e->ip;
+
+    s = e->request;
+
+    e->quote = 0;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp script regex end");
+
+    if (code->redirect) {
+
+        dst = e->buf.data;
+        src = e->buf.data;
+
+        ngx_unescape_uri(&dst, &src, e->pos - e->buf.data,
+                         NGX_UNESCAPE_REDIRECT);
+
+        if (src < e->pos) {
+            dst = ngx_movemem(dst, src, e->pos - src);
+        }
+
+        e->pos = dst;
+
+        if (code->add_args && s->args.len) {
+            *e->pos++ = (u_char) (code->args ? '&' : '?');
+            e->pos = ngx_copy(e->pos, s->args.data, s->args.len);
+        }
+
+        e->buf.len = e->pos - e->buf.data;
+
+        if (e->log || (s->connection->log->log_level & NGX_LOG_DEBUG_RTMP)) {
+            ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                          "rewritten redirect: \"%V\"", &e->buf);
+        }
+
+        /* TODO: ngx_rtmp_clear_location(s); */
+#if 0
+        s->headers_out.location = ngx_list_push(&s->headers_out.headers);
+        if (s->headers_out.location == NULL) {
+            e->ip = ngx_rtmp_script_exit;
+            e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
+            return;
+        }
+
+        s->headers_out.location->hash = 1;
+        ngx_str_set(&s->headers_out.location->key, "Location");
+        s->headers_out.location->value = e->buf;
+#endif
+        e->ip += sizeof(ngx_rtmp_script_regex_end_code_t);
+        return;
+    }
+
+    if (e->args) {
+        e->buf.len = e->args - e->buf.data;
+
+        if (code->add_args && s->args.len) {
+            *e->pos++ = '&';
+            e->pos = ngx_copy(e->pos, s->args.data, s->args.len);
+        }
+
+        s->args.len = e->pos - e->args;
+        s->args.data = e->args;
+
+        e->args = NULL;
+
+    } else {
+        e->buf.len = e->pos - e->buf.data;
+
+        if (!code->add_args) {
+            s->args.len = 0;
+        }
+    }
+
+    if (e->log || (s->connection->log->log_level & NGX_LOG_DEBUG_RTMP)) {
+        ngx_log_error(NGX_LOG_NOTICE, s->connection->log, 0,
+                      "rewritten data: \"%V\", args: \"%V\"",
+                      &e->buf, &s->args);
+    }
+
+    if (code->uri) {
+        s->uri = e->buf;
+
+        if (s->uri.len == 0) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "the rewritten URI has a zero length");
+            e->ip = ngx_rtmp_script_exit;
+            e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
+            return;
+        }
+
+        /* ngx_rtmp_set_exten(s); */
+    }
+
+    e->ip += sizeof(ngx_rtmp_script_regex_end_code_t);
+}
+
+
 static ngx_int_t
 ngx_rtmp_script_add_capture_code(ngx_rtmp_script_compile_t *sc, ngx_uint_t n)
 {
@@ -1092,6 +1353,259 @@ ngx_rtmp_script_full_name_code(ngx_rtmp_script_engine_t *e)
                    "rtmp script fullname: \"%V\"", &value);
 
     e->ip += sizeof(ngx_rtmp_script_full_name_code_t);
+}
+
+
+void
+ngx_rtmp_script_return_code(ngx_rtmp_script_engine_t *e)
+{
+    ngx_rtmp_script_return_code_t  *code;
+
+    code = (ngx_rtmp_script_return_code_t *) e->ip;
+
+    if (code->status < NGX_RTMP_BAD_REQUEST
+        || code->text.value.len
+        || code->text.lengths)
+    {
+#if 0
+        e->status = ngx_rtmp_send_response(e->request, code->status, NULL,
+                                           &code->text);
+#endif
+        e->status = 200;
+    } else {
+        e->status = code->status;
+    }
+
+    e->ip = ngx_rtmp_script_exit;
+}
+
+
+void
+ngx_rtmp_script_break_code(ngx_rtmp_script_engine_t *e)
+{
+    e->request->uri_changed = 0;
+
+    e->ip = ngx_rtmp_script_exit;
+}
+
+
+void
+ngx_rtmp_script_if_code(ngx_rtmp_script_engine_t *e)
+{
+    ngx_rtmp_script_if_code_t  *code;
+
+    code = (ngx_rtmp_script_if_code_t *) e->ip;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script if");
+
+    e->sp--;
+
+    if (e->sp->len && (e->sp->len != 1 || e->sp->data[0] != '0')) {
+        if (code->app_conf) {
+            e->request->app_conf = code->app_conf;
+            /* TODO: ngx_rtmp_update_location_config(e->request); */
+        }
+
+        e->ip += sizeof(ngx_rtmp_script_if_code_t);
+        return;
+    }
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script if: false");
+
+    e->ip += code->next;
+}
+
+
+void
+ngx_rtmp_script_equal_code(ngx_rtmp_script_engine_t *e)
+{
+    ngx_rtmp_variable_value_t  *val, *res;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script equal");
+
+    e->sp--;
+    val = e->sp;
+    res = e->sp - 1;
+
+    e->ip += sizeof(uintptr_t);
+
+    if (val->len == res->len
+        && ngx_strncmp(val->data, res->data, res->len) == 0)
+    {
+        *res = ngx_rtmp_variable_true_value;
+        return;
+    }
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script equal: no");
+
+    *res = ngx_rtmp_variable_null_value;
+}
+
+
+void
+ngx_rtmp_script_not_equal_code(ngx_rtmp_script_engine_t *e)
+{
+    ngx_rtmp_variable_value_t  *val, *res;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                   "rtmp script not equal");
+
+    e->sp--;
+    val = e->sp;
+    res = e->sp - 1;
+
+    e->ip += sizeof(uintptr_t);
+
+    if (val->len == res->len
+        && ngx_strncmp(val->data, res->data, res->len) == 0)
+    {
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, e->request->connection->log, 0,
+                       "rtmp script not equal: no");
+
+        *res = ngx_rtmp_variable_null_value;
+        return;
+    }
+
+    *res = ngx_rtmp_variable_true_value;
+}
+
+
+void
+ngx_rtmp_script_file_code(ngx_rtmp_script_engine_t *e)
+{
+    ngx_str_t                     path;
+    ngx_rtmp_session_t           *s;
+    ngx_open_file_info_t          of;
+    ngx_rtmp_core_app_conf_t     *cacf;
+    ngx_rtmp_variable_value_t    *value;
+    ngx_rtmp_script_file_code_t  *code;
+
+    value = e->sp - 1;
+
+    code = (ngx_rtmp_script_file_code_t *) e->ip;
+    e->ip += sizeof(ngx_rtmp_script_file_code_t);
+
+    path.len = value->len - 1;
+    path.data = value->data;
+
+    s = e->request;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp script file op %p \"%V\"", (void *) code->op, &path);
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+
+    ngx_memzero(&of, sizeof(ngx_open_file_info_t));
+
+    of.read_ahead = cacf->read_ahead;
+    of.directio = cacf->directio;
+    of.valid = cacf->open_file_cache_valid;
+    of.min_uses = cacf->open_file_cache_min_uses;
+    of.test_only = 1;
+    of.errors = cacf->open_file_cache_errors;
+    of.events = cacf->open_file_cache_events;
+
+    if (ngx_rtmp_set_disable_symlinks(s, cacf, &path, &of) != NGX_OK) {
+        e->ip = ngx_rtmp_script_exit;
+        e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
+        return;
+    }
+
+    if (ngx_open_cached_file(cacf->open_file_cache, &path, &of,
+                             s->connection->pool) != NGX_OK)
+    {
+        if (of.err != NGX_ENOENT
+            && of.err != NGX_ENOTDIR
+            && of.err != NGX_ENAMETOOLONG)
+        {
+            ngx_log_error(NGX_LOG_CRIT, s->connection->log, of.err,
+                          "%s \"%s\" failed", of.failed, value->data);
+        }
+
+        switch (code->op) {
+
+        case ngx_rtmp_script_file_plain:
+        case ngx_rtmp_script_file_dir:
+        case ngx_rtmp_script_file_exists:
+        case ngx_rtmp_script_file_exec:
+             goto false_value;
+
+        case ngx_rtmp_script_file_not_plain:
+        case ngx_rtmp_script_file_not_dir:
+        case ngx_rtmp_script_file_not_exists:
+        case ngx_rtmp_script_file_not_exec:
+             goto true_value;
+        }
+
+        goto false_value;
+    }
+
+    switch (code->op) {
+    case ngx_rtmp_script_file_plain:
+        if (of.is_file) {
+             goto true_value;
+        }
+        goto false_value;
+
+    case ngx_rtmp_script_file_not_plain:
+        if (of.is_file) {
+            goto false_value;
+        }
+        goto true_value;
+
+    case ngx_rtmp_script_file_dir:
+        if (of.is_dir) {
+             goto true_value;
+        }
+        goto false_value;
+
+    case ngx_rtmp_script_file_not_dir:
+        if (of.is_dir) {
+            goto false_value;
+        }
+        goto true_value;
+
+    case ngx_rtmp_script_file_exists:
+        if (of.is_file || of.is_dir || of.is_link) {
+             goto true_value;
+        }
+        goto false_value;
+
+    case ngx_rtmp_script_file_not_exists:
+        if (of.is_file || of.is_dir || of.is_link) {
+            goto false_value;
+        }
+        goto true_value;
+
+    case ngx_rtmp_script_file_exec:
+        if (of.is_exec) {
+             goto true_value;
+        }
+        goto false_value;
+
+    case ngx_rtmp_script_file_not_exec:
+        if (of.is_exec) {
+            goto false_value;
+        }
+        goto true_value;
+    }
+
+false_value:
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp script file op false");
+
+    *value = ngx_rtmp_variable_null_value;
+    return;
+
+true_value:
+
+    *value = ngx_rtmp_variable_true_value;
+    return;
 }
 
 

@@ -157,7 +157,9 @@ typedef struct {
 #define NGX_RTMP_DISCONNECT             NGX_RTMP_MSG_MAX + 2
 #define NGX_RTMP_HANDSHAKE_DONE         NGX_RTMP_MSG_MAX + 3
 #define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 4
-#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 5
+#define NGX_RTMP_SERVER_REWRITE         NGX_RTMP_MSG_MAX + 5
+#define NGX_RTMP_REWRITE                NGX_RTMP_MSG_MAX + 6
+#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 7
 
 
 /* RMTP control message types */
@@ -220,6 +222,8 @@ struct ngx_rtmp_session_s {
     ngx_buf_t                  *request_line;
     ngx_str_t                   uri;
     ngx_str_t                   unparsed_uri;
+
+    ngx_uint_t                  err_status;
 
     time_t                      start_sec;
     ngx_msec_t                  start_msec;
@@ -307,6 +311,7 @@ struct ngx_rtmp_session_s {
     u_char                     *port_end;
 
     unsigned                    keepalive:1;
+    unsigned                    internal:1;
     unsigned                    lingering_close:1;
 
     unsigned                    request_in_file_only:1;
@@ -471,6 +476,22 @@ typedef struct {
 
     ngx_flag_t              tcp_nopush;
     ngx_flag_t              tcp_nodelay;
+
+    off_t                   directio;                /* directio */
+    off_t                   directio_alignment;      /* directio_alignment */
+
+    size_t                  read_ahead;              /* read_ahead */
+
+#if (NGX_HAVE_OPENAT)
+    ngx_uint_t              disable_symlinks;        /* disable_symlinks */
+    ngx_rtmp_complex_value_t  *disable_symlinks_from;
+#endif
+
+    ngx_open_file_cache_t  *open_file_cache;
+    time_t                  open_file_cache_valid;
+    ngx_uint_t              open_file_cache_min_uses;
+    ngx_flag_t              open_file_cache_errors;
+    ngx_flag_t              open_file_cache_events;
 } ngx_rtmp_core_app_conf_t;
 
 
@@ -503,6 +524,11 @@ typedef struct {
 #define NGX_RTMP_APP_CONF               0x08000000
 #define NGX_RTMP_REC_CONF               0x10000000
 #define NGX_RTMP_UPS_CONF               0x20000000
+#define NGX_RTMP_SIF_CONF               0x40000000
+#define NGX_RTMP_LIF_CONF               0x80000000
+
+#define NGX_RTMP_MOVED_PERMANENTLY      301
+#define NGX_RTMP_MOVED_TEMPORARILY      302
 
 #define NGX_RTMP_MAIN_CONF_OFFSET  offsetof(ngx_rtmp_conf_ctx_t, main_conf)
 #define NGX_RTMP_SRV_CONF_OFFSET   offsetof(ngx_rtmp_conf_ctx_t, srv_conf)
@@ -765,6 +791,8 @@ ngx_int_t ngx_rtmp_parse_request_line(ngx_rtmp_session_t *s, ngx_buf_t *b);
 ngx_int_t ngx_rtmp_process_request_uri(ngx_rtmp_session_t *s);
 ngx_int_t ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s,
     ngx_uint_t merge_slashes);
+ngx_int_t ngx_rtmp_set_disable_symlinks(ngx_rtmp_session_t *s,
+    ngx_rtmp_core_app_conf_t *cacf, ngx_str_t *path, ngx_open_file_info_t *of);
 
 #include "ngx_rtmp_upstream.h"
 
