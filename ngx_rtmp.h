@@ -19,8 +19,10 @@
 #include "ngx_rtmp_bandwidth.h"
 
 
-typedef struct ngx_rtmp_upstream_s  ngx_rtmp_upstream_t;
-typedef struct ngx_rtmp_session_s   ngx_rtmp_session_t;
+typedef struct ngx_rtmp_core_srv_conf_s  ngx_rtmp_core_srv_conf_t;
+typedef struct ngx_rtmp_upstream_s       ngx_rtmp_upstream_t;
+typedef struct ngx_rtmp_session_s        ngx_rtmp_session_t;
+typedef struct ngx_rtmp_virtual_names_s  ngx_rtmp_virtual_names_t;
 
 
 #include "ngx_rtmp_variables.h"
@@ -70,9 +72,15 @@ typedef struct {
 
 
 typedef struct {
-    ngx_rtmp_conf_ctx_t    *ctx;
-    ngx_str_t               addr_text;
-    unsigned                proxy_protocol:1;
+    ngx_rtmp_conf_ctx_t       *ctx;
+    ngx_str_t                  addr_text;
+
+    /* the default server configuration for this address:port */
+    ngx_rtmp_core_srv_conf_t  *default_server;
+
+    ngx_rtmp_virtual_names_t  *virtual_names;
+    
+    unsigned                   proxy_protocol:1;
 } ngx_rtmp_addr_conf_t;
 
 typedef struct {
@@ -105,6 +113,54 @@ typedef struct {
 
 
 typedef struct {
+    ngx_sockaddr_t             sockaddr;
+    socklen_t                  socklen;
+
+    unsigned                   set:1;
+    unsigned                   default_server:1;
+    unsigned                   bind:1;
+    unsigned                   wildcard:1;
+#if (NGX_HAVE_INET6)
+    unsigned                   ipv6only:1;
+#endif
+    unsigned                   deferred_accept:1;
+    unsigned                   reuseport:1;
+    unsigned                   so_keepalive:2;
+    unsigned                   proxy_protocol:1;
+
+    int                        backlog;
+    int                        rcvbuf;
+    int                        sndbuf;
+#if (NGX_HAVE_SETFIB)
+    int                        setfib;
+#endif
+#if (NGX_HAVE_TCP_FASTOPEN)
+    int                        fastopen;
+#endif
+#if (NGX_HAVE_KEEPALIVE_TUNABLE)
+    int                        tcp_keepidle;
+    int                        tcp_keepintvl;
+    int                        tcp_keepcnt;
+#endif
+
+#if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
+    char                      *accept_filter;
+#endif
+
+    u_char                     addr[NGX_SOCKADDR_STRLEN + 1];
+} ngx_rtmp_listen_opt_t;
+
+
+typedef struct {
+#if (NGX_PCRE)
+    ngx_rtmp_regex_t          *regex;
+#endif
+    ngx_rtmp_core_srv_conf_t  *server;  /* virtual name server conf */
+    ngx_str_t                  name;
+} ngx_rtmp_server_name_t;
+
+
+typedef struct {
     struct sockaddr        *sockaddr;
     socklen_t               socklen;
 
@@ -122,6 +178,21 @@ typedef struct {
     int                     tcp_keepintvl;
     int                     tcp_keepcnt;
 #endif
+
+    ngx_rtmp_listen_opt_t   opt;
+
+    ngx_hash_t              hash;
+    ngx_hash_wildcard_t    *wc_head;
+    ngx_hash_wildcard_t    *wc_tail;
+
+#if (NGX_PCRE)
+    ngx_uint_t              nregex;
+    ngx_rtmp_server_name_t  *regex;
+#endif
+
+    /* the default server configuration for this address:port */
+    ngx_rtmp_core_srv_conf_t *default_server;
+    ngx_array_t               servers;  /* array of ngx_rtmp_core_srv_conf_t */
 } ngx_rtmp_conf_addr_t;
 
 
@@ -406,6 +477,7 @@ typedef struct {
     ngx_uint_t               variables_hash_bucket_size;
 
     ngx_hash_keys_arrays_t  *variables_keys;
+    ngx_array_t             *ports;  /* ngx_rtmp_conf_port_t */
 } ngx_rtmp_core_main_conf_t;
 
 
@@ -413,7 +485,10 @@ typedef struct {
 extern ngx_rtmp_core_main_conf_t   *ngx_rtmp_core_main_conf;
 
 
-typedef struct ngx_rtmp_core_srv_conf_s {
+struct ngx_rtmp_core_srv_conf_s {
+    /* array of the ngx_rtmp_server_name_t, "server_name" directive */
+    ngx_array_t             server_names;
+
     ngx_array_t             applications; /* ngx_rtmp_core_app_conf_t */
 
     ngx_msec_t              timeout;
@@ -437,10 +512,25 @@ typedef struct ngx_rtmp_core_srv_conf_s {
     ngx_msec_t              buflen;
 
     ngx_rtmp_conf_ctx_t    *ctx;
+
     ngx_str_t               server_name;
+
     ngx_flag_t              merge_slashes;
     ngx_flag_t              listen_parsed;
-} ngx_rtmp_core_srv_conf_t;
+    
+    unsigned                listen:1;
+#if (NGX_PCRE)
+    unsigned                captures:1;
+#endif
+};
+
+
+struct ngx_rtmp_virtual_names_s {
+    ngx_hash_combined_t        names;
+
+    ngx_uint_t                 nregex;
+    ngx_rtmp_server_name_t    *regex;
+};
 
 
 typedef struct {
