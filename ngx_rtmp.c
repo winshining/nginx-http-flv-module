@@ -32,6 +32,9 @@ static ngx_int_t ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     ngx_rtmp_conf_addr_t *addr);
 #endif
 static ngx_int_t ngx_rtmp_cmp_conf_addrs(const void *one, const void *two);
+static ngx_int_t ngx_rtmp_find_virtual_server(ngx_connection_t *c,
+    ngx_rtmp_virtual_names_t *virtual_names, ngx_str_t *host,
+    ngx_rtmp_session_t *s, ngx_rtmp_core_srv_conf_t **cscfp);
 static ngx_int_t ngx_rtmp_init_events(ngx_conf_t *cf,
         ngx_rtmp_core_main_conf_t *cmcf);
 static ngx_int_t ngx_rtmp_init_event_handlers(ngx_conf_t *cf,
@@ -275,7 +278,7 @@ ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
                 /* merge the server{}'s app_conf */
 
-                /*ctx->app_conf = cscfp[s]->ctx->loc_conf;*/
+                /*ctx->app_conf = cscfp[s]->ctx->app_conf;*/
 
                 rv = module->merge_app_conf(cf,
                                             ctx->app_conf[mi],
@@ -1058,3 +1061,187 @@ ngx_rtmp_init_process(ngx_cycle_t *cycle)
 #endif
     return NGX_OK;
 }
+
+
+ngx_int_t
+ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
+{
+    u_char  *h, ch;
+    size_t   i, dot_pos, host_len;
+
+    enum {
+        sw_usual = 0,
+        sw_literal,
+        sw_rest
+    } state;
+
+    dot_pos = host->len;
+    host_len = host->len;
+
+    h = host->data;
+
+    state = sw_usual;
+
+    for (i = 0; i < host->len; i++) {
+        ch = h[i];
+
+        switch (ch) {
+
+        case '.':
+            if (dot_pos == i - 1) {
+                return NGX_DECLINED;
+            }
+            dot_pos = i;
+            break;
+
+        case ':':
+            if (state == sw_usual) {
+                host_len = i;
+                state = sw_rest;
+            }
+            break;
+
+        case '[':
+            if (i == 0) {
+                state = sw_literal;
+            }
+            break;
+
+        case ']':
+            if (state == sw_literal) {
+                host_len = i + 1;
+                state = sw_rest;
+            }
+            break;
+
+        case '\0':
+            return NGX_DECLINED;
+
+        default:
+
+            if (ngx_path_separator(ch)) {
+                return NGX_DECLINED;
+            }
+
+            if (ch >= 'A' && ch <= 'Z') {
+                alloc = 1;
+            }
+
+            break;
+        }
+    }
+
+    if (dot_pos == host_len - 1) {
+        host_len--;
+    }
+
+    if (host_len == 0) {
+        return NGX_DECLINED;
+    }
+
+    if (alloc) {
+        host->data = ngx_pnalloc(pool, host_len);
+        if (host->data == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_strlow(host->data, h, host_len);
+    }
+
+    host->len = host_len;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
+{
+    ngx_int_t                  rc;
+    ngx_rtmp_connection_t     *rconn;
+#if 0
+    ngx_rtmp_core_app_conf_t  *cacf;
+#endif
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+#if (NGX_SUPPRESS_WARN)
+    cscf = NULL;
+#endif
+
+    rconn = s->rtmp_connection;
+
+    rc = ngx_rtmp_find_virtual_server(s->connection,
+                                      rconn->addr_conf->virtual_names,
+                                      host, s, &cscf);
+
+    if (rc == NGX_ERROR) {
+        ngx_rtmp_finalize_session(s);
+        return NGX_ERROR;
+    }
+
+    if (rc == NGX_DECLINED) {
+        return NGX_OK;
+    }
+
+    s->srv_conf = cscf->ctx->srv_conf;
+    s->app_conf = cscf->ctx->app_conf;
+#if 0
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+
+    ngx_set_connection_log(s->connection, cacf->error_log);
+#endif
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_find_virtual_server(ngx_connection_t *c,
+    ngx_rtmp_virtual_names_t *virtual_names, ngx_str_t *host,
+    ngx_rtmp_session_t *s, ngx_rtmp_core_srv_conf_t **cscfp)
+{
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    if (virtual_names == NULL) {
+        return NGX_DECLINED;
+    }
+
+    cscf = ngx_hash_find_combined(&virtual_names->names,
+                                  ngx_hash_key(host->data, host->len),
+                                  host->data, host->len);
+
+    if (cscf) {
+        *cscfp = cscf;
+        return NGX_OK;
+    }
+
+#if (NGX_PCRE)
+
+    if (host->len && virtual_names->nregex) {
+        ngx_int_t                n;
+        ngx_uint_t               i;
+        ngx_rtmp_server_name_t  *sn;
+
+        sn = virtual_names->regex;
+
+        for (i = 0; i < virtual_names->nregex; i++) {
+
+            n = ngx_rtmp_regex_exec(s, sn[i].regex, host);
+
+            if (n == NGX_DECLINED) {
+                continue;
+            }
+
+            if (n == NGX_OK) {
+                *cscfp = sn[i].server;
+                return NGX_OK;
+            }
+
+            return NGX_ERROR;
+        }
+    }
+
+#endif /* NGX_PCRE */
+
+    return NGX_DECLINED;
+}
+

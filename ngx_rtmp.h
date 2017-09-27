@@ -197,6 +197,20 @@ typedef struct {
 } ngx_rtmp_conf_addr_t;
 
 
+typedef struct {
+    ngx_rtmp_addr_conf_t             *addr_conf;
+    ngx_rtmp_conf_ctx_t              *conf_ctx;
+
+    ngx_buf_t                       **busy;
+    ngx_int_t                         nbusy;
+
+    ngx_buf_t                       **free;
+    ngx_int_t                         nfree;
+
+    unsigned                          proxy_protocol:1;
+} ngx_rtmp_connection_t;
+
+
 #define NGX_RTMP_VERSION                3
 
 #define NGX_LOG_DEBUG_RTMP              NGX_LOG_DEBUG_CORE
@@ -354,9 +368,6 @@ struct ngx_rtmp_session_s {
     unsigned                    relay:1;
     unsigned                    static_relay:1;
 
-    unsigned                    uri_changed:1;
-    unsigned                    uri_changes:4;
-
     unsigned                    upstream_retrying:1;
 
     /* URI with "/." and on Win32 with "//" */
@@ -402,6 +413,8 @@ struct ngx_rtmp_session_s {
 
     size_t                      limit_rate;
     size_t                      limit_rate_after;
+
+    ngx_rtmp_connection_t      *rtmp_connection;
 
     ngx_rtmp_session_t         *publisher;
 
@@ -858,6 +871,11 @@ ngx_int_t ngx_rtmp_parse_request_line(ngx_rtmp_session_t *s, ngx_buf_t *b);
 ngx_int_t ngx_rtmp_process_request_uri(ngx_rtmp_session_t *s);
 ngx_int_t ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s,
     ngx_uint_t merge_slashes);
+
+ngx_int_t ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool,
+    ngx_uint_t alloc);
+ngx_int_t ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host);
+
 
 #include "ngx_rtmp_upstream.h"
 
