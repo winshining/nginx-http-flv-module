@@ -1589,10 +1589,9 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
     ngx_rtmp_relay_app_conf_t  *racf;
     ngx_uint_t                  n, m, k;
     ngx_rtmp_relay_static_t    *rs;
-    ngx_rtmp_listen_t          *lst;
     ngx_event_t               **pevent, *event;
 
-    if (cmcf == NULL || cmcf->listen.nelts == 0) {
+    if (cmcf == NULL || cmcf->servers.nelts == 0) {
         return NGX_OK;
     }
 
@@ -1601,8 +1600,6 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
     if (ngx_process_slot) {
         return NGX_OK;
     }
-
-    lst = cmcf->listen.elts;
 
     pcscf = cmcf->servers.elts;
     for (n = 0; n < cmcf->servers.nelts; ++n, ++pcscf) {
@@ -1620,7 +1617,7 @@ ngx_rtmp_relay_init_process(ngx_cycle_t *cycle)
                 event = *pevent;
 
                 rs = event->data;
-                rs->cctx = *lst->ctx;
+                rs->cctx = *cscf->ctx;
                 rs->cctx.app_conf = cacf->app_conf;
 
                 ngx_post_event(event, &ngx_rtmp_init_queue);

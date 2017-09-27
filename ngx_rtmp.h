@@ -100,6 +100,7 @@ typedef struct {
 
 
 typedef struct {
+    /* ngx_rtmp_in_addr_t or ngx_rtmp_in_addr6_t */
     void                   *addrs;
     ngx_uint_t              naddrs;
 } ngx_rtmp_port_t;
@@ -514,6 +515,8 @@ struct ngx_rtmp_core_srv_conf_s {
     ngx_rtmp_conf_ctx_t    *ctx;
 
     ngx_str_t               server_name;
+
+    size_t                  connection_pool_size;
 
     ngx_flag_t              merge_slashes;
     ngx_flag_t              listen_parsed;

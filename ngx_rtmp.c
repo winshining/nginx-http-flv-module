@@ -789,6 +789,7 @@ static ngx_listening_t *
 ngx_rtmp_add_listening(ngx_conf_t *cf, ngx_rtmp_conf_addr_t *addr)
 {
     ngx_listening_t           *ls;
+    ngx_rtmp_core_srv_conf_t  *cscf;
 
     ls = ngx_create_listening(cf, &addr->opt.sockaddr.sockaddr,
                               addr->opt.socklen);
@@ -800,7 +801,8 @@ ngx_rtmp_add_listening(ngx_conf_t *cf, ngx_rtmp_conf_addr_t *addr)
 
     ls->handler = ngx_rtmp_init_connection;
 
-    ls->pool_size = 4096;
+    cscf = addr->default_server;
+    ls->pool_size = cscf->connection_pool_size;
     ls->post_accept_timeout = 60000;
 
     ls->log.data = &ls->addr_text;
@@ -814,7 +816,7 @@ ngx_rtmp_add_listening(ngx_conf_t *cf, ngx_rtmp_conf_addr_t *addr)
             iocpcf = ngx_event_get_conf(cf->cycle->conf_ctx, ngx_iocp_module);
         }
         if (iocpcf && iocpcf->acceptex_read) {
-            ls->post_accept_buffer_size = cscf->client_header_buffer_size;
+            ls->post_accept_buffer_size = 1024;
         }
     }
 #endif
