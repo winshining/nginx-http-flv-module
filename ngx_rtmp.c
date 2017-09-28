@@ -872,15 +872,15 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     ngx_rtmp_in_addr_t        *addrs;
     struct sockaddr_in        *sin;
     ngx_rtmp_virtual_names_t  *vn;
-    
+
     mport->addrs = ngx_pcalloc(cf->pool,
                                mport->naddrs * sizeof(ngx_rtmp_in_addr_t));
     if (mport->addrs == NULL) {
         return NGX_ERROR;
     }
-    
+
     addrs = mport->addrs;
-    
+
     for (i = 0; i < mport->naddrs; i++) {
         
         sin = &addr[i].opt.sockaddr.sockaddr_in;
@@ -900,14 +900,14 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         {
             continue;
         }
-        
+
         vn = ngx_palloc(cf->pool, sizeof(ngx_rtmp_virtual_names_t));
         if (vn == NULL) {
             return NGX_ERROR;
         }
-        
+
         addrs[i].conf.virtual_names = vn;
-        
+
         vn->names.hash = addr[i].hash;
         vn->names.wc_head = addr[i].wc_head;
         vn->names.wc_tail = addr[i].wc_tail;
@@ -916,7 +916,7 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         vn->regex = addr[i].regex;
 #endif
     }
-    
+
     return NGX_OK;
 }
 
@@ -931,22 +931,22 @@ ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     ngx_rtmp_in6_addr_t       *addrs6;
     struct sockaddr_in6       *sin6;
     ngx_rtmp_virtual_names_t  *vn;
-    
+
     mport->addrs = ngx_pcalloc(cf->pool,
                                mport->naddrs * sizeof(ngx_rtmp_in6_addr_t));
     if (mport->addrs == NULL) {
         return NGX_ERROR;
     }
-    
+
     addrs6 = mport->addrs;
-    
+
     for (i = 0; i < mport->naddrs; i++) {
-        
+
         sin6 = &addr[i].opt.sockaddr.sockaddr_in6;
         addrs6[i].addr6 = sin6->sin6_addr;
         addrs6[i].conf.default_server = addr[i].default_server;
         addrs6[i].conf.proxy_protocol = addr[i].opt.proxy_protocol;
-        
+
         if (addr[i].hash.buckets == NULL
             && (addr[i].wc_head == NULL
                 || addr[i].wc_head->hash.buckets == NULL)
@@ -959,14 +959,14 @@ ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         {
             continue;
         }
-        
+
         vn = ngx_palloc(cf->pool, sizeof(ngx_rtmp_virtual_names_t));
         if (vn == NULL) {
             return NGX_ERROR;
         }
-        
+
         addrs6[i].conf.virtual_names = vn;
-        
+
         vn->names.hash = addr[i].hash;
         vn->names.wc_head = addr[i].wc_head;
         vn->names.wc_tail = addr[i].wc_tail;
@@ -975,7 +975,7 @@ ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         vn->regex = addr[i].regex;
 #endif
     }
-    
+
     return NGX_OK;
 }
 

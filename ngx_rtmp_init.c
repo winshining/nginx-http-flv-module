@@ -9,11 +9,11 @@
 #include <ngx_core.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_proxy_protocol.h"
-#include "ngx_rtmp_auto_push_module.h"
 
 
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
 
+static void ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn);
 
 extern ngx_module_t        ngx_rtmp_auto_push_module;
 
@@ -32,7 +32,6 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
     struct sockaddr_in6       *sin6;
     ngx_rtmp_in6_addr_t       *addr6;
 #endif
-    ngx_rtmp_auto_push_conf_t *apcf;
 
     rconn = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_connection_t));
     if (rconn == NULL) {
@@ -48,9 +47,6 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
 
     port = c->listening->servers;
     unix_socket = 0;
-
-    apcf = (ngx_rtmp_auto_push_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx,
-           ngx_rtmp_auto_push_module);
 
     if (port->naddrs > 1) {
 
@@ -91,12 +87,7 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
         case AF_UNIX:
             unix_socket = 1;
 
-            if (apcf->auto_push == 0) {
-                ngx_close_connection(c);
-                return;
-            }
-
-            rconn->addr_conf = apcf->addr_conf;
+            ngx_rtmp_process_unix_socket(rconn);
 
             break;
 
@@ -131,12 +122,7 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
         case AF_UNIX:
             unix_socket = 1;
 
-            if (apcf->auto_push == 0) {
-                ngx_close_connection(c);
-                return;
-            }
-
-            rconn->addr_conf = apcf->addr_conf;
+            ngx_rtmp_process_unix_socket(rconn);
 
             break;
 
@@ -181,8 +167,8 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t) +
             sizeof(ngx_chain_t *) * ((ngx_rtmp_core_srv_conf_t *)
-                addr_conf->ctx->srv_conf[ngx_rtmp_core_module
-                    .ctx_index])->out_queue);
+                addr_conf->default_server->ctx->srv_conf
+                    [ngx_rtmp_core_module.ctx_index])->out_queue);
     if (s == NULL) {
         ngx_rtmp_close_connection(c);
         return NULL;
@@ -190,8 +176,8 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s->rtmp_connection = c->data;
 
-    s->main_conf = addr_conf->ctx->main_conf;
-    s->srv_conf = addr_conf->ctx->srv_conf;
+    s->main_conf = addr_conf->default_server->ctx->main_conf;
+    s->srv_conf = addr_conf->default_server->ctx->srv_conf;
 
     s->addr_text = &addr_conf->addr_text;
 
@@ -359,5 +345,81 @@ ngx_rtmp_finalize_session(ngx_rtmp_session_t *s)
     e->log = c->log;
 
     ngx_post_event(e, &ngx_posted_events);
+}
+
+static void
+ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn)
+{
+    ngx_uint_t                 i;
+    ngx_rtmp_port_t           *port;
+    struct sockaddr_in        *sin;
+    ngx_rtmp_in_addr_t        *addr;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6       *sin6;
+    ngx_rtmp_in6_addr_t       *addr6;
+#endif
+    ngx_listening_t           *ls;
+
+    ls = ngx_cycle->listening.elts;
+    for (i = 0; i < ngx_cycle->listening.nelts; ++i, ++ls) {
+        if (ls->handler == ngx_rtmp_init_connection) {
+            break;
+        }
+    }
+
+    port = ls->servers;
+
+    if (port->naddrs > 1) {
+        switch (ls->sockaddr->sa_family) {
+
+#if (NGX_HAVE_INET6)
+        case AF_INET6:
+            sin6 = (struct sockaddr_in6 *) ls->sockaddr;
+
+            addr6 = port->addrs;
+
+            /* the last address is "*" */
+
+            for (i = 0; i < port->naddrs - 1; i++) {
+                if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
+                    break;
+                }
+            }
+
+            rconn->addr_conf = &addr6[i].conf;
+
+            break;
+#endif
+
+        default: /* AF_INET */
+            sin = (struct sockaddr_in *) ls->sockaddr;
+
+            addr = port->addrs;
+
+            /* the last address is "*" */
+
+            for (i = 0; i < port->naddrs - 1; i++) {
+                if (addr[i].addr == sin->sin_addr.s_addr) {
+                    break;
+                }
+            }
+
+            rconn->addr_conf = &addr[i].conf;
+        }
+    } else {
+        switch (ls->sockaddr->sa_family) {
+
+#if (NGX_HAVE_INET6)
+        case AF_INET6:
+            addr6 = port->addrs;
+            rconn->addr_conf = &addr6[0].conf;
+            break;
+#endif
+
+        default: /* AF_INET */
+            addr = port->addrs;
+            rconn->addr_conf = &addr[0].conf;
+        }
+    }
 }
 
