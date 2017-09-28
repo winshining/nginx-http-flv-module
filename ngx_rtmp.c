@@ -756,6 +756,7 @@ ngx_rtmp_init_listening(ngx_conf_t *cf, ngx_rtmp_conf_port_t *port)
             return NGX_ERROR;
         }
 
+        /* used in ngx_rtmp_init_connection */
         ls->servers = rport;
 
         rport->naddrs = i + 1;
