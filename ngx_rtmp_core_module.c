@@ -400,6 +400,13 @@ ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    if (ngx_array_init(&conf->server_names, cf->temp_pool, 4,
+                       sizeof(ngx_rtmp_server_name_t))
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
     if (ngx_array_init(&conf->applications, cf->pool, 4,
                        sizeof(ngx_rtmp_core_app_conf_t *))
         != NGX_OK)
