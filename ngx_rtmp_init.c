@@ -164,11 +164,18 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     ngx_rtmp_session_t             *s;
     ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_error_log_ctx_t       *ctx;
+    ngx_rtmp_conf_ctx_t            *cctx;
+
+    if (addr_conf->default_server) {
+        cctx = addr_conf->default_server->ctx;
+    } else {
+        /* unix domain socket */
+        cctx = addr_conf->ctx;
+    }
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t) +
             sizeof(ngx_chain_t *) * ((ngx_rtmp_core_srv_conf_t *)
-                addr_conf->default_server->ctx->srv_conf
-                    [ngx_rtmp_core_module.ctx_index])->out_queue);
+                cctx->srv_conf[ngx_rtmp_core_module.ctx_index])->out_queue);
     if (s == NULL) {
         ngx_rtmp_close_connection(c);
         return NULL;
@@ -176,8 +183,8 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s->rtmp_connection = c->data;
 
-    s->main_conf = addr_conf->default_server->ctx->main_conf;
-    s->srv_conf = addr_conf->default_server->ctx->srv_conf;
+    s->main_conf = cctx->main_conf;
+    s->srv_conf = cctx->srv_conf;
 
     s->addr_text = &addr_conf->addr_text;
 
