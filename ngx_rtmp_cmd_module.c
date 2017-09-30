@@ -45,6 +45,7 @@ static ngx_int_t ngx_rtmp_cmd_recorded(ngx_rtmp_session_t *s,
 static ngx_int_t ngx_rtmp_cmd_set_buflen(ngx_rtmp_session_t *s,
        ngx_rtmp_set_buflen_t *v);
 
+static ngx_int_t ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
        const u_char *name, const u_char *args, const u_char *cmd);
 
@@ -263,8 +264,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-
     trans = v->trans;
 
     /* fill session parameters */
@@ -288,6 +287,12 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     NGX_RTMP_SET_STRPAR(page_url);
 
 #undef NGX_RTMP_SET_STRPAR
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
     if (p) {
@@ -873,18 +878,66 @@ ngx_rtmp_cmd_postconfiguration(ngx_conf_t *cf)
 
 
 static ngx_int_t
+ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
+{
+    u_char     *p;
+    ngx_int_t   rc;
+    ngx_str_t   host;
+    ngx_str_t   schema = ngx_string("rtmp://");
+
+    if (s->tc_url.len <= schema.len
+        || ngx_strncasecmp(s->tc_url.data, schema.data, schema.len))
+    {
+        return NGX_ERROR;
+    }
+
+    s->host_start = s->tc_url.data + schema.len;
+
+    p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, ':');
+    if (p) {
+        s->host_end = p;
+    } else {
+        p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, '/');
+        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema.len);
+    }
+
+    host.len = s->host_end - s->host_start;
+    host.data = s->host_start;
+
+    rc = ngx_rtmp_validate_host(&host, s->connection->pool, 0);
+
+    if (rc == NGX_DECLINED) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "client send invalid host in request line");
+        return NGX_ERROR;
+    }
+
+#if 0
+    /* TODO: send error details to client */
+    if (rc == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+#endif
+
+    if (ngx_rtmp_set_virtual_server(s, &host) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
     const u_char *args, const u_char *cmd)
 {
     size_t               rlen = 0;
-    ngx_str_t            host;
-    ngx_int_t            rc;
 
     s->stream.len = ngx_strlen(name);
     if (s->stream.len) {
         s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
         if (s->stream.data == NULL) {
-            goto error;
+            return NGX_ERROR;
         }
 
         ngx_memcpy(s->stream.data, name, ngx_strlen(name));
@@ -904,7 +957,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
     if (s->request_line == NULL) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "%s: failed to ngx_pcalloc for request_line", cmd);
-        goto error;
+        return NGX_ERROR;
     }
 
     if (args[0]) {
@@ -920,42 +973,12 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
     if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "%s: invalid request line: '%s'", cmd, s->request_line->pos);
-        goto error;
+        return NGX_ERROR;
     }
 
     if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
-        goto error;
-    }
-
-    if (s->host_start && s->host_end) {
-        host.len = s->host_end - s->host_start;
-        host.data = s->host_start;
-
-        rc = ngx_rtmp_validate_host(&host, s->connection->pool, 0);
-
-        if (rc == NGX_DECLINED) {
-            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                          "client send invalid host in request line");
-            goto error;
-        }
-#if 0
-        /* TODO: send error details to client */
-        if (rc == NGX_ERROR) {
-            goto error;
-        }
-#endif
-
-        if (ngx_rtmp_set_virtual_server(s, &host) == NGX_ERROR) {
-            goto error;
-        }
-    } else {
-        goto error;
+        return NGX_ERROR;
     }
 
     return NGX_OK;
-
-error:
-
-    ngx_rtmp_finalize_session(s);
-    return NGX_ERROR;
 }
