@@ -43,36 +43,8 @@ typedef struct {
 
 
 typedef struct {
-    u_char                  sockaddr[NGX_SOCKADDRLEN];
-    socklen_t               socklen;
-
-    /* server ctx */
-    ngx_rtmp_conf_ctx_t    *ctx;
-
-    unsigned                bind:1;
-    unsigned                wildcard:1;
-#if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
-    unsigned                ipv6only:2;
-#endif
-    unsigned                so_keepalive:2;
-    unsigned                proxy_protocol:1;
-#if (NGX_HAVE_KEEPALIVE_TUNABLE)
-    int                     tcp_keepidle;
-    int                     tcp_keepintvl;
-    int                     tcp_keepcnt;
-#endif
-    /* in case of missing of the setting of listen directive,
-     * if the system supports both IPv4 and IPv6, there will
-     * be 1 or 2 item(s) in the cmcf->listen belongs to a
-     * single server block, when finding it according to the
-     * index of the server block, this member will be used
-     */
-    ngx_flag_t              consecutive;
-} ngx_rtmp_listen_t;
-
-
-typedef struct {
     ngx_rtmp_conf_ctx_t       *ctx;
+
     ngx_str_t                  addr_text;
 
     /* the default server configuration for this address:port */
@@ -162,24 +134,6 @@ typedef struct {
 
 
 typedef struct {
-    struct sockaddr        *sockaddr;
-    socklen_t               socklen;
-
-    ngx_rtmp_conf_ctx_t    *ctx;
-
-    unsigned                bind:1;
-    unsigned                wildcard:1;
-#if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
-    unsigned                ipv6only:2;
-#endif
-    unsigned                so_keepalive:2;
-    unsigned                proxy_protocol:1;
-#if (NGX_HAVE_KEEPALIVE_TUNABLE)
-    int                     tcp_keepidle;
-    int                     tcp_keepintvl;
-    int                     tcp_keepcnt;
-#endif
-
     ngx_rtmp_listen_opt_t   opt;
 
     ngx_hash_t              hash;
@@ -468,15 +422,12 @@ typedef struct {
 
 typedef struct {
     ngx_array_t              servers;    /* ngx_rtmp_core_srv_conf_t */
-    ngx_array_t              listen;     /* ngx_rtmp_listen_t */
 
     ngx_array_t              events[NGX_RTMP_MAX_EVENT];
 
     ngx_hash_t               amf_hash;
     ngx_array_t              amf_arrays;
     ngx_array_t              amf;
-
-    void                    *data;
 
     ngx_hash_t               variables_hash;
 

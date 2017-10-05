@@ -11,17 +11,6 @@ static ngx_rtmp_play_pt         next_play;
 static ngx_rtmp_close_stream_pt next_close_stream;
 
 
-typedef struct ngx_http_flv_live_http_info_s ngx_http_flv_live_http_info_t;
-
-struct ngx_http_flv_live_http_info_s {
-    ngx_array_t        *conf;
-    ngx_flag_t          inited;
-};
-
-
-static ngx_http_flv_live_http_info_t ngx_http_flv_live_http_info;
-
-
 static ngx_int_t ngx_http_flv_live_init(ngx_conf_t *cf);
 static void *ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
@@ -71,11 +60,11 @@ static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
 
-static ngx_int_t ngx_http_flv_live_preprocess(ngx_http_request_t *r);
+static ngx_int_t ngx_http_flv_live_preprocess(ngx_http_request_t *r,
+        ngx_rtmp_connection_t *rconn);
 
-/* simulate the ngx_rtmp_init_connection */
 static ngx_rtmp_session_t *ngx_http_flv_live_init_connection(
-        ngx_http_request_t *r);
+        ngx_http_request_t *r, ngx_rtmp_connection_t *rconn);
 static ngx_rtmp_session_t *ngx_http_flv_live_init_session(
         ngx_http_request_t *r, ngx_rtmp_addr_conf_t *add_conf);
 static ngx_int_t ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s,
@@ -145,8 +134,6 @@ ngx_http_flv_live_init(ngx_conf_t *cf)
 
     *h = ngx_http_flv_live_handler;
 
-    ngx_http_flv_live_http_info.inited = 1;
-
     return NGX_OK;
 }
 
@@ -155,7 +142,6 @@ void *
 ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 {
     ngx_http_flv_live_conf_t  *conf;
-    void                      **p;
 
     conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_flv_live_conf_t));
     if (conf == NULL) {
@@ -164,42 +150,6 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 
     conf->flv_live = NGX_CONF_UNSET;
     conf->chunked = NGX_CONF_UNSET;
-
-    /* we must wait until walking through the whole conf to know
-     * the rtmp conf info, but unfortunately, the ngx_http_block
-     * does postconfiguration after creating location trees, the
-     * only way to find the loc_conf in the loc level was destroyed,
-     * because the queue pointer of the srv level that refers to
-     * the loc level was a temporary pointer, so we use this
-     * work-around to get the loc_conf
-     */
-    if (ngx_http_flv_live_http_info.inited) {
-        ngx_http_flv_live_http_info.inited = 0;
-
-        /* when reload */
-        ngx_http_flv_live_http_info.conf = NULL;
-    }
-
-    if (ngx_http_flv_live_http_info.conf == NULL) {
-        ngx_http_flv_live_http_info.conf = ngx_array_create(cf->pool,
-            4, sizeof(void *));
-        if (ngx_http_flv_live_http_info.conf == NULL) {
-            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                    "flv live: failed to create array for global conf");
-
-            return NULL;
-        }
-    }
-
-    p = ngx_array_push(ngx_http_flv_live_http_info.conf);
-    if (p == NULL) {
-        ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                "flv live: failed to get memory for global conf");
-
-        return NULL;
-    }
-
-    *p = (void *)conf;
 
     return (void *)conf;
 }
@@ -247,112 +197,6 @@ ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle)
 ngx_int_t
 ngx_http_flv_live_init_process(ngx_cycle_t *cycle)
 {
-    ngx_rtmp_core_main_conf_t  *cmcf = ngx_rtmp_core_main_conf;
-    ngx_rtmp_core_srv_conf_t  **pcscf, *cscf;
-    ngx_rtmp_core_app_conf_t  **pcacf, *cacf;
-    ngx_http_flv_live_conf_t   *hfcf;
-    void                      **iter;
-    ngx_http_flv_live_app_t    *app;
-    ngx_uint_t                  i, n, m;
-
-    if (cmcf == NULL || cmcf->listen.nelts == 0) {
-        return NGX_OK;
-    }
-
-    iter = ngx_http_flv_live_http_info.conf->elts;
-    for (i = 0; i < ngx_http_flv_live_http_info.conf->nelts; ++i) {
-        hfcf = (ngx_http_flv_live_conf_t *)iter[i];
-
-        if (!hfcf->flv_live || hfcf->flv_live == NGX_CONF_UNSET) {
-            continue;
-        }
-
-        if (hfcf->app_hash.ha.temp_pool == NULL) {
-            hfcf->app_hash.ha.temp_pool = ngx_create_pool(
-                    NGX_HASH_LARGE_ASIZE, cycle->log);
-
-            if (hfcf->app_hash.ha.temp_pool == NULL) {
-                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                        "flv live: create pool for app_hash "
-                        "temp_pool failed");
-
-                return NGX_ERROR;
-            }
-
-            hfcf->app_hash.ha.pool = cycle->pool;
-
-            if (ngx_hash_keys_array_init(&hfcf->app_hash.ha,
-                    NGX_HASH_SMALL) != NGX_OK)
-            {
-                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                        "flv live: ngx_hash_keys_array_init "
-                        "for app_hash failed");
-
-                return NGX_ERROR;
-            }
-        }
-
-        pcscf = cmcf->servers.elts;
-        for (n = 0; n < cmcf->servers.nelts; ++n, ++pcscf) {
-            cscf = *pcscf;
-            pcacf = cscf->applications.elts;
-
-            for (m = 0; m < cscf->applications.nelts; ++m, ++pcacf) {
-                cacf = *pcacf;
-
-                app = ngx_pcalloc(cycle->pool,
-                        sizeof(ngx_http_flv_live_app_t));
-                if (app == NULL) {
-                    return NGX_ERROR;
-                }
-
-                app->hash_name.data = ngx_pcalloc(cycle->pool,
-                        NGX_RTMP_MAX_NAME + NGX_INT_T_LEN);
-                if (app->hash_name.data == NULL) {
-                    return NGX_ERROR;
-                }
-
-                app->hash_name.len = ngx_sprintf(app->hash_name.data,
-                        "%V:%O", &cacf->name, n) - app->hash_name.data;
-                app->srv.srv_index = n;
-                app->app.app_index = m;
-                app->app.app_name = cacf->name;
-
-                if (n == 0 && m == 0) {
-                    hfcf->default_hash.hash_name = app->hash_name;
-
-                    hfcf->default_hash.srv.srv_index = 0;
-                    hfcf->default_hash.app.app_index = 0; 
-                    hfcf->default_hash.app.app_name = cacf->name;
-                }
-
-                ngx_hash_add_key(&hfcf->app_hash.ha,
-                        &app->hash_name, app, 0);
-            }
-        }
-
-        if (hfcf->app_hash.ha.keys.nelts) {
-            hfcf->app_hash.hint.key = ngx_hash_key_lc;
-            hfcf->app_hash.hint.max_size = NGX_HASH_MAX_SIZE;
-            hfcf->app_hash.hint.bucket_size = NGX_HASH_MAX_BUKET_SIZE; 
-            hfcf->app_hash.hint.name = "hash_for_app";
-            hfcf->app_hash.hint.pool = cycle->pool;
-
-            hfcf->app_hash.hint.hash = &hfcf->app_hash.hash.hash;
-            hfcf->app_hash.hint.temp_pool = NULL;
-
-            if (ngx_hash_init(&hfcf->app_hash.hint,
-                    hfcf->app_hash.ha.keys.elts,
-                    hfcf->app_hash.ha.keys.nelts) != NGX_OK)
-            {
-                ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
-                        "flv live: ngx_hash_init for app_hash failed");
-
-                return NGX_ERROR;
-            }
-        }
-    }
-
     return ngx_http_flv_live_init_handlers(cycle);
 }
 
@@ -574,8 +418,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     r = s->data;
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
-    if (ngx_http_flv_live_connect_init(s, &ctx->app.app.app_name,
-            &ctx->stream) != NGX_OK)
+    if (ngx_http_flv_live_connect_init(s, &ctx->app, &ctx->stream) != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -1010,312 +853,194 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 }
 
 
-static ngx_int_t
-ngx_rtmp_preprocess_addrs(ngx_http_request_t *r, ngx_rtmp_port_t *mport,
-    ngx_rtmp_conf_addr_t *addr)
-{
-    u_char              *p;
-    size_t               len;
-    ngx_uint_t           i;
-    ngx_rtmp_in_addr_t  *addrs;
-    struct sockaddr_in  *sin;
-    u_char               buf[NGX_SOCKADDR_STRLEN];
-
-    mport->addrs = ngx_pcalloc(r->pool,
-        mport->naddrs * sizeof(ngx_rtmp_in_addr_t));
-    if (mport->addrs == NULL) {
-        return NGX_ERROR;
-    }
-
-    addrs = mport->addrs;
-
-    for (i = 0; i < mport->naddrs; i++) {
-        sin = (struct sockaddr_in *) addr[i].sockaddr;
-        addrs[i].addr = sin->sin_addr.s_addr;
-
-        addrs[i].conf.ctx = addr[i].ctx;
-
-        len = ngx_sock_ntop(addr[i].sockaddr,
-#if (nginx_version >= 1005003)
-                            addr[i].socklen,
-#endif
-                            buf, NGX_SOCKADDR_STRLEN, 1);
-
-        p = ngx_pnalloc(r->pool, len);
-        if (p == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_memcpy(p, buf, len);
-
-        addrs[i].conf.addr_text.len = len;
-        addrs[i].conf.addr_text.data = p;
-        addrs[i].conf.proxy_protocol = addr->proxy_protocol;
-    }
-
-    return NGX_OK;
-}
-
-
-#if (NGX_HAVE_INET6)
-
-static ngx_int_t
-ngx_rtmp_preprocess_addrs6(ngx_http_request_t *r, ngx_rtmp_port_t *mport,
-    ngx_rtmp_conf_addr_t *addr)
-{
-    u_char               *p;
-    size_t                len;
-    ngx_uint_t            i;
-    ngx_rtmp_in6_addr_t  *addrs6;
-    struct sockaddr_in6  *sin6;
-    u_char               buf[NGX_SOCKADDR_STRLEN];
-
-    mport->addrs = ngx_pcalloc(r->pool,
-        mport->naddrs * sizeof(ngx_rtmp_in6_addr_t));
-    if (mport->addrs == NULL) {
-        return NGX_ERROR;
-    }
-
-    addrs6 = mport->addrs;
-
-    for (i = 0; i < mport->naddrs; i++) {
-        sin6 = (struct sockaddr_in6 *) addr[i].sockaddr;
-        addrs6[i].addr6 = sin6->sin6_addr;
-
-        addrs6[i].conf.ctx = addr[i].ctx;
-
-        len = ngx_sock_ntop(addr[i].sockaddr,
-#if (nginx_version >= 1005003)
-                            addr[i].socklen,
-#endif
-                            buf, NGX_SOCKADDR_STRLEN, 1);
-
-        p = ngx_pnalloc(r->pool, len);
-        if (p == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_memcpy(p, buf, len);
-
-        addrs6[i].conf.addr_text.len = len;
-        addrs6[i].conf.addr_text.data = p;
-        addrs6[i].conf.proxy_protocol = addr->proxy_protocol;
-    }
-
-    return NGX_OK;
-}
-
-#endif
-
-
-static ngx_int_t 
-ngx_http_flv_live_preprocess_port(ngx_http_request_t *r)
-{
-    ngx_rtmp_core_main_conf_t   *cmcf;
-    ngx_rtmp_listen_t           *ls, listen;
-    in_port_t                    p;
-    struct sockaddr             *sa;
-    struct sockaddr_in          *sin;
-    ngx_rtmp_conf_port_t        *port;
-    ngx_rtmp_conf_addr_t        *addr, *address;
-    ngx_rtmp_port_t             *mport;
-#if (NGX_HAVE_INET6)
-    struct sockaddr_in6         *sin6;
-#endif
-    ngx_http_flv_live_ctx_t     *ctx;
-    ngx_uint_t                   iter, index;
-    ngx_flag_t                   found;
-    ngx_connection_t            *c;
-    unsigned short               family;
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-
-    cmcf = ngx_rtmp_core_main_conf;
-    if (cmcf->listen.nelts == 0) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: listen configuration not found");
-
-        return NGX_ERROR;
-    }
-
-    iter = 0;
-    found = 0;
-    c = r->connection;
-    family = c->local_sockaddr->sa_family;
-    ls = cmcf->listen.elts;
-
-    for (index = 0; index < cmcf->listen.nelts; index++) {
-        if (iter == ctx->app.srv.srv_index) {
-            if (family == AF_INET) {
-#if (NGX_HAVE_INET6)
-                    if (ls[index].ipv6only) {
-                        continue;
-                    }
-#endif
-            }
-
-            found = 1;
-            break;
-        }
-
-        if (!ls[index].consecutive) {
-            iter++;
-        }
-    }
-
-    if (!found) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to found listen configuration: %O",
-                ctx->app.srv.srv_index);
-
-        return NGX_ERROR;
-    }
-
-    listen = ls[index];
-    sa = (struct sockaddr *)&listen.sockaddr;
-
-    switch (sa->sa_family) {
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            sin6 = (struct sockaddr_in6 *) sa;
-            p = sin6->sin6_port;
-            break;
-#endif
-
-        default:
-            sin = (struct sockaddr_in *) sa;
-            p = sin->sin_port;
-    }
-
-    port = ngx_pcalloc(r->pool, sizeof(ngx_rtmp_conf_port_t));
-    if (port == NULL) {
-        return NGX_ERROR;
-    }
-
-    port->family = sa->sa_family;
-    port->port = p;
-
-    if (ngx_array_init(&port->addrs, r->pool, 1,
-            sizeof(ngx_rtmp_conf_addr_t)) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    addr = ngx_array_push(&port->addrs);
-
-    addr->sockaddr = (struct sockaddr *) &listen.sockaddr;
-    addr->socklen = listen.socklen;
-    addr->ctx = listen.ctx;
-    addr->bind = listen.bind;
-    addr->wildcard = listen.wildcard;
-    addr->so_keepalive = listen.so_keepalive;
-    addr->proxy_protocol = listen.proxy_protocol;
-#if (NGX_HAVE_KEEPALIVE_TUNABLE)
-    addr->tcp_keepidle = listen.tcp_keepidle;
-    addr->tcp_keepintvl = listen.tcp_keepintvl;
-    addr->tcp_keepcnt = listen.tcp_keepcnt;
-#endif
-#if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
-    addr->ipv6only = listen.ipv6only;
-#endif
-
-    mport = ngx_pcalloc(r->pool, sizeof(ngx_rtmp_port_t));
-    if (mport == NULL) {
-        return NGX_ERROR;
-    }
-
-    address = port->addrs.elts;
-    mport->naddrs = 1;
-
-    switch (address[0].sockaddr->sa_family) {
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            if (ngx_rtmp_preprocess_addrs6(r, mport, address) != NGX_OK) {
-                return NGX_ERROR;
-            }
-            break;
-#endif
-        default: /* AF_INET */
-            if (ngx_rtmp_preprocess_addrs(r, mport, address) != NGX_OK) {
-                return NGX_ERROR;
-            }
-    }
-
-    cmcf->data = mport;
-
-    return NGX_OK;
-}
-
-
 ngx_int_t
-ngx_http_flv_live_preprocess(ngx_http_request_t *r)
+ngx_http_flv_live_preprocess(ngx_http_request_t *r,
+    ngx_rtmp_connection_t *rconn)
 {
-    ngx_http_flv_live_conf_t    *hfcf;
-    ngx_http_flv_live_app_t     *value;
     ngx_http_flv_live_ctx_t     *ctx;
-    ngx_str_t                    arg_srv = ngx_string("srv");
+    ngx_listening_t             *ls;
+    struct sockaddr             *local_sockaddr;
+
+    struct sockaddr_in          *ls_sin, *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6         *ls_sin6, *sin6;
+#endif
+
+    ngx_rtmp_in_addr_t          *addr;
+#if (NGX_HAVE_INET6)
+    ngx_rtmp_in6_addr_t         *addr6;
+#endif
+
+    ngx_rtmp_port_t             *rport;
+
     ngx_str_t                    arg_app = ngx_string("app");
     ngx_str_t                    arg_stream = ngx_string("stream");
-    ngx_str_t                    srv, app, stream;
-
-    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
+    ngx_str_t                    arg_port = ngx_string("port");
+    ngx_str_t                    app, stream, port;
+    ngx_int_t                    in_port;
+    ngx_uint_t                   i, n;
+    ngx_flag_t                   port_match, addr_match;
+    unsigned short               sa_family;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    
-    if (ngx_http_arg(r, arg_srv.data, arg_srv.len, &srv) != NGX_OK) {
-        ctx->app.srv.srv_index = 0;
+
+    if (ngx_http_arg(r, arg_port.data, arg_port.len, &port) != NGX_OK) {
+        /* no port in args */
+        port.data = (u_char *) "1935";
+        port.len = ngx_strlen("1935");
+
+        in_port = 1935;
     } else {
-        ctx->app.srv.srv_index = ngx_atoi(srv.data, srv.len);
-    }
-    
-    if (ngx_http_arg(r, arg_app.data, arg_app.len, &app) != NGX_OK) {
-        ctx->app.app.app_index = hfcf->default_hash.app.app_index;
-        ctx->app.app.app_name = hfcf->default_hash.app.app_name;
-    } else {
-        // ctx->app.app_index will be filled after ngx_hash_find
-        ctx->app.app.app_name = app;
-    }
-    
-    if (ctx->app.app.app_name.len == 0 && ctx->app.srv.srv_index == 0) {
-        ctx->app.hash_name = hfcf->default_hash.hash_name;
-    } else {
-        ctx->app.hash_name.data = ngx_pcalloc(r->pool,
-                NGX_RTMP_MAX_NAME + NGX_INT_T_LEN);
-        if (ctx->app.hash_name.data == NULL) {
+        in_port = ngx_atoi(port.data, port.len);
+        if (in_port == NGX_ERROR || (in_port < 0 || in_port > 65535)) {
             return NGX_ERROR;
         }
-        
-        ctx->app.hash_name.len = ngx_sprintf(ctx->app.hash_name.data, "%V:%O",
-                &ctx->app.app.app_name, ctx->app.srv.srv_index)
-        - ctx->app.hash_name.data;
     }
-    
-    value = ngx_hash_find(&hfcf->app_hash.hash.hash,
-            ngx_hash_key_lc(ctx->app.hash_name.data,
-                    ctx->app.hash_name.len),
-            ctx->app.hash_name.data, ctx->app.hash_name.len);
-    if (value == NULL) {
+
+    in_port = htons(in_port);
+    ctx->port = port;
+
+    port_match = 1;
+    addr_match = 1;
+
+    ls = ngx_cycle->listening.elts;
+    for (n = 0; n < ngx_cycle->listening.nelts; ++n, ++ls) {
+        if (ls->handler == ngx_rtmp_init_connection) {
+            local_sockaddr = r->connection->local_sockaddr;
+            sa_family = ls->sockaddr->sa_family;
+
+            if (local_sockaddr->sa_family != sa_family) {
+                continue;
+            }
+
+            switch (sa_family) {
+
+#if (NGX_HAVE_INET6)
+            case AF_INET6:
+                ls_sin6 = (struct sockaddr_in6 *) ls->sockaddr;
+                if (in_port != ls_sin6->sin6_port) {
+                    port_match = 0;
+                }
+
+                break;
+#endif
+
+            default:
+                ls_sin = (struct sockaddr_in *) ls->sockaddr;
+                if (in_port != ls_sin->sin_port) {
+                    port_match = 0;
+                }
+            }
+
+            if (!port_match) {
+                port_match = 1;
+                continue;
+            }
+
+            rport = ls->servers;
+
+            if (rport->naddrs > 1) {
+                /** 
+                 * listen xxx.xxx.xxx.xxx:port 
+                 * listen port 
+                 **/ 
+                switch (sa_family) {
+
+#if (NGX_HAVE_INET6)
+                case AF_INET6:
+                    sin6 = (struct sockaddr_in6 *) ls->sockaddr;
+
+                    addr6 = rport->addrs;
+
+                    /* the last address is "*" */
+
+                    for (i = 0; i < rport->naddrs - 1; i++) {
+                        if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16)
+                            == 0)
+                        {
+                            break;
+                        }
+                    }
+
+                    rconn->addr_conf = &addr6[i].conf;
+
+                    break;
+#endif
+
+                default:
+                    sin = (struct sockaddr_in *) ls->sockaddr;
+
+                    addr = rport->addrs;
+
+                    /* the last address is "*" */
+
+                    for (i = 0; i < rport->naddrs - 1; i++) {
+                        if (addr[i].addr == sin->sin_addr.s_addr) {
+                            break;
+                        }
+                    }
+
+                    rconn->addr_conf = &addr[i].conf;
+                }
+            } else {
+                switch (sa_family) {
+
+#if (NGX_HAVE_INET6)
+                case AF_INET6:
+                    sin6 = (struct sockaddr_in6 *) ls->sockaddr;
+
+                    addr6 = rport->addrs;
+                    if (ngx_memcmp(&addr6[0].addr6, &sin6->sin6_addr, 16)) {
+                        addr_match = 0;
+                    } else {
+                        rconn->addr_conf = &addr6[0].conf;
+                    }
+
+                    break;
+#endif
+
+                default:
+                    sin = (struct sockaddr_in *) ls->sockaddr;
+
+                    addr = rport->addrs;
+                    if (addr[0].addr != sin->sin_addr.s_addr) {
+                        addr_match = 0;
+                    } else {
+                        rconn->addr_conf = &addr[0].conf;
+                    }
+                }
+            }
+
+            if (!addr_match) {
+                addr_match = 1;
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (n == ngx_cycle->listening.nelts) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to find configured app: \"%V\"",
-                &ctx->app.hash_name);
-        
+                "flv live: failed to find configured port: \"%V\"", &port);
+
         return NGX_ERROR;
     }
-    
-    ctx->app.app.app_index = value->app.app_index;
-    
+
+    if (ngx_http_arg(r, arg_app.data, arg_app.len, &app) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "flv live: app args MUST be specified");
+
+        return NGX_ERROR;
+    } else {
+        ctx->app = app;
+    }
+
     if (ngx_http_arg(r, arg_stream.data, arg_stream.len, &stream) != NGX_OK) {
-        ctx->stream.data = (u_char *)"";
+        ctx->stream.data = (u_char *) "";
         ctx->stream.len = 0;
     } else {
         ctx->stream = stream;
-    }
-
-    if (ngx_http_flv_live_preprocess_port(r) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: preprocess port failed");
-
-        return NGX_ERROR;
     }
 
     return NGX_OK;
@@ -1323,117 +1048,27 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
 
 
 ngx_rtmp_session_t *
-ngx_http_flv_live_init_connection(ngx_http_request_t *r)
+ngx_http_flv_live_init_connection(ngx_http_request_t *r,
+    ngx_rtmp_connection_t *rconn)
 {
-    ngx_uint_t                 i;
-    ngx_rtmp_port_t           *port;
-    struct sockaddr           *sa;
-    struct sockaddr_in        *sin;
-    ngx_rtmp_in_addr_t        *addr;
     ngx_rtmp_session_t        *s;
-    ngx_rtmp_addr_conf_t      *addr_conf;
-    ngx_int_t                  unix_socket;
-#if (NGX_HAVE_INET6)
-    struct sockaddr_in6       *sin6;
-    ngx_rtmp_in6_addr_t       *addr6;
-#endif
     ngx_connection_t          *c;
-    ngx_rtmp_core_main_conf_t *cmcf;
-
-    /* find the server configuration for the address:port */
-
-    /* AF_INET only */
+    void                      *data;
 
     c = r->connection;
 
-    cmcf = ngx_rtmp_core_main_conf;
-    port = cmcf->data;
+    /* the default server configuration for the address:port */
+    rconn->conf_ctx = rconn->addr_conf->default_server->ctx;
 
-    unix_socket = 0;
-
-    if (port->naddrs > 1) {
-
-        /*
-         * There are several addresses on this port and one of them
-         * is the "*:port" wildcard so getsockname() is needed to determine
-         * the server address.
-         *
-         * AcceptEx() already gave this address.
-         */
-
-        if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
-            ngx_http_close_connection(c);
-            return NULL;
-        }
-
-        sa = c->local_sockaddr;
-
-        switch (sa->sa_family) {
-
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            sin6 = (struct sockaddr_in6 *) sa;
-
-            addr6 = port->addrs;
-
-            /* the last address is "*" */
-
-            for (i = 0; i < port->naddrs - 1; i++) {
-                if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
-                    break;
-                }
-            }
-
-            addr_conf = &addr6[i].conf;
-
-            break;
-#endif
-
-        case AF_UNIX:
-            unix_socket = 1;
-
-        default: /* AF_INET */
-            sin = (struct sockaddr_in *) sa;
-
-            addr = port->addrs;
-
-            /* the last address is "*" */
-
-            for (i = 0; i < port->naddrs - 1; i++) {
-                if (addr[i].addr == sin->sin_addr.s_addr) {
-                    break;
-                }
-            }
-
-            addr_conf = &addr[i].conf;
-
-            break;
-        }
-
-    } else {
-        switch (c->local_sockaddr->sa_family) {
-
-#if (NGX_HAVE_INET6)
-        case AF_INET6:
-            addr6 = port->addrs;
-            addr_conf = &addr6[0].conf;
-            break;
-#endif
-
-        case AF_UNIX:
-            unix_socket = 1;
-
-        default: /* AF_INET */
-            addr = port->addrs;
-            addr_conf = &addr[0].conf;
-            break;
-        }
-    }
+    data = c->data;
+    c->data = rconn;
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0,
             "flv live: client connected '%V'", &c->addr_text);
 
-    s = ngx_http_flv_live_init_session(r, addr_conf);
+    s = ngx_http_flv_live_init_session(r, rconn->addr_conf);
+    c->data = data;
+
     if (s == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "flv live: failed to init connection for session");
@@ -1444,7 +1079,7 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r)
     /* only auto-pushed connections are
      * done through unix socket */
 
-    s->auto_pushed = unix_socket;
+    s->auto_pushed = 0;
 
     c->write->handler = ngx_http_flv_live_write_handler;
     c->read->handler = ngx_http_flv_live_read_handler;
@@ -1466,7 +1101,7 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t) +
             sizeof(ngx_chain_t *) * ((ngx_rtmp_core_srv_conf_t *)
-                addr_conf->ctx->srv_conf[ngx_rtmp_core_module
+                addr_conf->default_server->ctx->srv_conf[ngx_rtmp_core_module
                     .ctx_index])->out_queue);
     if (s == NULL) {
         /* let other handlers process */
@@ -1474,8 +1109,10 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
         return NULL;
     }
 
-    s->main_conf = addr_conf->ctx->main_conf;
-    s->srv_conf = addr_conf->ctx->srv_conf;
+    s->rtmp_connection = c->data;
+
+    s->main_conf = addr_conf->default_server->ctx->main_conf;
+    s->srv_conf = addr_conf->default_server->ctx->srv_conf;
 
     s->addr_text = &addr_conf->addr_text;
 
@@ -1547,7 +1184,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 
     ngx_memcpy(v.app, app->data, ngx_min(app->len, sizeof(v.app) - 1));
     ngx_memcpy(v.args, r->args.data, ngx_min(r->args.len, sizeof(v.args) - 1));
-    ngx_memcpy(v.flashver, "flv_live 1.0", ngx_strlen("flv_live 1.0"));
+    ngx_memcpy(v.flashver, "flv_live 1.1", ngx_strlen("flv_live 1.1"));
 
     *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
             &r->headers_in.host->value, app) = 0;
@@ -1805,6 +1442,7 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     ngx_http_cleanup_t              *cln;
     ngx_http_flv_live_ctx_t         *ctx;
     ngx_rtmp_session_t              *s;
+    ngx_rtmp_connection_t           *rconn;
 
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -1839,11 +1477,16 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
         ngx_http_set_ctx(r, ctx, ngx_http_flv_live_module);
     }
 
-    if (ngx_http_flv_live_preprocess(r) != NGX_OK) {
+    rconn = ngx_pcalloc(r->pool, sizeof(ngx_rtmp_connection_t));
+    if (rconn == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    s = ngx_http_flv_live_init_connection(r);
+    if (ngx_http_flv_live_preprocess(r, rconn) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    s = ngx_http_flv_live_init_connection(r, rconn);
     if (s == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }

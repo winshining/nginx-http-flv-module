@@ -883,22 +883,42 @@ ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
     u_char     *p;
     ngx_int_t   rc;
     ngx_str_t   host;
-    ngx_str_t   schema = ngx_string("rtmp://");
+    ngx_str_t   hschema, rschema, *schema;
 
-    if (s->tc_url.len <= schema.len
-        || ngx_strncasecmp(s->tc_url.data, schema.data, schema.len))
-    {
+    hschema.data = (u_char *) "http://";
+    hschema.len = ngx_strlen(hschema.data);
+
+    rschema.data = (u_char *) "rtmp://";
+    rschema.len = ngx_strlen(rschema.data);
+
+    do {
+        schema = &hschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        schema = &rschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
         return NGX_ERROR;
-    }
+    } while (0);
 
-    s->host_start = s->tc_url.data + schema.len;
+    s->host_start = s->tc_url.data + schema->len;
 
     p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, ':');
     if (p) {
         s->host_end = p;
     } else {
         p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, '/');
-        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema.len);
+        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema->len);
     }
 
     host.len = s->host_end - s->host_start;

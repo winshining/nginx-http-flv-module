@@ -706,7 +706,7 @@ ngx_rtmp_cmp_dns_wildcards(const void *one, const void *two)
     
     first = (ngx_hash_key_t *) one;
     second = (ngx_hash_key_t *) two;
-    
+
     return ngx_dns_strcmp(first->key.data, second->key.data);
 }
 
@@ -728,7 +728,7 @@ ngx_rtmp_init_listening(ngx_conf_t *cf, ngx_rtmp_conf_port_t *port)
      * have been already sorted: explicit bindings are on the start, then
      * implicit bindings go, and wildcard binding is in the end.
      */
-    
+
     if (addr[last - 1].opt.wildcard) {
         addr[last - 1].opt.bind = 1;
         bind_wildcard = 1;
