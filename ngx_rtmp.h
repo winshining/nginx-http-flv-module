@@ -43,8 +43,6 @@ typedef struct {
 
 
 typedef struct {
-    ngx_rtmp_conf_ctx_t       *ctx;
-
     ngx_str_t                  addr_text;
 
     /* the default server configuration for this address:port */
@@ -396,7 +394,7 @@ struct ngx_rtmp_session_s {
     unsigned                    out_buffer:1;
     size_t                      out_queue;
     size_t                      out_cork;
-    ngx_chain_t                *out[0];
+    ngx_chain_t               **out;
 };
 
 

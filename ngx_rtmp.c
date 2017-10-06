@@ -1160,11 +1160,10 @@ ngx_int_t
 ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
 {
     ngx_int_t                  rc;
+    ngx_int_t                  i;
     ngx_rtmp_connection_t     *rconn;
-#if 0
-    ngx_rtmp_core_app_conf_t  *cacf;
-#endif
-    ngx_rtmp_core_srv_conf_t  *cscf;
+    ngx_rtmp_core_srv_conf_t  *cscf, *dcscf;
+    ngx_rtmp_stream_t         *in_streams;
 
 #if (NGX_SUPPRESS_WARN)
     cscf = NULL;
@@ -1185,13 +1184,47 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
         return NGX_OK;
     }
 
-    s->srv_conf = cscf->ctx->srv_conf;
-    s->app_conf = cscf->ctx->app_conf;
-#if 0
-    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    dcscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    ngx_set_connection_log(s->connection, cacf->error_log);
-#endif
+    /* reinitialization */
+    s->srv_conf = cscf->ctx->srv_conf;
+
+    s->out = ngx_pcalloc(s->connection->pool, sizeof(ngx_chain_t *)
+                * ((ngx_rtmp_core_srv_conf_t *)
+                    cscf->ctx->srv_conf[ngx_rtmp_core_module
+                        .ctx_index])->out_queue);
+
+    s->out_queue = cscf->out_queue;
+    s->out_cork = cscf->out_cork;
+
+    if (dcscf->max_streams != cscf->max_streams) {
+        in_streams = ngx_pcalloc(s->connection->pool,
+                           sizeof(ngx_rtmp_stream_t) * cscf->max_streams);
+        if (in_streams == NULL) {
+            ngx_rtmp_finalize_session(s);
+            return NGX_ERROR;
+        }
+
+        /* copy data from s->in_streams to in_streams */
+        for (i = 0; i < ngx_min(dcscf->max_streams, cscf->max_streams); i++) {
+            in_streams[i] = s->in_streams[i];
+        }
+
+        if (dcscf->max_streams > cscf->max_streams) {
+            for (i = cscf->max_streams; i < dcscf->max_streams; i++) {
+                if (s->in_streams[i].hdr.csid) {
+                    ngx_rtmp_finalize_session(s);
+                    return NGX_ERROR;
+                }
+            }
+        }
+
+        s->in_streams = in_streams;
+    }
+
+    s->timeout = cscf->timeout;
+    s->buflen = cscf->buflen;
+
     return NGX_OK;
 }
 

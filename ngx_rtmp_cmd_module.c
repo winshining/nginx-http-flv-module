@@ -288,7 +288,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 #undef NGX_RTMP_SET_STRPAR
 
-    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+    if (!s->auto_pushed && ngx_rtmp_process_virtual_host(s) != NGX_OK) {
         return NGX_ERROR;
     }
 

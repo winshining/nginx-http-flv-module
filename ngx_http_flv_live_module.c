@@ -1099,12 +1099,18 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
 
     c = r->connection;
 
-    s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t) +
-            sizeof(ngx_chain_t *) * ((ngx_rtmp_core_srv_conf_t *)
-                addr_conf->default_server->ctx->srv_conf[ngx_rtmp_core_module
-                    .ctx_index])->out_queue);
+    s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t));
     if (s == NULL) {
         /* let other handlers process */
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NULL;
+    }
+
+    s->out = ngx_pcalloc(c->pool, sizeof(ngx_chain_t *)
+                         * ((ngx_rtmp_core_srv_conf_t *)
+                            addr_conf->default_server->ctx->srv_conf
+                            [ngx_rtmp_core_module.ctx_index])->out_queue);
+    if (s->out == NULL) {
         ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
         return NULL;
     }
