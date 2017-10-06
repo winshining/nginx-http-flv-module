@@ -64,7 +64,7 @@ streamname可以随意指定。
 
 RTMP默认使用端口1935，如果要使用其他端口，必须指定':port'。
 
-    播放: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
+    播放: http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
 dir用于匹配http配置块中的location块（更多详情见下文）。
 

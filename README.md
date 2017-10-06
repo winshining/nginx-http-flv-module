@@ -64,7 +64,7 @@ The streamname can be specified at will.
 
 The default port for RTMP is 1935, if some other ports were used, ':port' must be specified.
 
-    subscribe: http://example.com[:port]/dir?[port=1935&app=myapp&]stream=mystream
+    subscribe: http://example.com[:port]/dir?[port=1935&]app=myapp&stream=mystream
 
 The dir is used to match location blocks in http block (see below for details).
 
