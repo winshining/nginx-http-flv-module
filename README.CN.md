@@ -2,15 +2,19 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
-# 功能点
+# 功能
+
+* [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
 
 * 基于HTTP协议的FLV直播流播放。
 
-* GOP缓存，降低播放延迟（试验）。
+* GOP缓存，降低播放延迟。
 
 * 支持'Transfer-Encoding: chunked'方式回复。
 
 * rtmp配置的server块中可以省略'listen'配置项。
+
+* 支持虚拟主机（试验）。
 
 * 支持反向代理（试验）。
 
@@ -50,6 +54,8 @@
 
 # 使用方法
 
+关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md)。
+
     发布：ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
 appname用于匹配rtmp配置块中的application块（更多详情见下文）。
@@ -62,9 +68,11 @@ RTMP默认使用端口1935，如果要使用其他端口，必须指定':port'�
 
 dir用于匹配http配置块中的location块（更多详情见下文）。
 
-HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
+HTTP默认使用端口80, 如果使用了其他端口，必须指定':port'。
 
-默认匹配的server块是rtmp配置块中的第一个server块，如果请求的server块不是第一个，那么必须指定'srv=index（index从0开始）'。
+不再支持参数'srv=index'。
+
+RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx'。
 
 默认匹配的application块是server块中的第一个application块，如果请求的application块不是第一个，那么必须指定'app=xxx'。
 
@@ -116,6 +124,7 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
 
         server {
             listen 1935;
+            server_name www.test.*;
 
             application myapp {
                 live on;
@@ -124,7 +133,18 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
         }
 
         server {
-            listen 1945;
+            listen 1935;
+            server_name *.test.com;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name www.test.com;
 
             application myapp {
                 live on;
@@ -136,7 +156,7 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
             listen 1985;
 
             application myapp {
-                proxy_pass rtmp://balance;
+                proxy_pass rtmp://balance; #打开反向代理
             }
         }
 
