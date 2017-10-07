@@ -1189,13 +1189,15 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
     /* reinitialization */
     s->srv_conf = cscf->ctx->srv_conf;
 
-    s->out = ngx_pcalloc(s->connection->pool, sizeof(ngx_chain_t *)
-                * ((ngx_rtmp_core_srv_conf_t *)
-                    cscf->ctx->srv_conf[ngx_rtmp_core_module
-                        .ctx_index])->out_queue);
+    if (dcscf->out_queue != cscf->out_queue) {
+        /* send not used yet, need not copy data */
+        s->out = ngx_pcalloc(s->connection->pool, sizeof(ngx_chain_t *)
+                    * ((ngx_rtmp_core_srv_conf_t *)
+                        cscf->ctx->srv_conf[ngx_rtmp_core_module
+                            .ctx_index])->out_queue);
 
-    s->out_queue = cscf->out_queue;
-    s->out_cork = cscf->out_cork;
+        s->out_queue = cscf->out_queue;
+    }
 
     if (dcscf->max_streams != cscf->max_streams) {
         in_streams = ngx_pcalloc(s->connection->pool,
@@ -1222,6 +1224,7 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
         s->in_streams = in_streams;
     }
 
+    s->out_cork = cscf->out_cork;
     s->timeout = cscf->timeout;
     s->buflen = cscf->buflen;
 
