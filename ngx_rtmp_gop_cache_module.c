@@ -627,7 +627,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
-    s->publisher = rs;
     handler = ngx_rtmp_process_handlers[ctx->protocol];
 
     gctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_gop_cache_module);
@@ -830,16 +829,16 @@ next:
 ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
-    ngx_rtmp_live_ctx_t            *ctx;
+    ngx_rtmp_live_ctx_t            *ctx, *pub_ctx;
     ngx_msec_t                      start, end;
-
-    gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
-    if (gacf == NULL || !gacf->gop_cache) {
-        goto next;
-    }
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
     if (ctx == NULL || ctx->stream == NULL || !ctx->stream->active) {
+        goto next;
+    }
+
+    gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
+    if (gacf == NULL || !gacf->gop_cache) {
         goto next;
     }
 
@@ -862,6 +861,13 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
             "gop cache send: delta_time=%uD", end - start);
 
 next:
+
+    /* pub_ctx saved the publisher info */
+    if (ctx->stream->pub_ctx) {
+        pub_ctx = ctx->stream->pub_ctx;
+        s->publisher = pub_ctx->session;
+    }
+
     return next_play(s, v);
 }
 
