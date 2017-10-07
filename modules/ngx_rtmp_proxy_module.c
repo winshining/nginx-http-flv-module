@@ -49,10 +49,6 @@ static ngx_int_t ngx_rtmp_proxy_host_variable(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_proxy_port_variable(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s,
-    ngx_table_elt_t *h, size_t prefix);
-static ngx_int_t ngx_rtmp_proxy_rewrite(ngx_rtmp_session_t *s,
-    ngx_table_elt_t *h, size_t prefix, size_t len, ngx_str_t *replacement);
 static ngx_int_t ngx_rtmp_proxy_add_variables(ngx_conf_t *cf);
 static ngx_int_t ngx_rtmp_proxy_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf);
@@ -61,13 +57,6 @@ static char *ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf,
 
 static char *ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-static char *ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
-static ngx_int_t ngx_rtmp_proxy_rewrite_complex_handler(ngx_rtmp_session_t *s,
-    ngx_table_elt_t *h, size_t prefix,
-    size_t len, ngx_rtmp_proxy_rewrite_t *pr);
-static ngx_int_t ngx_rtmp_proxy_rewrite_regex(ngx_conf_t *cf,
-    ngx_rtmp_proxy_rewrite_t *pr, ngx_str_t *regex, ngx_uint_t caseless);
 static void ngx_rtmp_proxy_set_vars(ngx_url_t *u, ngx_rtmp_proxy_vars_t *v);
 static char *ngx_rtmp_proxy_lowat_check(ngx_conf_t *cf, void *post,
     void *data);
@@ -111,13 +100,6 @@ static ngx_command_t  ngx_rtmp_proxy_commands[] = {
     { ngx_string("proxy_pass"),
         NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
         ngx_rtmp_proxy_pass,
-        NGX_RTMP_APP_CONF_OFFSET,
-        0,
-        NULL },
-
-    { ngx_string("proxy_redirect"),
-        NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE12,
-        ngx_rtmp_proxy_redirect,
         NGX_RTMP_APP_CONF_OFFSET,
         0,
         NULL },
@@ -279,74 +261,6 @@ ngx_rtmp_proxy_port_variable(ngx_rtmp_session_t *s,
 
 
 static ngx_int_t
-ngx_rtmp_proxy_rewrite_redirect(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
-    size_t prefix)
-{
-    size_t                      len;
-    ngx_int_t                   rc;
-    ngx_uint_t                  i;
-    ngx_rtmp_proxy_rewrite_t   *pr;
-    ngx_rtmp_proxy_app_conf_t  *pacf;
-
-    pacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_proxy_module);
-
-    pr = pacf->redirects->elts;
-
-    if (pr == NULL) {
-        return NGX_DECLINED;
-    }
-
-    len = h->value.len - prefix;
-
-    for (i = 0; i < pacf->redirects->nelts; i++) {
-        rc = pr[i].handler(s, h, prefix, len, &pr[i]);
-
-        if (rc != NGX_DECLINED) {
-            return rc;
-        }
-    }
-
-    return NGX_DECLINED;
-}
-
- 
-static ngx_int_t
-ngx_rtmp_proxy_rewrite(ngx_rtmp_session_t *s, ngx_table_elt_t *h, size_t prefix,
-    size_t len, ngx_str_t *replacement)
-{
-    u_char  *p, *data;
-    size_t   new_len;
-
-    new_len = replacement->len + h->value.len - len;
-
-    if (replacement->len > len) {
-        data = ngx_pnalloc(s->connection->pool, new_len + 1);
-        if (data == NULL) {
-            return NGX_ERROR;
-        }
-
-        p = ngx_copy(data, h->value.data, prefix);
-        p = ngx_copy(p, replacement->data, replacement->len);
-
-        ngx_memcpy(p, h->value.data + prefix + len,
-                   h->value.len - len - prefix + 1);
-
-        h->value.data = data;
-    } else {
-        p = ngx_copy(h->value.data + prefix, replacement->data,
-                     replacement->len);
-
-        ngx_memmove(p, h->value.data + prefix + len,
-                    h->value.len - len - prefix + 1);
-    }
-
-    h->value.len = new_len;
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
 ngx_rtmp_proxy_add_variables(ngx_conf_t *cf)
 {
     ngx_rtmp_variable_t  *var, *v;
@@ -429,8 +343,6 @@ ngx_rtmp_proxy_create_app_conf(ngx_conf_t *cf)
 
     conf->upstream.limit_rate = NGX_CONF_UNSET_SIZE;
 
-    conf->redirect = NGX_CONF_UNSET;
-
     ngx_str_set(&conf->upstream.module, "proxy");
 
     return conf;
@@ -443,9 +355,7 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_proxy_app_conf_t  *prev = parent;
     ngx_rtmp_proxy_app_conf_t  *conf = child;
 
-    u_char                     *p;
     ngx_rtmp_core_app_conf_t   *claf;
-    ngx_rtmp_proxy_rewrite_t   *pr;
 
     ngx_conf_merge_uint_value(conf->upstream.next_upstream_tries,
                               prev->upstream.next_upstream_tries, 0);
@@ -480,54 +390,6 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->upstream.next_upstream & NGX_RTMP_UPSTREAM_FT_OFF) {
         conf->upstream.next_upstream = NGX_CONF_BITMASK_SET
                                        |NGX_RTMP_UPSTREAM_FT_OFF;
-    }
-
-    ngx_conf_merge_value(conf->redirect, prev->redirect, 1);
-
-    if (conf->redirect) {
-        if (conf->redirects == NULL) {
-            conf->redirects = prev->redirects;
-        }
-
-        if (conf->redirects == NULL && conf->url.data) {
-            conf->redirects = ngx_array_create(cf->pool, 1,
-                                             sizeof(ngx_rtmp_proxy_rewrite_t));
-            if (conf->redirects == NULL) {
-                return NGX_CONF_ERROR;
-            }
-
-            pr = ngx_array_push(conf->redirects);
-            if (pr == NULL) {
-                return NGX_CONF_ERROR;
-            }
-
-            ngx_memzero(&pr->pattern.complex,
-                        sizeof(ngx_rtmp_complex_value_t));
-
-            ngx_memzero(&pr->replacement, sizeof(ngx_rtmp_complex_value_t));
-
-            pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
-
-            if (conf->vars.uri.len) {
-                pr->pattern.complex.value = conf->url;
-                pr->replacement.value = conf->application;
-            } else {
-                pr->pattern.complex.value.len = conf->url.len
-                                                + sizeof("/") - 1;
-
-                p = ngx_pnalloc(cf->pool, pr->pattern.complex.value.len);
-                if (p == NULL) {
-                    return NGX_CONF_ERROR;
-                }
-
-                pr->pattern.complex.value.data = p;
-
-                p = ngx_cpymem(p, conf->url.data, conf->url.len);
-                *p = '/';
-
-                ngx_str_set(&pr->replacement.value, "/");
-            }
-        }
     }
 
     claf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_core_module);
@@ -587,10 +449,6 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     u->conf = &pacf->upstream;
 
     u->create_request_line = ngx_rtmp_proxy_create_request_line;
-
-    if (pacf->redirects) {
-        u->rewrite_redirect = ngx_rtmp_proxy_rewrite_redirect;
-    }
 
     s->push_evt.data = s;
     s->push_evt.log = s->connection->log;
@@ -953,238 +811,6 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     return NGX_CONF_OK;
-}
-
-
-static ngx_int_t
-ngx_rtmp_proxy_rewrite_complex_handler(ngx_rtmp_session_t *s,
-    ngx_table_elt_t *h, size_t prefix,
-    size_t len, ngx_rtmp_proxy_rewrite_t *pr)
-{
-    ngx_str_t  pattern, replacement;
-
-    if (ngx_rtmp_complex_value(s, &pr->pattern.complex, &pattern) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    if (pattern.len > len
-        || ngx_rstrncmp(h->value.data + prefix, pattern.data,
-                        pattern.len) != 0)
-    {
-        return NGX_DECLINED;
-    }
-
-    if (ngx_rtmp_complex_value(s, &pr->replacement, &replacement) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    return ngx_rtmp_proxy_rewrite(s, h, prefix, pattern.len, &replacement);
-}
-
-
-#if (NGX_PCRE)
-
-static ngx_int_t
-ngx_rtmp_proxy_rewrite_regex_handler(ngx_rtmp_session_t *s, ngx_table_elt_t *h,
-    size_t prefix, size_t len, ngx_rtmp_proxy_rewrite_t *pr)
-{
-    ngx_str_t  pattern, replacement;
-
-    pattern.len = len;
-    pattern.data = h->value.data + prefix;
-
-    if (ngx_rtmp_regex_exec(s, pr->pattern.regex, &pattern) != NGX_OK) {
-        return NGX_DECLINED;
-    }
-
-    if (ngx_rtmp_complex_value(s, &pr->replacement, &replacement) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    if (prefix == 0 && h->value.len == len) {
-        h->value = replacement;
-        return NGX_OK;
-    }
-
-    return ngx_rtmp_proxy_rewrite(s, h, prefix, len, &replacement);
-}
-
-#endif
-
-
-static char *
-ngx_rtmp_proxy_redirect(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-    ngx_rtmp_proxy_app_conf_t *pacf = conf;
-
-    u_char                            *p;
-    ngx_str_t                         *value;
-    ngx_rtmp_proxy_rewrite_t          *pr;
-    ngx_rtmp_compile_complex_value_t   ccv;
-
-    if (pacf->redirect == 0) {
-        return NGX_CONF_OK;
-    }
-
-    pacf->redirect = 1;
-
-    value = cf->args->elts;
-
-    if (cf->args->nelts == 2) {
-        if (ngx_strcmp(value[1].data, "off") == 0) {
-            pacf->redirect = 0;
-            pacf->redirects = NULL;
-            return NGX_CONF_OK;
-        }
-
-        if (ngx_strcmp(value[1].data, "false") == 0) {
-            ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
-                           "invalid parameter \"false\", use \"off\" instead");
-            pacf->redirect = 0;
-            pacf->redirects = NULL;
-            return NGX_CONF_OK;
-        }
-
-        if (ngx_strcmp(value[1].data, "default") != 0) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "invalid parameter \"%V\"", &value[1]);
-            return NGX_CONF_ERROR;
-        }
-    }
-
-    if (pacf->redirects == NULL) {
-        pacf->redirects = ngx_array_create(cf->pool, 1,
-                                           sizeof(ngx_rtmp_proxy_rewrite_t));
-        if (pacf->redirects == NULL) {
-            return NGX_CONF_ERROR;
-        }
-    }
-
-    pr = ngx_array_push(pacf->redirects);
-    if (pr == NULL) {
-        return NGX_CONF_ERROR;
-    }
-
-    if (ngx_strcmp(value[1].data, "default") == 0) {
-        if (pacf->proxy_lengths) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "\"proxy_redirect default\" cannot be used "
-                               "with \"proxy_pass\" directive with variables");
-            return NGX_CONF_ERROR;
-        }
-
-        if (pacf->url.data == NULL) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "\"proxy_redirect default\" should be placed "
-                               "after the \"proxy_pass\" directive");
-            return NGX_CONF_ERROR;
-        }
-
-        pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
-
-        ngx_memzero(&pr->pattern.complex, sizeof(ngx_rtmp_complex_value_t));
-        ngx_memzero(&pr->replacement, sizeof(ngx_rtmp_complex_value_t));
-
-        if (pacf->vars.uri.len) {
-            pr->pattern.complex.value = pacf->url;
-            pr->replacement.value = pacf->application;
-        } else {
-            pr->pattern.complex.value.len = pacf->url.len + sizeof("/") - 1;
-
-            p = ngx_pnalloc(cf->pool, pr->pattern.complex.value.len);
-            if (p == NULL) {
-                return NGX_CONF_ERROR;
-            }
-
-            pr->pattern.complex.value.data = p;
-
-            p = ngx_cpymem(p, pacf->url.data, pacf->url.len);
-            *p = '/';
-
-            ngx_str_set(&pr->replacement.value, "/");
-        }
-
-        return NGX_CONF_OK;
-    }
-
-    if (value[1].data[0] == '~') {
-        value[1].len--;
-        value[1].data++;
-
-        if (value[1].data[0] == '*') {
-            value[1].len--;
-            value[1].data++;
-
-            if (ngx_rtmp_proxy_rewrite_regex(cf, pr, &value[1], 1) != NGX_OK) {
-                return NGX_CONF_ERROR;
-            }
-        } else {
-            if (ngx_rtmp_proxy_rewrite_regex(cf, pr, &value[1], 0) != NGX_OK) {
-                return NGX_CONF_ERROR;
-            }
-        }
-    } else {
-        ngx_memzero(&ccv, sizeof(ngx_rtmp_compile_complex_value_t));
-
-        ccv.cf = cf;
-        ccv.value = &value[1];
-        ccv.complex_value = &pr->pattern.complex;
-
-        if (ngx_rtmp_compile_complex_value(&ccv) != NGX_OK) {
-            return NGX_CONF_ERROR;
-        }
-
-        pr->handler = ngx_rtmp_proxy_rewrite_complex_handler;
-    }
-
-    ngx_memzero(&ccv, sizeof(ngx_rtmp_compile_complex_value_t));
-
-    ccv.cf = cf;
-    ccv.value = &value[2];
-    ccv.complex_value = &pr->replacement;
-
-    if (ngx_rtmp_compile_complex_value(&ccv) != NGX_OK) {
-        return NGX_CONF_ERROR;
-    }
-
-    return NGX_CONF_OK;
-}
-
-
-static ngx_int_t
-ngx_rtmp_proxy_rewrite_regex(ngx_conf_t *cf, ngx_rtmp_proxy_rewrite_t *pr,
-    ngx_str_t *regex, ngx_uint_t caseless)
-{
-#if (NGX_PCRE)
-    u_char               errstr[NGX_MAX_CONF_ERRSTR];
-    ngx_regex_compile_t  rc;
-
-    ngx_memzero(&rc, sizeof(ngx_regex_compile_t));
-
-    rc.pattern = *regex;
-    rc.err.len = NGX_MAX_CONF_ERRSTR;
-    rc.err.data = errstr;
-
-    if (caseless) {
-        rc.options = NGX_REGEX_CASELESS;
-    }
-
-    pr->pattern.regex = ngx_rtmp_regex_compile(cf, &rc);
-    if (pr->pattern.regex == NULL) {
-        return NGX_ERROR;
-    }
-
-    pr->handler = ngx_rtmp_proxy_rewrite_regex_handler;
-
-    return NGX_OK;
-
-#else
-
-    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                       "using regex \"%V\" requires PCRE library", regex);
-    return NGX_ERROR;
-
-#endif
 }
 
 
