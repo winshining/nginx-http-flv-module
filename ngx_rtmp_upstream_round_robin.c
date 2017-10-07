@@ -408,7 +408,7 @@ ngx_rtmp_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     ngx_rtmp_upstream_rr_peer_t   *peer;
     ngx_rtmp_upstream_rr_peers_t  *peers;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, pc->log, 0,
                    "get rr peer, try: %ui", pc->tries);
 
     pc->cached = 0;
@@ -440,7 +440,7 @@ ngx_rtmp_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
             goto failed;
         }
 
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, pc->log, 0,
                        "get rr peer, current: %p %i",
                        peer, peer->current_weight);
     }
@@ -459,7 +459,7 @@ failed:
 
     if (peers->next) {
 
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "backup servers");
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, pc->log, 0, "backup servers");
 
         rrp->peers = peers->next;
 
@@ -576,7 +576,7 @@ ngx_rtmp_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     time_t                       now;
     ngx_rtmp_upstream_rr_peer_t  *peer;
 
-    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, pc->log, 0,
                    "free rr peer %ui %ui", pc->tries, state);
 
     /* TODO: NGX_PEER_KEEPALIVE */
@@ -613,7 +613,7 @@ ngx_rtmp_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
             }
         }
 
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, pc->log, 0,
                        "free rr peer failed: %p %i",
                        peer, peer->effective_weight);
 
