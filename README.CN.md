@@ -6,7 +6,7 @@
 
 * 基于HTTP协议的FLV直播流播放。
 
-* GOP缓存，降低播放延迟（试验）。
+* GOP缓存，降低播放延迟。
 
 * 支持'Transfer-Encoding: chunked'方式回复。
 
@@ -136,7 +136,7 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
             listen 1985;
 
             application myapp {
-                proxy_pass rtmp://balance;
+                proxy_pass rtmp://balance; #打开反向代理
             }
         }
 
