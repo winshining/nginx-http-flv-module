@@ -2,7 +2,7 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
-# 功能点
+# 功能
 
 * 基于HTTP协议的FLV直播流播放。
 
