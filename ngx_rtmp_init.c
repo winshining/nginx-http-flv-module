@@ -332,19 +332,19 @@ ngx_rtmp_close_session_handler(ngx_event_t *e)
         ngx_destroy_pool(s->in_pool);
     }
 
+    ngx_rtmp_free_handshake_buffers(s);
+
+    while (s->out_pos != s->out_last) {
+        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
+        s->out_pos %= s->out_queue;
+    }
+
     if (s->in_streams_pool) {
         ngx_destroy_pool(s->in_streams_pool);
     }
 
     if (s->out_pool) {
         ngx_destroy_pool(s->out_pool);
-    }
-
-    ngx_rtmp_free_handshake_buffers(s);
-
-    while (s->out_pos != s->out_last) {
-        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
-        s->out_pos %= s->out_queue;
     }
 
     ngx_rtmp_close_connection(c);
