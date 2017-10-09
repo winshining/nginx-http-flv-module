@@ -1190,8 +1190,19 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
     s->srv_conf = cscf->ctx->srv_conf;
 
     if (dcscf->out_queue != cscf->out_queue) {
+        /* use new pool */
+        s->out_temp_pool = ngx_create_pool(4096, s->connection->log);
+        if (s->out_temp_pool == NULL) {
+            ngx_rtmp_finalize_session(s);
+            return NGX_ERROR;
+        }
+
+        /* save memory */
+        ngx_destroy_pool(s->out_pool);
+        s->out_pool = s->out_temp_pool;
+
         /* send not used yet, need not copy data */
-        s->out = ngx_pcalloc(s->connection->pool, sizeof(ngx_chain_t *)
+        s->out = ngx_pcalloc(s->out_pool, sizeof(ngx_chain_t *)
                     * ((ngx_rtmp_core_srv_conf_t *)
                         cscf->ctx->srv_conf[ngx_rtmp_core_module
                             .ctx_index])->out_queue);
@@ -1200,7 +1211,14 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
     }
 
     if (dcscf->max_streams != cscf->max_streams) {
-        in_streams = ngx_pcalloc(s->connection->pool,
+        /* use new pool */
+        s->in_streams_temp_pool = ngx_create_pool(4096, s->connection->log);
+        if (s->in_streams_temp_pool == NULL) {
+            ngx_rtmp_finalize_session(s);
+            return NGX_ERROR;
+        }
+
+        in_streams = ngx_pcalloc(s->in_streams_temp_pool,
                            sizeof(ngx_rtmp_stream_t) * cscf->max_streams);
         if (in_streams == NULL) {
             ngx_rtmp_finalize_session(s);
@@ -1222,6 +1240,10 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
         }
 
         s->in_streams = in_streams;
+
+        /* save memory */
+        ngx_destroy_pool(s->in_streams_pool);
+        s->in_streams_pool = s->in_streams_temp_pool;
     }
 
     s->out_cork = cscf->out_cork;

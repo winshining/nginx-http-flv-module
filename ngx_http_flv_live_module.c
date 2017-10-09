@@ -1106,15 +1106,6 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
         return NULL;
     }
 
-    s->out = ngx_pcalloc(c->pool, sizeof(ngx_chain_t *)
-                         * ((ngx_rtmp_core_srv_conf_t *)
-                            addr_conf->default_server->ctx->srv_conf
-                            [ngx_rtmp_core_module.ctx_index])->out_queue);
-    if (s->out == NULL) {
-        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-        return NULL;
-    }
-
     s->rtmp_connection = c->data;
 
     s->main_conf = addr_conf->default_server->ctx->main_conf;
@@ -1146,11 +1137,32 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
         return NULL;
     }
 
+    s->out_pool = ngx_create_pool(4096, c->log);
+    if (s->out_pool == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NULL;
+    }
+
+    s->out = ngx_pcalloc(s->out_pool, sizeof(ngx_chain_t *)
+                         * ((ngx_rtmp_core_srv_conf_t *)
+                            addr_conf->default_server->ctx->srv_conf
+                            [ngx_rtmp_core_module.ctx_index])->out_queue);
+    if (s->out == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NULL;
+    }
+
+    s->in_streams_pool = ngx_create_pool(4096, c->log);
+    if (s->in_streams_pool == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NULL;
+    }
+
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     s->out_queue = cscf->out_queue;
     s->out_cork = cscf->out_cork;
-    s->in_streams = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_stream_t)
+    s->in_streams = ngx_pcalloc(s->in_streams_pool, sizeof(ngx_rtmp_stream_t)
             * cscf->max_streams);
     if (s->in_streams == NULL) {
         ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
