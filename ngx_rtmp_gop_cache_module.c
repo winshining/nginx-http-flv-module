@@ -627,6 +627,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
+    s->publisher = rs;
     handler = ngx_rtmp_process_handlers[ctx->protocol];
 
     gctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_gop_cache_module);
