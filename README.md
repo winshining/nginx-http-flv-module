@@ -74,7 +74,9 @@ Argument 'srv=index' is not supported anymore.
 
 The default port for RTMP is 1935, if some other ports were used, 'port=xxx' must be specified.
 
-The default application block matched is the first one in server block, if the requested application block is not the first one, 'app=xxx' must be specified.
+The 'app' is used to match an application block, but if the requested 'app' appears in several server blocks and those blocks have the same address and port configuration, host name matches 'server_name' directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+
+The 'stream' is used to match the publishing streamname.
 
 # Example nginx.conf
 

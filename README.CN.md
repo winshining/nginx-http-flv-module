@@ -74,7 +74,9 @@ HTTP默认使用端口80, 如果使用了其他端口，必须指定':port'。
 
 RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx'。
 
-默认匹配的application块是server块中的第一个application块，如果请求的application块不是第一个，那么必须指定'app=xxx'。
+参数'app'用来匹配application块，但是如果请求的'app'出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的'server_name'配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+
+参数'stream'用来匹配发布流的streamname。
 
 # nginx.conf实例
 
