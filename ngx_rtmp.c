@@ -1226,9 +1226,8 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
         }
 
         /* copy data from s->in_streams to in_streams */
-        for (i = 0; i < ngx_min(dcscf->max_streams, cscf->max_streams); i++) {
-            in_streams[i] = s->in_streams[i];
-        }
+        ngx_memmove(in_streams, s->in_streams, sizeof(ngx_rtmp_stream_t)
+                    * ngx_min(dcscf->max_streams, cscf->max_streams));
 
         if (dcscf->max_streams > cscf->max_streams) {
             for (i = cscf->max_streams; i < dcscf->max_streams; i++) {

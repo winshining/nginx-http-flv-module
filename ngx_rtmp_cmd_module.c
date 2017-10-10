@@ -152,6 +152,10 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           ngx_string("pageUrl"),
           v.page_url, sizeof(v.page_url) },
 
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("serverName"),
+          v.server_name, sizeof(v.server_name) },
+
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("objectEncoding"),
           &v.object_encoding, 0},
@@ -288,7 +292,12 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 #undef NGX_RTMP_SET_STRPAR
 
-    if (!s->auto_pushed && ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+    if (s->auto_pushed) {
+        s->host_start = v->server_name;
+        s->host_end = v->server_name + ngx_strlen(v->server_name);
+    }
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -885,7 +894,11 @@ ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
     ngx_str_t   host;
     ngx_str_t   hschema, rschema, *schema;
 
-    hschema.data = (u_char *) "http://";
+    if (s->auto_pushed) {
+        goto next;
+    }
+
+    hschema.data = (u_char *)"http://";
     hschema.len = ngx_strlen(hschema.data);
 
     rschema.data = (u_char *) "rtmp://";
@@ -921,6 +934,7 @@ ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
         s->host_end = p ? p : (s->host_start + s->tc_url.len - schema->len);
     }
 
+next:
     host.len = s->host_end - s->host_start;
     host.data = s->host_start;
 

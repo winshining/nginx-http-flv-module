@@ -513,12 +513,19 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t* name,
         ngx_rtmp_relay_target_t *target)
 {
     ngx_rtmp_conf_ctx_t         cctx;
+    ngx_rtmp_relay_ctx_t       *rctx;
 
     cctx.app_conf = s->app_conf;
     cctx.srv_conf = s->srv_conf;
     cctx.main_conf = s->main_conf;
 
-    return ngx_rtmp_relay_create_connection(&cctx, name, target);
+    rctx = ngx_rtmp_relay_create_connection(&cctx, name, target);
+    if (rctx) {
+        rctx->server_name.data = s->host_start;
+        rctx->server_name.len = s->host_end - s->host_start;
+    }
+
+    return rctx;
 }
 
 
@@ -814,6 +821,10 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
           ngx_string("flashVer"),
           NULL, 0 }, /* <-- fill */
 
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("serverName"),
+          NULL, 0 }, /* <-- fill */
+
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("audioCodecs"),
           &acodecs, 0 },
@@ -904,6 +915,10 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
         out_cmd[4].data = NGX_RTMP_RELAY_FLASHVER;
         out_cmd[4].len  = sizeof(NGX_RTMP_RELAY_FLASHVER) - 1;
     }
+
+    /* used in ngx_rtmp_set_virtual_server when auto_pushed */
+    out_cmd[5].data = ctx->server_name.data;
+    out_cmd[5].len = ctx->server_name.len;
 
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
