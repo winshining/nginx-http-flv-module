@@ -49,7 +49,7 @@ typedef struct {
     ngx_rtmp_core_srv_conf_t  *default_server;
 
     ngx_rtmp_virtual_names_t  *virtual_names;
-    
+
     unsigned                   proxy_protocol:1;
 } ngx_rtmp_addr_conf_t;
 
@@ -488,7 +488,7 @@ struct ngx_rtmp_core_srv_conf_s {
 
     ngx_flag_t              merge_slashes;
     ngx_flag_t              listen_parsed;
-    
+
     unsigned                listen:1;
 #if (NGX_PCRE)
     unsigned                captures:1;

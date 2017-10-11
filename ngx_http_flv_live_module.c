@@ -940,10 +940,10 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
             rport = ls->servers;
 
             if (rport->naddrs > 1) {
-                /** 
-                 * listen xxx.xxx.xxx.xxx:port 
-                 * listen port 
-                 **/ 
+                /**
+                 * listen xxx.xxx.xxx.xxx:port
+                 * listen port
+                 **/
                 switch (sa_family) {
 
 #if (NGX_HAVE_INET6)

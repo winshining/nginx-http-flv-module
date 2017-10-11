@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan 
- * Copyright (C) Winshining 
+ * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -703,7 +703,7 @@ static int ngx_libc_cdecl
 ngx_rtmp_cmp_dns_wildcards(const void *one, const void *two)
 {
     ngx_hash_key_t  *first, *second;
-    
+
     first = (ngx_hash_key_t *) one;
     second = (ngx_hash_key_t *) two;
 
@@ -883,12 +883,12 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     addrs = mport->addrs;
 
     for (i = 0; i < mport->naddrs; i++) {
-        
+
         sin = &addr[i].opt.sockaddr.sockaddr_in;
         addrs[i].addr = sin->sin_addr.s_addr;
         addrs[i].conf.default_server = addr[i].default_server;
         addrs[i].conf.proxy_protocol = addr[i].opt.proxy_protocol;
-        
+
         if (addr[i].hash.buckets == NULL
             && (addr[i].wc_head == NULL
                 || addr[i].wc_head->hash.buckets == NULL)
@@ -1303,4 +1303,3 @@ ngx_rtmp_find_virtual_server(ngx_connection_t *c,
 
     return NGX_DECLINED;
 }
-
