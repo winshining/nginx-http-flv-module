@@ -2277,11 +2277,19 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
     if (addr_conf == NULL) {
         goto clear;
     }
+
+    addr_conf->default_server = ngx_pcalloc(pool,
+                                            sizeof(ngx_rtmp_core_srv_conf_t));
+    if (addr_conf->default_server == NULL) {
+        goto clear;
+    }
+
     addr_ctx = ngx_pcalloc(pool, sizeof(ngx_rtmp_conf_ctx_t));
     if (addr_ctx == NULL) {
         goto clear;
     }
-    addr_conf->ctx = addr_ctx;
+
+    addr_conf->default_server->ctx = addr_ctx;
     addr_ctx->main_conf = cctx->main_conf;
     addr_ctx->srv_conf  = cctx->srv_conf;
 

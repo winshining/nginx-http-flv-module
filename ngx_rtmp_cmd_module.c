@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -44,6 +45,9 @@ static ngx_int_t ngx_rtmp_cmd_recorded(ngx_rtmp_session_t *s,
 static ngx_int_t ngx_rtmp_cmd_set_buflen(ngx_rtmp_session_t *s,
        ngx_rtmp_set_buflen_t *v);
 
+static ngx_int_t ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s);
+static ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
+       const u_char *name, const u_char *args, const u_char *cmd);
 
 ngx_rtmp_connect_pt         ngx_rtmp_connect;
 ngx_rtmp_disconnect_pt      ngx_rtmp_disconnect;
@@ -147,6 +151,10 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         { NGX_RTMP_AMF_STRING,
           ngx_string("pageUrl"),
           v.page_url, sizeof(v.page_url) },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("serverName"),
+          v.server_name, sizeof(v.server_name) },
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("objectEncoding"),
@@ -260,8 +268,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-
     trans = v->trans;
 
     /* fill session parameters */
@@ -285,6 +291,17 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     NGX_RTMP_SET_STRPAR(page_url);
 
 #undef NGX_RTMP_SET_STRPAR
+
+    if (s->auto_pushed) {
+        s->host_start = v->server_name;
+        s->host_end = v->server_name + ngx_strlen(v->server_name);
+    }
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
     if (p) {
@@ -493,8 +510,6 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           &v.type, sizeof(v.type) },
     };
 
-    size_t request_line_len = 0;
-
     ngx_memzero(&v, sizeof(v));
 
     if (ngx_rtmp_receive_amf(s, in, in_elts,
@@ -503,58 +518,11 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
-    s->stream.len = ngx_strlen(v.name);
-    if (s->stream.len) {
-        s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
-        if (s->stream.data == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_memcpy(s->stream.data, v.name, ngx_strlen(v.name));
-    }
-
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
-    request_line_len = s->tc_url.len;
-
-    if (s->stream.len) {
-        request_line_len += 1 + s->stream.len;
-    }
-
-    if (v.args[0]) {
-        request_line_len += 1 + ngx_strlen(v.args);
-    }
-
-    s->request_line = ngx_create_temp_buf(s->connection->pool,
-                                          request_line_len + 1);
-    if (s->request_line == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "publish: failed to ngx_pcalloc for request_line");
-
-        return NGX_ERROR;
-    }
-
-    if (v.args[0]) {
-        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V?%s",
-                                         &s->tc_url, &s->stream, v.args) = CR;
-    } else {
-        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V",
-                                               &s->tc_url, &s->stream) = CR;
-    }
-
-    s->request_line->last += request_line_len;
-
-    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                  "publish: invalid request line: '%s'", s->request_line->pos);
-        ngx_rtmp_finalize_session(s);
-
-        return NGX_ERROR;
-    }
-
-    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
-        ngx_rtmp_finalize_session(s);
-
+    if (ngx_rtmp_process_request_line(s, v.name, v.args,
+            (const u_char *) "publish") != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -606,8 +574,6 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           &v.reset, 0 }
     };
 
-    size_t request_line_len = 0;
-
     ngx_memzero(&v, sizeof(v));
 
     if (ngx_rtmp_receive_amf(s, in, in_elts,
@@ -616,58 +582,11 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
-    s->stream.len = ngx_strlen(v.name);
-    if (s->stream.len) {
-        s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
-        if (s->stream.data == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_memcpy(s->stream.data, v.name, ngx_strlen(v.name));
-    }
-
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
-    request_line_len = s->tc_url.len;
-
-    if (s->stream.len) {
-        request_line_len += 1 + s->stream.len;
-    }
-
-    if (v.args[0]) {
-        request_line_len += ngx_strlen(v.args);
-    }
-
-    s->request_line = ngx_create_temp_buf(s->connection->pool,
-                                          request_line_len);
-    if (s->request_line == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "publish: failed to ngx_pcalloc for request_line");
-
-        return NGX_ERROR;
-    }
-
-    if (v.args[0]) {
-        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V?%s",
-                                         &s->tc_url, &s->stream, v.args) = CR;
-    } else {
-        *ngx_snprintf(s->request_line->pos, request_line_len + 1, "%V/%V",
-                                               &s->tc_url, &s->stream) = CR;
-    }
-
-    s->request_line->last += request_line_len;
-
-    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                  "publish: invalid request line: '%s'", s->request_line->pos);
-        ngx_rtmp_finalize_session(s);
-
-        return NGX_ERROR;
-    }
-
-    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
-        ngx_rtmp_finalize_session(s);
-
+    if (ngx_rtmp_process_request_line(s, v.name, v.args,
+            (const u_char *) "play") != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -962,6 +881,138 @@ ngx_rtmp_cmd_postconfiguration(ngx_conf_t *cf)
     ngx_rtmp_stream_dry = ngx_rtmp_cmd_stream_dry;
     ngx_rtmp_recorded = ngx_rtmp_cmd_recorded;
     ngx_rtmp_set_buflen = ngx_rtmp_cmd_set_buflen;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
+{
+    u_char     *p;
+    ngx_int_t   rc;
+    ngx_str_t   host;
+    ngx_str_t   hschema, rschema, *schema;
+
+    if (s->auto_pushed) {
+        goto next;
+    }
+
+    hschema.data = (u_char *)"http://";
+    hschema.len = ngx_strlen(hschema.data);
+
+    rschema.data = (u_char *) "rtmp://";
+    rschema.len = ngx_strlen(rschema.data);
+
+    do {
+        schema = &hschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        schema = &rschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        return NGX_ERROR;
+    } while (0);
+
+    s->host_start = s->tc_url.data + schema->len;
+
+    p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, ':');
+    if (p) {
+        s->host_end = p;
+    } else {
+        p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, '/');
+        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema->len);
+    }
+
+next:
+    host.len = s->host_end - s->host_start;
+    host.data = s->host_start;
+
+    rc = ngx_rtmp_validate_host(&host, s->connection->pool, 0);
+
+    if (rc == NGX_DECLINED) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "client send invalid host in request line");
+        return NGX_ERROR;
+    }
+
+#if 0
+    /* TODO: send error details to client */
+    if (rc == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+#endif
+
+    if (ngx_rtmp_set_virtual_server(s, &host) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
+    const u_char *args, const u_char *cmd)
+{
+    size_t               rlen = 0;
+
+    s->stream.len = ngx_strlen(name);
+    if (s->stream.len) {
+        s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
+        if (s->stream.data == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(s->stream.data, name, ngx_strlen(name));
+    }
+
+    rlen = s->tc_url.len;
+
+    if (s->stream.len) {
+        rlen += 1 + s->stream.len;
+    }
+
+    if (args[0]) {
+        rlen += ngx_strlen(args);
+    }
+
+    s->request_line = ngx_create_temp_buf(s->connection->pool, rlen + 1);
+    if (s->request_line == NULL) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "%s: failed to ngx_pcalloc for request_line", cmd);
+        return NGX_ERROR;
+    }
+
+    if (args[0]) {
+        *ngx_snprintf(s->request_line->pos, rlen + 1, "%V/%V?%s", &s->tc_url,
+                      &s->stream, args) = CR;
+    } else {
+        *ngx_snprintf(s->request_line->pos, rlen + 1, "%V/%V", &s->tc_url,
+                      &s->stream) = CR;
+    }
+
+    s->request_line->last += rlen;
+
+    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "%s: invalid request line: '%s'", cmd, s->request_line->pos);
+        return NGX_ERROR;
+    }
+
+    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
+        return NGX_ERROR;
+    }
 
     return NGX_OK;
 }
