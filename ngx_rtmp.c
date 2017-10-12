@@ -874,6 +874,9 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     struct sockaddr_in        *sin;
     ngx_rtmp_virtual_names_t  *vn;
 
+    u_char                    *p, buf[NGX_SOCKADDR_STRLEN];
+    size_t                     len;
+
     mport->addrs = ngx_pcalloc(cf->pool,
                                mport->naddrs * sizeof(ngx_rtmp_in_addr_t));
     if (mport->addrs == NULL) {
@@ -888,6 +891,21 @@ ngx_rtmp_add_addrs(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         addrs[i].addr = sin->sin_addr.s_addr;
         addrs[i].conf.default_server = addr[i].default_server;
         addrs[i].conf.proxy_protocol = addr[i].opt.proxy_protocol;
+
+        len = ngx_sock_ntop(&addr[i].opt.sockaddr.sockaddr,
+#if (nginx_version >= 1005003)
+                            addr[i].opt.socklen,
+#endif
+                            buf, NGX_SOCKADDR_STRLEN, 1);
+
+        p = ngx_pcalloc(cf->pool, len);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(p, buf, len);
+        addrs[i].conf.addr_text.len = len;
+        addrs[i].conf.addr_text.data = p;
 
         if (addr[i].hash.buckets == NULL
             && (addr[i].wc_head == NULL
@@ -933,6 +951,9 @@ ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
     struct sockaddr_in6       *sin6;
     ngx_rtmp_virtual_names_t  *vn;
 
+    u_char                    *p, buf[NGX_SOCKADDR_STRLEN];
+    size_t                     len;
+
     mport->addrs = ngx_pcalloc(cf->pool,
                                mport->naddrs * sizeof(ngx_rtmp_in6_addr_t));
     if (mport->addrs == NULL) {
@@ -947,6 +968,21 @@ ngx_rtmp_add_addrs6(ngx_conf_t *cf, ngx_rtmp_port_t *mport,
         addrs6[i].addr6 = sin6->sin6_addr;
         addrs6[i].conf.default_server = addr[i].default_server;
         addrs6[i].conf.proxy_protocol = addr[i].opt.proxy_protocol;
+
+        len = ngx_sock_ntop(&addr[i].opt.sockaddr.sockaddr,
+#if (nginx_version >= 1005003)
+                            addr[i].opt.socklen,
+#endif
+                            buf, NGX_SOCKADDR_STRLEN, 1);
+
+        p = ngx_pcalloc(cf->pool, len);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(p, buf, len);
+        addrs6[i].conf.addr_text.len = len;
+        addrs6[i].conf.addr_text.data = p;
 
         if (addr[i].hash.buckets == NULL
             && (addr[i].wc_head == NULL
