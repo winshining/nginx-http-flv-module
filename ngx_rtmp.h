@@ -376,6 +376,8 @@ struct ngx_rtmp_session_s {
     ngx_pool_t                 *out_pool;
     ngx_pool_t                 *out_temp_pool;
 
+    unsigned                    server_changed:1;
+
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
 

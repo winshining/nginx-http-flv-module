@@ -1223,6 +1223,7 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
     dcscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     /* reinitialization */
+    s->server_changed = 1;
     s->srv_conf = cscf->ctx->srv_conf;
 
     if (dcscf->out_queue != cscf->out_queue) {
