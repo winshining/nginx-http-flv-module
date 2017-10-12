@@ -112,6 +112,17 @@ RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx
                 flv_live on; #打开HTTP播放FLV直播流功能
                 chunked  on; #支持'Transfer-Encoding: chunked'方式回复
             }
+
+            location /stat {
+                #push和pull状态的配置
+
+                rtmp_stat all;
+                rtmp_stat_stylesheet stat.xsl;
+            }
+
+            location /stat.xsl {
+                root /var/www/rtmp; #指定stat.xsl的位置
+            }
         }
     }
 
@@ -147,6 +158,15 @@ RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx
         server {
             listen 1935;
             server_name www.test.com;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1945;
 
             application myapp {
                 live on;

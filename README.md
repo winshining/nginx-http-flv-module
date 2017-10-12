@@ -112,6 +112,17 @@ The 'stream' is used to match the publishing streamname.
                 flv_live on; #open flv live streaming (subscribe)
                 chunked  on; #open 'Transfer-Encoding: chunked' response
             }
+
+            location /stat {
+                #configuration of push & pull status
+
+                rtmp_stat all;
+                rtmp_stat_stylesheet stat.xsl;
+            }
+
+            location /stat.xsl {
+                root /var/www/rtmp; #specify in where stat.xsl located
+            }
         }
     }
 
@@ -147,6 +158,15 @@ The 'stream' is used to match the publishing streamname.
         server {
             listen 1935;
             server_name www.test.com;
+
+            application myapp {
+                live on;
+                gop_cache on; #open GOP cache for low latency
+            }
+        }
+
+        server {
+            listen 1945;
 
             application myapp {
                 live on;
