@@ -1435,6 +1435,14 @@ ngx_http_flv_live_close_session_handler(ngx_rtmp_session_t *s)
         ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
         s->out_pos %= s->out_queue;
     }
+
+    if (s->in_streams_pool) {
+        ngx_destroy_pool(s->in_streams_pool);
+    }
+
+    if (s->out_pool) {
+        ngx_destroy_pool(s->out_pool);
+    }
 }
 
 
