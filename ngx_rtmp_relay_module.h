@@ -35,6 +35,7 @@ typedef struct {
 typedef struct ngx_rtmp_relay_ctx_s ngx_rtmp_relay_ctx_t;
 
 struct ngx_rtmp_relay_ctx_s {
+    ngx_str_t                       server_name;
     ngx_str_t                       name;
     ngx_str_t                       url;
     ngx_log_t                       log;
