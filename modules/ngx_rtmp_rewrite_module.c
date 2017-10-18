@@ -44,6 +44,7 @@ static ngx_int_t
 ngx_rtmp_add_application(ngx_conf_t *cf, ngx_array_t *applications,
     ngx_rtmp_core_app_conf_t *cacf);
 
+static ngx_int_t ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri);
 
 static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
 
@@ -318,6 +319,12 @@ ngx_rtmp_rewrite(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_memzero(regex, sizeof(ngx_rtmp_script_regex_code_t));
 
     value = cf->args->elts;
+
+    if (ngx_rtmp_rewrite_valid_uri(cf, &value[1]) != NGX_OK
+        || ngx_rtmp_rewrite_valid_uri(cf, &value[2]) != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     ngx_memzero(&rc, sizeof(ngx_regex_compile_t));
 
@@ -1028,3 +1035,38 @@ ngx_rtmp_rewrite_value(ngx_conf_t *cf, ngx_rtmp_rewrite_app_conf_t *acf,
 
     return NGX_CONF_OK;
 }
+
+
+static ngx_int_t ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri)
+{
+    u_char      *p;
+    size_t       len;
+    ngx_int_t    slashes = 0;
+
+    if (ngx_strncmp(uri->data, "rtmp://", sizeof("rtmp://") - 1) == 0) {
+        return NGX_OK;
+    }
+
+    if (uri->data[uri->len - 1] == '/') {
+        uri->len--;
+    }
+
+    p = uri->data;
+    len = uri->len;
+
+    while (p < uri->data + len) {
+        if (*p++ == '/') {
+            slashes++;
+        }
+
+        if (slashes > 2) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                    "parameter \"%V\" has too many '/'s as a tcUrl", uri);
+
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
