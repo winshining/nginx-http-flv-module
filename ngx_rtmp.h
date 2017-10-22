@@ -338,6 +338,8 @@ struct ngx_rtmp_session_s {
     /* URI with " " */
     unsigned                    space_in_uri:1;
 
+    ngx_uint_t                  phase_handler;
+
     u_char                     *uri_start;
     u_char                     *uri_end;
     u_char                     *args_start;

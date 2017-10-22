@@ -49,6 +49,9 @@ static ngx_int_t ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
        const u_char *name, const u_char *args, const u_char *cmd);
 
+static ngx_int_t ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s,
+       ngx_uint_t evt);
+
 ngx_rtmp_connect_pt         ngx_rtmp_connect;
 ngx_rtmp_disconnect_pt      ngx_rtmp_disconnect;
 ngx_rtmp_create_stream_pt   ngx_rtmp_create_stream;
@@ -208,6 +211,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ngx_uint_t                  n;
     ngx_rtmp_header_t           h;
     u_char                     *p;
+    size_t                      len;
 
     static double               trans;
     static double               capabilities = NGX_RTMP_CAPABILITIES;
@@ -301,12 +305,45 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (s->auto_pushed) {
+        /* auto push comes after push/play */
+        p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
+        if (p) {
+            s->app.len = (p - s->app.data);
+        }
 
-    p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
-    if (p) {
-        s->app.len = (p - s->app.data);
+        goto next;
     }
+
+    if (ngx_rtmp_process_request_line(s, (const u_char *) "virtual", NULL,
+            (const u_char *) "connect") != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    if (ngx_rtmp_process_rewrite(s, NGX_RTMP_SERVER_REWRITE) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    /* update app */
+    p = ngx_strlchr(s->uri.data + 1, s->uri.data + s->uri.len, '/');
+    s->app.len = p - s->uri.data - 1;
+    s->app.data = s->uri.data + 1;
+
+    /* update tc_url */
+    len = s->port_end - s->schema_start + s->uri.len;
+    p = ngx_pcalloc(s->connection->pool, len + 1);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(p, s->tc_url.data, s->port_end - s->schema_start);
+    *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "%V", &s->uri) = 0;
+    s->tc_url.len = len;
+    s->tc_url.data = p;
+
+next:
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     s->acodecs = (uint32_t) v->acodecs;
     s->vcodecs = (uint32_t) v->vcodecs;
@@ -529,6 +566,10 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "publish: name='%s' args='%s' type=%s silent=%d",
                   v.name, v.args, v.type, v.silent);
+
+    if (ngx_rtmp_process_rewrite(s, NGX_RTMP_REWRITE) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
 
     return ngx_rtmp_publish(s, &v);
 }
@@ -983,7 +1024,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
         rlen += 1 + s->stream.len;
     }
 
-    if (args[0]) {
+    if (args && args[0]) {
         rlen += ngx_strlen(args);
     }
 
@@ -994,7 +1035,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
         return NGX_ERROR;
     }
 
-    if (args[0]) {
+    if (args && args[0]) {
         *ngx_snprintf(s->request_line->pos, rlen + 1, "%V/%V?%s", &s->tc_url,
                       &s->stream, args) = CR;
     } else {
@@ -1016,3 +1057,49 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
 
     return NGX_OK;
 }
+
+
+static ngx_int_t
+ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
+{
+    ngx_rtmp_core_main_conf_t      *cmcf;
+    ngx_array_t                    *ch;
+    ngx_rtmp_handler_pt            *hh;
+    ngx_int_t                       rc;
+
+    if (evt == NGX_RTMP_MAX_EVENT) {
+        return NGX_DONE;
+    }
+
+    if (evt < NGX_RTMP_SERVER_REWRITE || evt > NGX_RTMP_REWRITE) {
+        return NGX_ERROR;
+    }
+
+    cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
+
+    ch = &cmcf->events[evt];
+    hh = ch->elts;
+    while (s->phase_handler < ch->nelts) {
+        if (hh[s->phase_handler]) {
+            rc = hh[s->phase_handler](s, NULL, NULL);
+
+            if (rc == NGX_ERROR) {
+                break;
+            }
+
+            if (rc == NGX_DECLINED) {
+                s->phase_handler++;
+            }
+        }
+    }
+
+    if (s->phase_handler == ch->nelts) {
+        /* all handlers in this phase finished */
+        rc = NGX_DONE;
+    }
+
+    /* NGX_OK, NGX_AGAIN, NGX_ERROR, NGX_RTMP_...  */
+
+    return rc;
+}
+

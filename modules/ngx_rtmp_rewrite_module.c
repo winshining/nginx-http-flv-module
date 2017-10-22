@@ -1061,7 +1061,8 @@ static ngx_int_t ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri)
 
         if (slashes > 2) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                    "parameter \"%V\" has too many '/'s as a tcUrl", uri);
+                "parameter \"%V\" not conform with tcUrl in RTMP protocol",
+                uri);
 
             return NGX_ERROR;
         }

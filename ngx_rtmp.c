@@ -1225,6 +1225,7 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
     /* reinitialization */
     s->server_changed = 1;
     s->srv_conf = cscf->ctx->srv_conf;
+    s->app_conf = cscf->ctx->app_conf;
 
     if (dcscf->out_queue != cscf->out_queue) {
         /* use new pool */
