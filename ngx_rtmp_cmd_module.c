@@ -51,6 +51,10 @@ static ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
 
 static ngx_int_t ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s,
        ngx_uint_t evt);
+static ngx_int_t ngx_rtmp_process_find_application(ngx_rtmp_session_t *s,
+       ngx_uint_t evt);
+static ngx_int_t ngx_rtmp_process_post_rewrite(ngx_rtmp_session_t *s,
+       ngx_uint_t evt);
 
 ngx_rtmp_connect_pt         ngx_rtmp_connect;
 ngx_rtmp_disconnect_pt      ngx_rtmp_disconnect;
@@ -207,8 +211,6 @@ static ngx_int_t
 ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 {
     ngx_rtmp_core_srv_conf_t   *cscf;
-    ngx_rtmp_core_app_conf_t  **cacfp;
-    ngx_uint_t                  n;
     ngx_rtmp_header_t           h;
     u_char                     *p;
     size_t                      len;
@@ -321,7 +323,7 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    if (ngx_rtmp_process_rewrite(s, NGX_RTMP_SERVER_REWRITE) == NGX_ERROR) {
+    if (ngx_rtmp_process_rewrite(s, s->phase) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
@@ -331,41 +333,26 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     s->app.data = s->uri.data + 1;
 
     /* update tc_url */
-    len = s->port_end - s->schema_start + s->uri.len;
+    len = s->port_end - s->schema_start + s->app.len + 1;
     p = ngx_pcalloc(s->connection->pool, len + 1);
     if (p == NULL) {
         return NGX_ERROR;
     }
 
     ngx_memcpy(p, s->tc_url.data, s->port_end - s->schema_start);
-    *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "%V", &s->uri) = 0;
+    *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "/%V", &s->app) = 0;
     s->tc_url.len = len;
     s->tc_url.data = p;
 
 next:
+    if (ngx_rtmp_process_find_application(s, s->phase) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     s->acodecs = (uint32_t) v->acodecs;
     s->vcodecs = (uint32_t) v->vcodecs;
-
-    /* find application & set app_conf */
-    cacfp = cscf->applications.elts;
-    for(n = 0; n < cscf->applications.nelts; ++n, ++cacfp) {
-        if ((*cacfp)->name.len == s->app.len &&
-            ngx_strncmp((*cacfp)->name.data, s->app.data, s->app.len) == 0)
-        {
-            /* found app! */
-            s->app_conf = (*cacfp)->app_conf;
-            s->valid_application = 1;
-            break;
-        }
-    }
-
-    if (s->app_conf == NULL) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                      "connect: application not found: '%V'", &s->app);
-        return NGX_ERROR;
-    }
 
     object_encoding = v->object_encoding;
 
@@ -547,6 +534,8 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
           &v.type, sizeof(v.type) },
     };
 
+    ngx_int_t                      rc;
+
     ngx_memzero(&v, sizeof(v));
 
     if (ngx_rtmp_receive_amf(s, in, in_elts,
@@ -567,8 +556,25 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                   "publish: name='%s' args='%s' type=%s silent=%d",
                   v.name, v.args, v.type, v.silent);
 
-    if (ngx_rtmp_process_rewrite(s, NGX_RTMP_REWRITE) == NGX_ERROR) {
-        return NGX_ERROR;
+    for ( ;; ) {
+        rc = ngx_rtmp_process_rewrite(s, s->phase);
+        if (rc == NGX_ERROR) {
+            return NGX_ERROR;
+        } else if (rc == NGX_OK) {
+            break;
+        }
+
+        rc = ngx_rtmp_process_find_application(s, s->phase);
+        if (rc == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        rc = ngx_rtmp_process_post_rewrite(s, s->phase);
+        if (rc == NGX_ERROR) {
+            return NGX_ERROR;
+        } else if (rc == NGX_DONE) {
+            break;
+        }
     }
 
     return ngx_rtmp_publish(s, &v);
@@ -1067,12 +1073,8 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
     ngx_rtmp_handler_pt            *hh;
     ngx_int_t                       rc;
 
-    if (evt == NGX_RTMP_MAX_EVENT) {
-        return NGX_DONE;
-    }
-
-    if (evt < NGX_RTMP_SERVER_REWRITE || evt > NGX_RTMP_REWRITE) {
-        return NGX_ERROR;
+    if (evt != NGX_RTMP_SERVER_REWRITE || evt != NGX_RTMP_REWRITE) {
+        return NGX_DECLINED;
     }
 
     cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
@@ -1095,7 +1097,10 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
 
     if (s->phase_handler == ch->nelts) {
         /* all handlers in this phase finished */
-        rc = NGX_DONE;
+        s->phase++;
+        s->phase_handler = 0;
+
+        rc = NGX_OK;
     }
 
     /* NGX_OK, NGX_AGAIN, NGX_ERROR, NGX_RTMP_...  */
@@ -1103,3 +1108,59 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
     return rc;
 }
 
+
+static ngx_int_t
+ngx_rtmp_process_find_application(ngx_rtmp_session_t *s, ngx_uint_t evt)
+{
+    ngx_rtmp_core_main_conf_t      *cmcf;
+    ngx_array_t                    *ch;
+    ngx_rtmp_handler_pt            *hh;
+    ngx_int_t                       rc;
+
+    if (evt != NGX_RTMP_FIND_APPLICATION) {
+        return NGX_DECLINED;
+    }
+
+    cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
+
+    rc = NGX_OK;
+    ch = &cmcf->events[evt];
+    hh = ch->elts;
+
+    if (hh[s->phase_handler]) {
+        rc = hh[s->phase_handler](s, NULL, NULL);
+    }
+
+    s->phase++;
+    s->phase_handler = 0;
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_rtmp_process_post_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
+{
+    ngx_rtmp_core_main_conf_t      *cmcf;
+    ngx_array_t                    *ch;
+    ngx_rtmp_handler_pt            *hh;
+    ngx_int_t                       rc;
+
+    if (evt != NGX_RTMP_POST_REWRITE) {
+        return NGX_DECLINED;
+    }
+
+    cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
+
+    rc = NGX_OK;
+    ch = &cmcf->events[evt];
+    hh = ch->elts;
+
+    if (hh[s->phase_handler]) {
+        rc = hh[s->phase_handler](s, NULL, NULL);
+    }
+
+    s->phase_handler = 0;
+
+    return rc;
+}

@@ -195,9 +195,11 @@ typedef struct {
 #define NGX_RTMP_DISCONNECT             NGX_RTMP_MSG_MAX + 2
 #define NGX_RTMP_HANDSHAKE_DONE         NGX_RTMP_MSG_MAX + 3
 #define NGX_RTMP_SERVER_REWRITE         NGX_RTMP_MSG_MAX + 4
-#define NGX_RTMP_REWRITE                NGX_RTMP_MSG_MAX + 5
-#define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 6
-#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 7
+#define NGX_RTMP_FIND_APPLICATION       NGX_RTMP_MSG_MAX + 5
+#define NGX_RTMP_REWRITE                NGX_RTMP_MSG_MAX + 6
+#define NGX_RTMP_POST_REWRITE           NGX_RTMP_MSG_MAX + 7
+#define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 8
+#define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 9
 
 
 /* RMTP control message types */
@@ -338,6 +340,7 @@ struct ngx_rtmp_session_s {
     /* URI with " " */
     unsigned                    space_in_uri:1;
 
+    ngx_uint_t                  phase;
     ngx_uint_t                  phase_handler;
 
     u_char                     *uri_start;
