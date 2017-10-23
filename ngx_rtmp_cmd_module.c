@@ -56,6 +56,9 @@ static ngx_int_t ngx_rtmp_process_find_application(ngx_rtmp_session_t *s,
 static ngx_int_t ngx_rtmp_process_post_rewrite(ngx_rtmp_session_t *s,
        ngx_uint_t evt);
 
+static ngx_int_t ngx_rtmp_update_session(ngx_rtmp_session_t *s);
+
+
 ngx_rtmp_connect_pt         ngx_rtmp_connect;
 ngx_rtmp_disconnect_pt      ngx_rtmp_disconnect;
 ngx_rtmp_create_stream_pt   ngx_rtmp_create_stream;
@@ -213,7 +216,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_header_t           h;
     u_char                     *p;
-    size_t                      len;
 
     static double               trans;
     static double               capabilities = NGX_RTMP_CAPABILITIES;
@@ -327,22 +329,9 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-    /* update app */
-    p = ngx_strlchr(s->uri.data + 1, s->uri.data + s->uri.len, '/');
-    s->app.len = p - s->uri.data - 1;
-    s->app.data = s->uri.data + 1;
-
-    /* update tc_url */
-    len = s->port_end - s->schema_start + s->app.len + 1;
-    p = ngx_pcalloc(s->connection->pool, len + 1);
-    if (p == NULL) {
+    if (ngx_rtmp_update_session(s) == NGX_ERROR) {
         return NGX_ERROR;
     }
-
-    ngx_memcpy(p, s->tc_url.data, s->port_end - s->schema_start);
-    *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "/%V", &s->app) = 0;
-    s->tc_url.len = len;
-    s->tc_url.data = p;
 
 next:
     if (ngx_rtmp_process_find_application(s, s->phase) == NGX_ERROR) {
@@ -563,6 +552,12 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         } else if (rc == NGX_OK) {
             break;
         }
+
+        if (ngx_rtmp_update_session(s) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        s->phase = NGX_RTMP_FIND_APPLICATION;
 
         rc = ngx_rtmp_process_find_application(s, s->phase);
         if (rc == NGX_ERROR) {
@@ -1163,4 +1158,31 @@ ngx_rtmp_process_post_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
     s->phase_handler = 0;
 
     return rc;
+}
+
+
+static ngx_int_t
+ngx_rtmp_update_session(ngx_rtmp_session_t *s)
+{
+    u_char  *p;
+    size_t   len;
+
+    /* update app */
+    p = ngx_strlchr(s->uri.data + 1, s->uri.data + s->uri.len, '/');
+    s->app.len = p - s->uri.data - 1;
+    s->app.data = s->uri.data + 1;
+
+    /* update tc_url */
+    len = s->port_end - s->schema_start + s->app.len + 1;
+    p = ngx_pcalloc(s->connection->pool, len + 1);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(p, s->tc_url.data, s->port_end - s->schema_start);
+    *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "/%V", &s->app) = 0;
+    s->tc_url.len = len;
+    s->tc_url.data = p;
+
+    return NGX_OK;
 }

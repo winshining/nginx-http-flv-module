@@ -1617,7 +1617,7 @@ ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         }
     }
 
-    if (s->app_conf == NULL) {
+    if (n == cscf->applications.nelts || s->app_conf == NULL) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                       "connect: application not found: '%V'", &s->app);
         return NGX_ERROR;
