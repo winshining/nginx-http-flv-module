@@ -1592,3 +1592,72 @@ ngx_rtmp_core_server_name(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
+
+
+ngx_int_t
+ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
+{
+    ngx_rtmp_core_srv_conf_t   *cscf;
+    ngx_rtmp_core_app_conf_t  **cacfp;
+    ngx_uint_t                  n;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    /* find application & set app_conf */
+    cacfp = cscf->applications.elts;
+    for(n = 0; n < cscf->applications.nelts; ++n, ++cacfp) {
+        if ((*cacfp)->name.len == s->app.len &&
+            ngx_strncmp((*cacfp)->name.data, s->app.data, s->app.len) == 0)
+        {
+            /* found app! */
+            s->app_conf = (*cacfp)->app_conf;
+            s->valid_application = 1;
+            break;
+        }
+    }
+
+    if (s->app_conf == NULL) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "connect: application not found: '%V'", &s->app);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+    ngx_chain_t *in)
+{
+    ngx_rtmp_core_srv_conf_t  *cscf;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "post rewrite phase: %ui", s->phase_handler);
+
+    if (!s->uri_changed) {
+        /* next handler */
+        return NGX_DONE;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "uri changes: %d", s->uri_changes);
+
+    s->uri_changes--;
+
+    if (s->uri_changes == 0) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "rewrite or internal redirection cycle "
+                      "while processing \"%V\"", &s->uri);
+
+        return NGX_ERROR;
+    }
+
+    s->phase = NGX_RTMP_FIND_APPLICATION;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    s->app_conf = cscf->ctx->app_conf;
+
+    return NGX_AGAIN;
+}

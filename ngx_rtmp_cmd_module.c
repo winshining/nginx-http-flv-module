@@ -1073,7 +1073,7 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
     ngx_rtmp_handler_pt            *hh;
     ngx_int_t                       rc;
 
-    if (evt != NGX_RTMP_SERVER_REWRITE || evt != NGX_RTMP_REWRITE) {
+    if (evt != NGX_RTMP_SERVER_REWRITE && evt != NGX_RTMP_REWRITE) {
         return NGX_DECLINED;
     }
 
@@ -1085,12 +1085,12 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
         if (hh[s->phase_handler]) {
             rc = hh[s->phase_handler](s, NULL, NULL);
 
-            if (rc == NGX_ERROR) {
-                break;
-            }
-
-            if (rc == NGX_DECLINED) {
+            if (rc == NGX_DONE) {
+                return NGX_OK;
+            } else if (rc == NGX_DECLINED) {
                 s->phase_handler++;
+            } else if (rc == NGX_ERROR) {
+                break;
             }
         }
     }
@@ -1100,7 +1100,7 @@ ngx_rtmp_process_rewrite(ngx_rtmp_session_t *s, ngx_uint_t evt)
         s->phase++;
         s->phase_handler = 0;
 
-        rc = NGX_OK;
+        rc = NGX_AGAIN;
     }
 
     /* NGX_OK, NGX_AGAIN, NGX_ERROR, NGX_RTMP_...  */

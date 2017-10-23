@@ -869,6 +869,10 @@ ngx_int_t ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool,
     ngx_uint_t alloc);
 ngx_int_t ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host);
 
+ngx_int_t ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s,
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
+ngx_int_t ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s,
+     ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 #include "ngx_rtmp_upstream.h"
 
