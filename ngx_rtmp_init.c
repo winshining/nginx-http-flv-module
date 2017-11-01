@@ -242,7 +242,6 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     s->epoch = ngx_current_msec;
     s->timeout = cscf->timeout;
     s->buflen = cscf->buflen;
-    s->phase = NGX_RTMP_SERVER_REWRITE;
     ngx_rtmp_set_chunk_size(s, NGX_RTMP_DEFAULT_CHUNK_SIZE);
 
     if (ngx_rtmp_fire_event(s, NGX_RTMP_CONNECT, NULL, NULL) != NGX_OK) {

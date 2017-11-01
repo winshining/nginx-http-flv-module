@@ -13,6 +13,10 @@
 
 
 static char *ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static ngx_int_t ngx_rtmp_init_phases(ngx_conf_t *cf,
+    ngx_rtmp_core_main_conf_t *cmcf);
+static ngx_int_t ngx_rtmp_init_phase_handlers(ngx_conf_t *cf,
+    ngx_rtmp_core_main_conf_t *cmcf);
 static ngx_int_t ngx_rtmp_optimize_servers(ngx_conf_t *cf,
     ngx_rtmp_core_main_conf_t *cmcf, ngx_array_t *ports);
 static ngx_int_t ngx_rtmp_server_names(ngx_conf_t *cf,
@@ -330,11 +334,139 @@ ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+    if (ngx_rtmp_init_phases(cf, cmcf) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_rtmp_init_phase_handlers(cf, cmcf) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
     if (ngx_rtmp_optimize_servers(cf, cmcf, cmcf->ports) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_init_phases(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
+{
+    ngx_uint_t  start_phase = NGX_RTMP_SERVER_REWRITE_PHASE;
+
+    if (ngx_array_init(&cmcf->phases
+                       [NGX_RTMP_SERVER_REWRITE_PHASE - start_phase].handlers,
+                       cf->pool, 1, sizeof(ngx_rtmp_handler_pt))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    if (ngx_array_init(&cmcf->phases
+                       [NGX_RTMP_REWRITE_PHASE - start_phase].handlers,
+                       cf->pool, 1, sizeof(ngx_rtmp_handler_pt))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
+{
+    ngx_int_t                   j;
+    ngx_uint_t                  i, n, start_phase, end_phase;
+    ngx_uint_t                  find_config_index, use_rewrite;
+    ngx_rtmp_handler_pt        *h;
+    ngx_rtmp_phase_handler_t   *ph;
+    ngx_rtmp_phase_handler_pt   checker;
+
+    cmcf->phase_engine.server_rewrite_index = (ngx_uint_t) -1;
+    cmcf->phase_engine.location_rewrite_index = (ngx_uint_t) -1;
+    find_config_index = 0;
+    start_phase = NGX_RTMP_SERVER_REWRITE_PHASE;
+    end_phase = NGX_RTMP_POST_REWRITE_PHASE;
+    use_rewrite = cmcf->
+        phases[NGX_RTMP_REWRITE_PHASE - start_phase].handlers.nelts ? 1 : 0;
+
+    n = 1                  /* find config phase */
+        + use_rewrite;     /* post rewrite phase */
+
+    for (i = start_phase; i < end_phase; i++) {
+        n += cmcf->phases[i - start_phase].handlers.nelts;
+    }
+
+    ph = ngx_pcalloc(cf->pool,
+                     n * sizeof(ngx_rtmp_phase_handler_t) + sizeof(void *));
+    if (ph == NULL) {
+        return NGX_ERROR;
+    }
+
+    cmcf->phase_engine.handlers = ph;
+    n = 0;
+
+    for (i = start_phase; i < end_phase; i++) {
+        h = cmcf->phases[i - start_phase].handlers.elts;
+
+        switch (i) {
+
+        case NGX_RTMP_SERVER_REWRITE_PHASE:
+            if (cmcf->phase_engine.server_rewrite_index == (ngx_uint_t) -1) {
+                cmcf->phase_engine.server_rewrite_index = n;
+            }
+            checker = ngx_rtmp_core_rewrite_phase;
+
+            break;
+
+        case NGX_RTMP_FIND_CONFIG_PHASE:
+            find_config_index = n;
+
+            ph->checker = ngx_rtmp_core_find_config_phase;
+            n++;
+            ph++;
+
+            continue;
+
+        case NGX_RTMP_REWRITE_PHASE:
+            if (cmcf->phase_engine.location_rewrite_index == (ngx_uint_t) -1) {
+                cmcf->phase_engine.location_rewrite_index = n;
+            }
+            checker = ngx_rtmp_core_rewrite_phase;
+
+            break;
+
+        case NGX_RTMP_POST_REWRITE_PHASE:
+            if (use_rewrite) {
+                ph->checker = ngx_rtmp_core_post_rewrite_phase;
+                ph->next = find_config_index;
+                n++;
+                ph++;
+            }
+
+            continue;
+
+        default:
+            return NGX_ERROR;
+        }
+
+        n += cmcf->phases[i - start_phase].handlers.nelts;
+
+        for (j = cmcf->phases[i - start_phase].handlers.nelts - 1;
+             j >= 0;
+             j--)
+        {
+            ph->checker = checker;
+            ph->handler = h[j];
+            ph->next = n;
+            ph++;
+        }
+    }
+
+    return NGX_OK;
 }
 
 

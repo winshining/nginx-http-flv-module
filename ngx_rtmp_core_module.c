@@ -231,7 +231,7 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
 
     { ngx_string("limit_rate"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
-                        |NGX_RTMP_LIF_CONF
+                        |NGX_RTMP_AIF_CONF
                         |NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -240,7 +240,7 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
 
     { ngx_string("limit_rate_after"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF
-                        |NGX_RTMP_LIF_CONF
+                        |NGX_RTMP_AIF_CONF
                         |NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -1594,13 +1594,71 @@ ngx_rtmp_core_server_name(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 }
 
 
+void
+ngx_rtmp_core_run_phases(ngx_rtmp_session_t *s)
+{
+    ngx_int_t                   rc;
+    ngx_rtmp_phase_handler_t   *ph;
+    ngx_rtmp_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
+
+    ph = cmcf->phase_engine.handlers;
+
+    while (ph[s->phase_handler].checker) {
+
+        rc = ph[s->phase_handler].checker(s, &ph[s->phase_handler]);
+
+        if (rc == NGX_OK) {
+            return;
+        }
+    }
+}
+
+
 ngx_int_t
-ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-    ngx_chain_t *in)
+ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
+{
+    ngx_int_t  rc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rewrite phase: %ui", s->phase_handler);
+
+    rc = ph->handler(s, NULL, NULL);
+
+    if (rc == NGX_DECLINED) {
+        s->phase_handler++;
+        return NGX_AGAIN;
+    }
+
+    if (rc == NGX_DONE) {
+        return NGX_OK;
+    }
+
+    /* NGX_OK, NGX_AGAIN, NGX_ERROR, NGX_RTMP_...  */
+    if (rc == NGX_ERROR) {
+        if (s->publish_session) {
+            ngx_rtmp_send_status(s, "NetStream.Publish.Redirect", "error",
+                                 "URI changed too many times");
+        } else {
+            ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
+                                 "URI changed too many times");
+        }
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_rtmp_core_find_config_phase(ngx_rtmp_session_t *s,
+    ngx_rtmp_phase_handler_t *ph)
 {
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_rtmp_core_app_conf_t  **cacfp;
     ngx_uint_t                  n;
+
+    s->uri_changed = 0;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
@@ -1620,16 +1678,27 @@ ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (n == cscf->applications.nelts || s->app_conf == NULL) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                       "connect: application not found: '%V'", &s->app);
-        return NGX_ERROR;
+
+        if (s->publish_session) {
+            ngx_rtmp_send_status(s, "NetStream.Publish.FindConfig", "error",
+                                 "application not found");
+        } else {
+            ngx_rtmp_send_status(s, "NetStream.Play.FindConfig", "error",
+                                 "application not found");
+        }
+
+        return NGX_OK;
     }
 
-    return NGX_OK;
+    s->phase_handler++;
+
+    return NGX_AGAIN;
 }
 
 
 ngx_int_t
-ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-    ngx_chain_t *in)
+ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
+    ngx_rtmp_phase_handler_t *ph)
 {
     ngx_rtmp_core_srv_conf_t  *cscf;
 
@@ -1637,8 +1706,8 @@ ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                    "post rewrite phase: %ui", s->phase_handler);
 
     if (!s->uri_changed) {
-        /* next handler */
-        return NGX_DONE;
+        s->phase_handler++;
+        return NGX_AGAIN;
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
@@ -1651,13 +1720,22 @@ ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                       "rewrite or internal redirection cycle "
                       "while processing \"%V\"", &s->uri);
 
-        return NGX_ERROR;
+        if (s->publish_session) {
+            ngx_rtmp_send_status(s, "NetStream.Publish.PostRedirect", "error",
+                                 "URI changed too many times");
+        } else {
+            ngx_rtmp_send_status(s, "NetStream.Play.PostRedirect", "error",
+                                 "URI changed too many times");
+        }
+
+        return NGX_OK;
     }
 
-    s->phase = NGX_RTMP_FIND_APPLICATION;
+    s->phase_handler = ph->next;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
     s->app_conf = cscf->ctx->app_conf;
 
     return NGX_AGAIN;
 }
+

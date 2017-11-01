@@ -194,10 +194,10 @@ typedef struct {
 #define NGX_RTMP_CONNECT                NGX_RTMP_MSG_MAX + 1
 #define NGX_RTMP_DISCONNECT             NGX_RTMP_MSG_MAX + 2
 #define NGX_RTMP_HANDSHAKE_DONE         NGX_RTMP_MSG_MAX + 3
-#define NGX_RTMP_SERVER_REWRITE         NGX_RTMP_MSG_MAX + 4
-#define NGX_RTMP_FIND_APPLICATION       NGX_RTMP_MSG_MAX + 5
-#define NGX_RTMP_REWRITE                NGX_RTMP_MSG_MAX + 6
-#define NGX_RTMP_POST_REWRITE           NGX_RTMP_MSG_MAX + 7
+#define NGX_RTMP_SERVER_REWRITE_PHASE   NGX_RTMP_MSG_MAX + 4
+#define NGX_RTMP_FIND_CONFIG_PHASE      NGX_RTMP_MSG_MAX + 5
+#define NGX_RTMP_REWRITE_PHASE          NGX_RTMP_MSG_MAX + 6
+#define NGX_RTMP_POST_REWRITE_PHASE     NGX_RTMP_MSG_MAX + 7
 #define NGX_HTTP_FLV_LIVE_REQUEST       NGX_RTMP_MSG_MAX + 8
 #define NGX_RTMP_MAX_EVENT              NGX_RTMP_MSG_MAX + 9
 
@@ -243,6 +243,18 @@ typedef struct {
     uint8_t                 ext;
     ngx_chain_t            *in;
 } ngx_rtmp_stream_t;
+
+
+/* handler result code:
+ *  NGX_ERROR - error
+ *  NGX_OK    - success, may continue
+ *  NGX_DONE  - success, input parsed, reply sent; need no
+ *      more calls on this event */
+typedef ngx_int_t (*ngx_rtmp_handler_pt)(ngx_rtmp_session_t *s,
+        ngx_rtmp_header_t *h, ngx_chain_t *in);
+
+
+#include "ngx_rtmp_core_module.h"
 
 
 /* disable zero-sized array warning by msvc */
@@ -339,8 +351,8 @@ struct ngx_rtmp_session_s {
     unsigned                    plus_in_uri:1;
     /* URI with " " */
     unsigned                    space_in_uri:1;
+    unsigned                    publish_session:1;
 
-    ngx_uint_t                  phase;
     ngx_uint_t                  phase_handler;
 
     u_char                     *uri_start;
@@ -424,18 +436,9 @@ struct ngx_rtmp_session_s {
 #endif
 
 
-/* handler result code:
- *  NGX_ERROR - error
- *  NGX_OK    - success, may continue
- *  NGX_DONE  - success, input parsed, reply sent; need no
- *      more calls on this event */
-typedef ngx_int_t (*ngx_rtmp_handler_pt)(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in);
-
-
 typedef struct {
-    ngx_str_t               name;
-    ngx_rtmp_handler_pt     handler;
+    ngx_str_t                name;
+    ngx_rtmp_handler_pt      handler;
 } ngx_rtmp_amf_handler_t;
 
 
@@ -443,6 +446,8 @@ typedef struct {
     ngx_array_t              servers;    /* ngx_rtmp_core_srv_conf_t */
 
     ngx_array_t              events[NGX_RTMP_MAX_EVENT];
+
+    ngx_rtmp_phase_engine_t  phase_engine;
 
     ngx_hash_t               amf_hash;
     ngx_array_t              amf_arrays;
@@ -462,6 +467,9 @@ typedef struct {
 
     ngx_hash_keys_arrays_t  *variables_keys;
     ngx_array_t             *ports;  /* ngx_rtmp_conf_port_t */
+
+    ngx_rtmp_phase_t         phases[NGX_RTMP_POST_REWRITE_PHASE
+                                    - NGX_RTMP_SERVER_REWRITE_PHASE + 1];
 } ngx_rtmp_core_main_conf_t;
 
 
@@ -588,6 +596,11 @@ typedef struct {
                                     void *conf);
 } ngx_rtmp_module_t;
 
+typedef struct {
+    double                code;
+    ngx_str_t             redirect;
+} ngx_rtmp_redirect_t;
+
 #define NGX_RTMP_MODULE                 0x504D5452     /* "RTMP" */
 
 #define NGX_RTMP_MAIN_CONF              0x02000000
@@ -596,7 +609,7 @@ typedef struct {
 #define NGX_RTMP_REC_CONF               0x10000000
 #define NGX_RTMP_UPS_CONF               0x20000000
 #define NGX_RTMP_SIF_CONF               0x40000000
-#define NGX_RTMP_LIF_CONF               0x80000000
+#define NGX_RTMP_AIF_CONF               0x80000000
 
 #define NGX_RTMP_MOVED_PERMANENTLY      301
 #define NGX_RTMP_MOVED_TEMPORARILY      302
@@ -807,12 +820,16 @@ ngx_int_t ngx_rtmp_send_amf(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 /* AMF status sender */
 ngx_chain_t * ngx_rtmp_create_status(ngx_rtmp_session_t *s, char *code,
         char* level, char *desc);
+ngx_chain_t * ngx_rtmp_create_redirect(ngx_rtmp_session_t *s, char *code,
+        char *level, char *desc, ngx_rtmp_redirect_t *redirect);
 ngx_chain_t * ngx_rtmp_create_play_status(ngx_rtmp_session_t *s, char *code,
         char* level, ngx_uint_t duration, ngx_uint_t bytes);
 ngx_chain_t * ngx_rtmp_create_sample_access(ngx_rtmp_session_t *s);
 
 ngx_int_t ngx_rtmp_send_status(ngx_rtmp_session_t *s, char *code,
         char* level, char *desc);
+ngx_int_t ngx_rtmp_send_redirect(ngx_rtmp_session_t *s, char *code,
+        char* level, char *desc, ngx_rtmp_redirect_t *redirect);
 ngx_int_t ngx_rtmp_send_play_status(ngx_rtmp_session_t *s, char *code,
         char* level, ngx_uint_t duration, ngx_uint_t bytes);
 ngx_int_t ngx_rtmp_send_sample_access(ngx_rtmp_session_t *s);

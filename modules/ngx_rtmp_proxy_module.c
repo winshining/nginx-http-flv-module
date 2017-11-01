@@ -696,7 +696,7 @@ ngx_rtmp_proxy_create_request_line(ngx_rtmp_session_t *s)
         app_len = (s->valid_application && ctx->vars.uri.len) ?
         (pacf->application.len + 1): 0;
 
-        if (s->quoted_uri || s->space_in_uri/* TODO: || s->internal */) {
+        if (s->quoted_uri || s->space_in_uri || s->internal) {
             escape = 2 * ngx_escape_uri(NULL, s->uri.data + app_len,
                                         s->uri.len - app_len, NGX_ESCAPE_URI);
         }

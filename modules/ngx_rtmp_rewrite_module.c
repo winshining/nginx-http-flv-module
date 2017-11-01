@@ -49,7 +49,7 @@ static ngx_int_t ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri);
 static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
 
     { ngx_string("rewrite"),
-      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_LIF_CONF
+      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_AIF_CONF
                        |NGX_CONF_TAKE23,
       ngx_rtmp_rewrite,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -57,7 +57,7 @@ static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
       NULL },
 
     { ngx_string("return"),
-      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_LIF_CONF
+      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_AIF_CONF
                        |NGX_CONF_TAKE12,
       ngx_rtmp_rewrite_return,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -65,7 +65,7 @@ static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
       NULL },
 
     { ngx_string("break"),
-      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_LIF_CONF
+      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_AIF_CONF
                        |NGX_CONF_NOARGS,
       ngx_rtmp_rewrite_break,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -80,7 +80,7 @@ static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
       NULL },
 
     { ngx_string("set"),
-      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_LIF_CONF
+      NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF|NGX_RTMP_AIF_CONF
                        |NGX_CONF_TAKE2,
       ngx_rtmp_rewrite_set,
       NGX_RTMP_APP_CONF_OFFSET,
@@ -89,7 +89,7 @@ static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
 
     { ngx_string("rewrite_log"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF
-                        |NGX_RTMP_LIF_CONF|NGX_CONF_FLAG,
+                        |NGX_RTMP_AIF_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_rewrite_app_conf_t, log),
@@ -97,7 +97,7 @@ static ngx_command_t  ngx_rtmp_rewrite_commands[] = {
 
     { ngx_string("uninitialized_variable_warn"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_SIF_CONF|NGX_RTMP_APP_CONF
-                        |NGX_RTMP_LIF_CONF|NGX_CONF_FLAG,
+                        |NGX_RTMP_AIF_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_rewrite_app_conf_t, uninitialized_variable_warn),
@@ -278,33 +278,19 @@ ngx_rtmp_rewrite_init(ngx_conf_t *cf)
 
     cmcf = ngx_rtmp_conf_get_module_main_conf(cf, ngx_rtmp_core_module);
 
-    h = ngx_array_push(&cmcf->events[NGX_RTMP_SERVER_REWRITE]);
+    h = ngx_array_push(&cmcf->events[NGX_RTMP_SERVER_REWRITE_PHASE]);
     if (h == NULL) {
         return NGX_ERROR;
     }
 
     *h = ngx_rtmp_rewrite_handler;
 
-    h = ngx_array_push(&cmcf->events[NGX_RTMP_REWRITE]);
+    h = ngx_array_push(&cmcf->events[NGX_RTMP_REWRITE_PHASE]);
     if (h == NULL) {
         return NGX_ERROR;
     }
 
     *h = ngx_rtmp_rewrite_handler;
-
-    h = ngx_array_push(&cmcf->events[NGX_RTMP_FIND_APPLICATION]);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
-
-    *h = ngx_rtmp_find_application_handler;
-
-    h = ngx_array_push(&cmcf->events[NGX_RTMP_POST_REWRITE]);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
-
-    *h = ngx_rtmp_post_rewrite_handler;
 
     return NGX_OK;
 }
@@ -630,7 +616,7 @@ ngx_rtmp_rewrite_if(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     } else {
         if_code->app_conf = ctx->app_conf;
-        cf->cmd_type = NGX_RTMP_LIF_CONF;
+        cf->cmd_type = NGX_RTMP_AIF_CONF;
     }
 
     rv = ngx_conf_parse(cf, NULL);
