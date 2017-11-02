@@ -214,6 +214,9 @@ typedef struct {
 #define NGX_RTMP_USER_BUFFER_END        31
 
 
+#define NGX_RTMP_MAX_URI_CHANGES        10
+
+
 /* Chunk header:
  *   max 3  basic header
  * + max 11 message header
