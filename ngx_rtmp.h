@@ -353,6 +353,8 @@ struct ngx_rtmp_session_s {
     unsigned                    space_in_uri:1;
     unsigned                    publish_session:1;
 
+    ngx_int_t                   phase_status;
+
     ngx_uint_t                  phase_handler;
 
     u_char                     *uri_start;

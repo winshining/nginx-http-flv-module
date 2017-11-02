@@ -353,22 +353,48 @@ ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t
 ngx_rtmp_init_phases(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
 {
-    ngx_uint_t  start_phase = NGX_RTMP_SERVER_REWRITE_PHASE;
+    ngx_uint_t            i;
+    ngx_rtmp_handler_pt  *eh, *h;
 
     if (ngx_array_init(&cmcf->phases
-                       [NGX_RTMP_SERVER_REWRITE_PHASE - start_phase].handlers,
+                       [NGX_RTMP_SERVER_REWRITE_PHASE
+                       - NGX_RTMP_SERVER_REWRITE_PHASE].handlers,
                        cf->pool, 1, sizeof(ngx_rtmp_handler_pt))
         != NGX_OK)
     {
         return NGX_ERROR;
     }
 
+    eh = cmcf->events[NGX_RTMP_SERVER_REWRITE_PHASE].elts;
+    for (i = 0; i < cmcf->events[NGX_RTMP_SERVER_REWRITE_PHASE].nelts; i++) {
+        h = ngx_array_push(&cmcf->phases
+            [NGX_RTMP_SERVER_REWRITE_PHASE
+            - NGX_RTMP_SERVER_REWRITE_PHASE].handlers);
+        if (h == NULL) {
+            return NGX_ERROR;
+        }
+
+        *h = eh[i];
+    }
+
     if (ngx_array_init(&cmcf->phases
-                       [NGX_RTMP_REWRITE_PHASE - start_phase].handlers,
+                       [NGX_RTMP_REWRITE_PHASE
+                       - NGX_RTMP_SERVER_REWRITE_PHASE].handlers,
                        cf->pool, 1, sizeof(ngx_rtmp_handler_pt))
         != NGX_OK)
     {
         return NGX_ERROR;
+    }
+
+    eh = cmcf->events[NGX_RTMP_REWRITE_PHASE].elts;
+    for (i = 0; i < cmcf->events[NGX_RTMP_REWRITE_PHASE].nelts; i++) {
+        h = ngx_array_push(&cmcf->phases
+            [NGX_RTMP_REWRITE_PHASE - NGX_RTMP_SERVER_REWRITE_PHASE].handlers);
+        if (h == NULL) {
+            return NGX_ERROR;
+        }
+
+        *h = eh[i];
     }
 
     return NGX_OK;
@@ -379,7 +405,7 @@ static ngx_int_t
 ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
 {
     ngx_int_t                   j;
-    ngx_uint_t                  i, n, start_phase, end_phase;
+    ngx_uint_t                  i, n;
     ngx_uint_t                  find_config_index, use_rewrite;
     ngx_rtmp_handler_pt        *h;
     ngx_rtmp_phase_handler_t   *ph;
@@ -388,16 +414,18 @@ ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
     cmcf->phase_engine.server_rewrite_index = (ngx_uint_t) -1;
     cmcf->phase_engine.location_rewrite_index = (ngx_uint_t) -1;
     find_config_index = 0;
-    start_phase = NGX_RTMP_SERVER_REWRITE_PHASE;
-    end_phase = NGX_RTMP_POST_REWRITE_PHASE;
     use_rewrite = cmcf->
-        phases[NGX_RTMP_REWRITE_PHASE - start_phase].handlers.nelts ? 1 : 0;
+        phases[NGX_RTMP_REWRITE_PHASE
+        - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.nelts ? 1 : 0;
 
     n = 1                  /* find config phase */
         + use_rewrite;     /* post rewrite phase */
 
-    for (i = start_phase; i < end_phase; i++) {
-        n += cmcf->phases[i - start_phase].handlers.nelts;
+    for (i = NGX_RTMP_SERVER_REWRITE_PHASE;
+         i < NGX_RTMP_POST_REWRITE_PHASE;
+         i++)
+    {
+        n += cmcf->phases[i - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.nelts;
     }
 
     ph = ngx_pcalloc(cf->pool,
@@ -409,8 +437,11 @@ ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
     cmcf->phase_engine.handlers = ph;
     n = 0;
 
-    for (i = start_phase; i < end_phase; i++) {
-        h = cmcf->phases[i - start_phase].handlers.elts;
+    for (i = NGX_RTMP_SERVER_REWRITE_PHASE;
+         i < NGX_RTMP_POST_REWRITE_PHASE;
+         i++)
+    {
+        h = cmcf->phases[i - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.elts;
 
         switch (i) {
 
@@ -453,9 +484,10 @@ ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
             return NGX_ERROR;
         }
 
-        n += cmcf->phases[i - start_phase].handlers.nelts;
+        n += cmcf->phases[i - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.nelts;
 
-        for (j = cmcf->phases[i - start_phase].handlers.nelts - 1;
+        for (j = cmcf->phases[i - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.nelts
+             - 1;
              j >= 0;
              j--)
         {

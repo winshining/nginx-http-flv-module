@@ -473,6 +473,7 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
 {
     static ngx_rtmp_publish_t       v;
+    static ngx_rtmp_redirect_t      redirect;
 
     static ngx_rtmp_amf_elt_t      in_elts[] = {
 
@@ -515,8 +516,24 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                   v.name, v.args, v.type, v.silent);
 
     s->publish_session = 1;
+    s->phase_status = NGX_OK;
 
     ngx_rtmp_core_run_phases(s);
+
+    if (s->phase_status == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    /**
+     * https://helpx.adobe.com/adobe-media-server/ssaslr/application-class.html
+     **/
+    if (s->uri_changed) { 
+        redirect.code = 302;
+        redirect.redirect = s->uri;
+
+        return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
+                                      "error", "Connection failed", &redirect);
+    }
 
     return ngx_rtmp_publish(s, &v);
 }
@@ -533,6 +550,7 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
 {
     static ngx_rtmp_play_t          v;
+    static ngx_rtmp_redirect_t      redirect;
 
     static ngx_rtmp_amf_elt_t       in_elts[] = {
 
@@ -585,7 +603,21 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                   (ngx_int_t) v.duration, (ngx_int_t) v.reset,
                   (ngx_int_t) v.silent);
 
+    s->phase_status = NGX_OK;
+
     ngx_rtmp_core_run_phases(s);
+
+    if (s->phase_status == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+    
+    if (s->uri_changed) {
+        redirect.code = 302;
+        redirect.redirect = s->uri;
+        
+        return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
+                                      "error", "Connection failed", &redirect);
+    }
 
     return ngx_rtmp_play(s, &v);
 }

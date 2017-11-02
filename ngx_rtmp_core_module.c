@@ -1644,6 +1644,8 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
             ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
                                  "URI changed too many times");
         }
+
+        s->phase_status = NGX_ERROR;
     }
 
     return NGX_OK;
@@ -1687,6 +1689,7 @@ ngx_rtmp_core_find_config_phase(ngx_rtmp_session_t *s,
                                  "application not found");
         }
 
+        s->phase_status = NGX_ERROR;
         return NGX_OK;
     }
 
@@ -1706,6 +1709,13 @@ ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
                    "post rewrite phase: %ui", s->phase_handler);
 
     if (!s->uri_changed) {
+        if (s->phase_handler == NGX_RTMP_SERVER_REWRITE_PHASE
+            - NGX_RTMP_POST_REWRITE_PHASE)
+        {
+            s->phase_status = NGX_OK;
+            return NGX_OK;
+        }
+
         s->phase_handler++;
         return NGX_AGAIN;
     }
@@ -1728,6 +1738,7 @@ ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
                                  "URI changed too many times");
         }
 
+        s->phase_status = NGX_ERROR;
         return NGX_OK;
     }
 

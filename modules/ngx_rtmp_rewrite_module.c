@@ -145,6 +145,8 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_script_code_pt       code;
     ngx_rtmp_script_engine_t     *e;
     ngx_rtmp_rewrite_app_conf_t  *racf;
+    u_char                       *p;
+    size_t                        len;
 
     racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_rewrite_module);
 
@@ -172,6 +174,28 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     while (*(uintptr_t *) e->ip) {
         code = *(ngx_rtmp_script_code_pt *) e->ip;
         code(e);
+    }
+
+    if (e->status == NGX_DECLINED || e->status == NGX_DONE) {
+        /* update app */
+        p = ngx_strlchr(s->uri.data + 1, s->uri.data + s->uri.len, '/');
+        s->app.len = p - s->uri.data - 1;
+        s->app.data = s->uri.data + 1;
+
+        /* update tc_url */
+        len = (s->port_end ? s->port_end : s->host_end)
+            - s->schema_start + s->app.len + 1;
+
+        p = ngx_pcalloc(s->connection->pool, len + 1);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(p, s->tc_url.data, (s->port_end ? s->port_end : s->host_end)
+                   - s->schema_start);
+        *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "/%V", &s->app) = 0;
+        s->tc_url.len = len;
+        s->tc_url.data = p;
     }
 
     if (e->status < NGX_RTMP_BAD_REQUEST) {
