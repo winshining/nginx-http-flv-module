@@ -438,7 +438,7 @@ ngx_rtmp_init_phase_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
     n = 0;
 
     for (i = NGX_RTMP_SERVER_REWRITE_PHASE;
-         i < NGX_RTMP_POST_REWRITE_PHASE;
+         i <= NGX_RTMP_POST_REWRITE_PHASE;
          i++)
     {
         h = cmcf->phases[i - NGX_RTMP_SERVER_REWRITE_PHASE].handlers.elts;
