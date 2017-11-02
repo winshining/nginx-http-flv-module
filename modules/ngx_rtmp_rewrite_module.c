@@ -182,6 +182,10 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         s->app.len = p - s->uri.data - 1;
         s->app.data = s->uri.data + 1;
 
+        /* update stream */
+        s->stream.len = ngx_strlen(p + 1);
+        s->stream.data = p + 1;
+
         /* update tc_url */
         len = (s->port_end ? s->port_end : s->host_end)
             - s->schema_start + s->app.len + 1;
@@ -196,6 +200,39 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         *ngx_snprintf(p + ngx_strlen(p), s->uri.len + 1, "/%V", &s->app) = 0;
         s->tc_url.len = len;
         s->tc_url.data = p;
+
+        /* update host_start, host_end, etc. */
+        len = s->tc_url.len 
+            + s->stream.len + 1 /* /stream */
+            + (s->args.len ? s->args.len + 1 : 0); /* ?args */
+
+        s->request_line = ngx_create_temp_buf(s->connection->pool, len + 1);
+        if (s->request_line == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "rewrite: failed to ngx_pcalloc for request_line");
+            return NGX_ERROR;
+        }
+
+        if (s->args.len) {
+            *ngx_snprintf(s->request_line->pos, len + 1, "%V/%V?%s",
+                          &s->tc_url, &s->stream, s->args.data) = CR;
+        } else {
+            *ngx_snprintf(s->request_line->pos, len + 1, "%V/%V",
+                          &s->tc_url, &s->stream) = CR;
+        }
+
+        s->request_line->last += len;
+
+        if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "rewrite: invalid request line: '%s'",
+                          s->request_line->pos);
+            return NGX_ERROR;
+        }
+
+        if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
+            return NGX_ERROR;
+        }
     }
 
     if (e->status < NGX_RTMP_BAD_REQUEST) {
