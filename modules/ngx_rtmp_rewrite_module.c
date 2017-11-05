@@ -183,7 +183,7 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         s->app.data = s->uri.data + 1;
 
         /* update stream */
-        s->stream.len = ngx_strlen(p + 1);
+        s->stream.len = s->uri.data + s->uri.len - p - 1;
         s->stream.data = p + 1;
 
         /* update tc_url */
@@ -233,6 +233,8 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
             return NGX_ERROR;
         }
+
+        *s->request_line->last = '\0';
     }
 
     if (e->status < NGX_RTMP_BAD_REQUEST) {

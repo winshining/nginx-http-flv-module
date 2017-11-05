@@ -1709,8 +1709,8 @@ ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
                    "post rewrite phase: %ui", s->phase_handler);
 
     if (!s->uri_changed) {
-        if (s->phase_handler == NGX_RTMP_SERVER_REWRITE_PHASE
-            - NGX_RTMP_POST_REWRITE_PHASE)
+        if (s->phase_handler == NGX_RTMP_POST_REWRITE_PHASE
+            - NGX_RTMP_SERVER_REWRITE_PHASE)
         {
             s->phase_status = NGX_OK;
             return NGX_OK;

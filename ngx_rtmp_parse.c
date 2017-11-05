@@ -799,5 +799,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
         return NGX_ERROR;
     }
 
+    *s->request_line->last = 0;
+
     return NGX_OK;
 }
