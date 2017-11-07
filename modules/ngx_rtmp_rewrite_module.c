@@ -1104,7 +1104,8 @@ ngx_rtmp_rewrite_value(ngx_conf_t *cf, ngx_rtmp_rewrite_app_conf_t *acf,
 }
 
 
-static ngx_int_t ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri)
+static ngx_int_t
+ngx_rtmp_rewrite_valid_uri(ngx_conf_t *cf, ngx_str_t *uri)
 {
     u_char      *p;
     size_t       len;

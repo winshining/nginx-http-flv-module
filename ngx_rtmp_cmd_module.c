@@ -550,7 +550,7 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     /**
      * https://helpx.adobe.com/adobe-media-server/ssaslr/application-class.html
      **/
-    if (s->uri_changes != NGX_RTMP_MAX_URI_CHANGES + 1) { 
+    if (s->uri_changes != NGX_RTMP_MAX_URI_CHANGES + 1) {
         redirect.code = NGX_RTMP_MOVED_TEMPORARILY;
         redirect.redirect.data = s->request_line->pos;
         redirect.redirect.len = s->request_line->last - s->request_line->pos;
@@ -634,12 +634,12 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (s->phase_status == NGX_ERROR) {
         return NGX_ERROR;
     }
-    
+
     if (s->uri_changes != NGX_RTMP_MAX_URI_CHANGES + 1) {
         redirect.code = NGX_RTMP_MOVED_TEMPORARILY;
         redirect.redirect.data = s->request_line->pos;
         redirect.redirect.len = s->request_line->last - s->request_line->pos;
-        
+
         return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
                                       "error", "Connection failed", &redirect);
     }

@@ -542,7 +542,7 @@ ngx_rtmp_create_redirect(ngx_rtmp_session_t *s, char *code,
         { NGX_RTMP_AMF_NUMBER,
             ngx_string("code"),
             &redirect_code, 0 },
-        
+
         { NGX_RTMP_AMF_STRING,
             ngx_string("redirect"),
             NULL, 0 }
