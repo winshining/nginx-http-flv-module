@@ -742,7 +742,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
 {
     size_t               rlen = 0;
 
-    s->stream.len = ngx_strlen(name);
+    s->stream.len = name ? ngx_strlen(name) : 0;
     if (s->stream.len) {
         s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
         if (s->stream.data == NULL) {
@@ -750,6 +750,10 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
         }
 
         ngx_memcpy(s->stream.data, name, ngx_strlen(name));
+    }
+
+    if (s->tc_url.data[s->tc_url.len - 1] == '/') {
+        s->tc_url.len -= 1;
     }
 
     rlen = s->tc_url.len;
@@ -780,10 +784,10 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
     } else {
         if (args && args[0]) {
             *ngx_snprintf(s->request_line->pos, rlen + 1, "%V?%s", &s->tc_url,
-                          &s->stream, args) = CR;
+                          args) = CR;
         } else {
-            *ngx_snprintf(s->request_line->pos, rlen + 1, "%V", &s->tc_url,
-                          &s->stream) = CR;
+            *ngx_snprintf(s->request_line->pos, rlen + 1, "%V", &s->tc_url)
+                          = CR;
         }
     }
 

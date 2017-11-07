@@ -1639,10 +1639,20 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
     if (rc == NGX_ERROR) {
         if (s->publish_session) {
             ngx_rtmp_send_status(s, "NetStream.Publish.Redirect", "error",
-                                 "URI changed too many times");
+                                 "Server internal error");
         } else {
             ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
-                                 "URI changed too many times");
+                                 "Server internal error");
+        }
+
+        s->phase_status = NGX_ERROR;
+    } else if (rc == NGX_RTMP_BAD_REQUEST) {
+        if (s->publish_session) {
+            ngx_rtmp_send_status(s, "NetStream.Publish.Redirect", "error",
+                                 "Bad request URI");
+        } else {
+            ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
+                                 "Bad request URI");
         }
 
         s->phase_status = NGX_ERROR;

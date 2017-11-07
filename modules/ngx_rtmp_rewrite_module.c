@@ -179,6 +179,10 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (e->status == NGX_DECLINED || e->status == NGX_DONE) {
         /* update app */
         p = ngx_strlchr(s->uri.data + 1, s->uri.data + s->uri.len, '/');
+        if (p == NULL) {
+            return NGX_RTMP_BAD_REQUEST;
+        }
+
         s->app.len = p - s->uri.data - 1;
         s->app.data = s->uri.data + 1;
 
@@ -227,11 +231,11 @@ ngx_rtmp_rewrite_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                           "rewrite: invalid request line: '%s'",
                           s->request_line->pos);
-            return NGX_ERROR;
+            return NGX_RTMP_BAD_REQUEST;
         }
 
         if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
-            return NGX_ERROR;
+            return NGX_RTMP_BAD_REQUEST;
         }
 
         *s->request_line->last = '\0';
