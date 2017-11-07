@@ -861,14 +861,13 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
             "gop cache send: delta_time=%uD", end - start);
 
-next:
-
     /* pub_ctx saved the publisher info */
     if (ctx->stream->pub_ctx) {
         pub_ctx = ctx->stream->pub_ctx;
         s->publisher = pub_ctx->session;
     }
 
+next:
     return next_play(s, v);
 }
 
