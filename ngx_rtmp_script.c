@@ -1105,19 +1105,9 @@ ngx_rtmp_script_regex_end_code(ngx_rtmp_script_engine_t *e)
                           "rewritten redirect: \"%V\"", &e->buf);
         }
 
-        /* TODO: ngx_rtmp_clear_location(s); */
-#if 0
-        s->headers_out.location = ngx_list_push(&s->headers_out.headers);
-        if (s->headers_out.location == NULL) {
-            e->ip = ngx_rtmp_script_exit;
-            e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
-            return;
-        }
+        s->request_line->pos = e->buf.data;
+        s->request_line->last = s->request_line->pos + e->buf.len;
 
-        s->headers_out.location->hash = 1;
-        ngx_str_set(&s->headers_out.location->key, "Location");
-        s->headers_out.location->value = e->buf;
-#endif
         e->ip += sizeof(ngx_rtmp_script_regex_end_code_t);
         return;
     }

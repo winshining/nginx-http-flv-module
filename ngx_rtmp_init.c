@@ -175,6 +175,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s->main_conf = addr_conf->default_server->ctx->main_conf;
     s->srv_conf = addr_conf->default_server->ctx->srv_conf;
+    s->app_conf = addr_conf->default_server->ctx->app_conf;
 
     s->addr_text = &addr_conf->addr_text;
 

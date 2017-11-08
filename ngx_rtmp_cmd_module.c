@@ -547,6 +547,10 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+    if (s->phase_status == NGX_RTMP_MOVED_TEMPORARILY) {
+        return NGX_OK;
+    }
+
     /**
      * https://helpx.adobe.com/adobe-media-server/ssaslr/application-class.html
      **/
@@ -633,6 +637,10 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (s->phase_status == NGX_ERROR) {
         return NGX_ERROR;
+    }
+
+    if (s->phase_status == NGX_RTMP_MOVED_TEMPORARILY) {
+        return NGX_OK;
     }
 
     if (s->uri_changes != NGX_RTMP_MAX_URI_CHANGES + 1) {

@@ -1619,7 +1619,8 @@ ngx_rtmp_core_run_phases(ngx_rtmp_session_t *s)
 ngx_int_t
 ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
 {
-    ngx_int_t  rc;
+    ngx_int_t            rc;
+    ngx_rtmp_redirect_t  redirect;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "rewrite phase: %ui", s->phase_handler);
@@ -1637,6 +1638,8 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
 
     /* NGX_OK, NGX_AGAIN, NGX_ERROR, NGX_RTMP_...  */
     if (rc == NGX_ERROR) {
+        s->phase_status = NGX_ERROR;
+
         if (s->publish_session) {
             ngx_rtmp_send_status(s, "NetStream.Publish.Redirect", "error",
                                  "Server internal error");
@@ -1644,9 +1647,9 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
             ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
                                  "Server internal error");
         }
-
-        s->phase_status = NGX_ERROR;
     } else if (rc == NGX_RTMP_BAD_REQUEST) {
+        s->phase_status = NGX_ERROR;
+
         if (s->publish_session) {
             ngx_rtmp_send_status(s, "NetStream.Publish.Redirect", "error",
                                  "Bad request URI");
@@ -1654,8 +1657,17 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
             ngx_rtmp_send_status(s, "NetStream.Play.Redirect", "error",
                                  "Bad request URI");
         }
+    } else if (rc == NGX_RTMP_MOVED_TEMPORARILY
+               || rc == NGX_RTMP_MOVED_PERMANENTLY)
+    {
+        s->phase_status = NGX_RTMP_MOVED_TEMPORARILY;
 
-        s->phase_status = NGX_ERROR;
+        redirect.code = NGX_RTMP_MOVED_TEMPORARILY;
+        redirect.redirect.data = s->request_line->pos;
+        redirect.redirect.len = s->request_line->last - s->request_line->pos;
+
+        return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
+                                      "error", "Connection failed", &redirect);
     }
 
     return NGX_OK;
