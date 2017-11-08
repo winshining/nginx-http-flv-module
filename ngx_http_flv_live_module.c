@@ -414,6 +414,9 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_http_request_t          *r;
     ngx_http_flv_live_ctx_t     *ctx;
+    ngx_rtmp_core_srv_conf_t    *cscf;
+    ngx_rtmp_core_app_conf_t   **cacfp;
+    ngx_uint_t                   n;
 
     r = s->data;
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
@@ -429,6 +432,28 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             sizeof(v.name) - 1));
     ngx_memcpy(v.args, s->args.data, ngx_min(s->args.len,
             sizeof(v.args) - 1));
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    /* find application & set app_conf */
+    cacfp = cscf->applications.elts;
+    for(n = 0; n < cscf->applications.nelts; ++n, ++cacfp) {
+        if ((*cacfp)->name.len == s->app.len &&
+            ngx_strncmp((*cacfp)->name.data, s->app.data, s->app.len) == 0)
+        {
+            /* found app! */
+            s->app_conf = (*cacfp)->app_conf;
+            s->valid_application = 1;
+            break;
+        }
+    }
+
+    if (n == cscf->applications.nelts || s->app_conf == NULL) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "connect: application not found: '%V'", &s->app);
+
+        return NGX_ERROR;
+    }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
            "flv live: name='%s' args='%s' start=%i duration=%i "
