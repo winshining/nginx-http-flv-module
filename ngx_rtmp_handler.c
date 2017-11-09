@@ -15,6 +15,8 @@
 static void ngx_rtmp_recv(ngx_event_t *rev);
 static void ngx_rtmp_send(ngx_event_t *rev);
 static void ngx_rtmp_ping(ngx_event_t *rev);
+static void ngx_rtmp_discarded_request_handler(ngx_event_t *rev);
+static ngx_int_t ngx_rtmp_read_discarded_request(ngx_rtmp_session_t *s);
 
 
 ngx_uint_t                  ngx_rtmp_naccepted;
@@ -920,4 +922,135 @@ ngx_rtmp_finalize_set_chunk_size(ngx_rtmp_session_t *s)
     return NGX_OK;
 }
 
+
+ngx_int_t
+ngx_rtmp_discard_request(ngx_rtmp_session_t *s)
+{
+    ngx_int_t     rc;
+    ngx_event_t  *rev;
+
+    if (s->discard_request) {
+        return NGX_OK;
+    }
+
+    rev = s->connection->read;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, rev->log, 0, "rtmp set discard body");
+
+    if (rev->timer_set) {
+        ngx_del_timer(rev);
+    }
+
+    rc = ngx_rtmp_read_discarded_request(s);
+
+    if (rc == NGX_OK) {
+        s->lingering_close = 0;
+        return NGX_OK;
+    }
+
+    /* rc == NGX_AGAIN */
+
+    s->connection->read->handler = ngx_rtmp_discarded_request_handler;
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        return NGX_RTMP_INTERNAL_SERVER_ERROR;
+    }
+
+    s->discard_request = 1;
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_rtmp_discarded_request_handler(ngx_event_t *rev)
+{
+    ngx_int_t                  rc;
+    ngx_rtmp_session_t        *s;
+    ngx_connection_t          *c;
+    ngx_rtmp_core_app_conf_t  *cacf;
+    ngx_msec_t                 timer;
+
+    c = rev->data;
+    s = c->data;
+
+    if (rev->timedout) {
+        c->timedout = 1;
+        ngx_rtmp_finalize_session(s);
+        return;
+    }
+
+    if (s->lingering_time) {
+        timer = (ngx_msec_t) s->lingering_time - (ngx_msec_t) ngx_time();
+
+        if ((ngx_msec_int_t) timer <= 0) {
+            s->lingering_close = 0;
+            ngx_rtmp_finalize_session(s);
+            return;
+        }
+    } else {
+        timer = 0;
+    }
+
+    rc = ngx_rtmp_read_discarded_request(s);
+
+    if (rc == NGX_OK) {
+        s->lingering_close = 0;
+        ngx_rtmp_finalize_session(s);
+        return;
+    }
+
+    /* rc == NGX_AGAIN */
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        c->error = 1;
+        ngx_rtmp_finalize_session(s);
+        return;
+    }
+
+    if (timer) {
+        cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+
+        timer *= 1000;
+
+        if (timer > cacf->lingering_timeout) {
+            timer = cacf->lingering_timeout;
+        }
+
+        ngx_add_timer(rev, timer);
+    }
+}
+
+
+static ngx_int_t
+ngx_rtmp_read_discarded_request(ngx_rtmp_session_t *s)
+{
+    ssize_t    n;
+    u_char     buffer[NGX_RTMP_DISCARD_BUFFER_SIZE];
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "rtmp read discarded request");
+
+    for ( ;; ) {
+        if (!s->connection->read->ready) {
+            return NGX_AGAIN;
+        }
+
+        n = s->connection->recv(s->connection, buffer,
+                                NGX_RTMP_DISCARD_BUFFER_SIZE);
+
+        if (n == NGX_ERROR) {
+            s->connection->error = 1;
+            return NGX_OK;
+        }
+
+        if (n == NGX_AGAIN) {
+            return NGX_AGAIN;
+        }
+
+        if (n == 0) {
+            return NGX_OK;
+        }
+    }
+}
 

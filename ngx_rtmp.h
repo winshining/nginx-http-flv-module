@@ -217,6 +217,10 @@ typedef struct {
 #define NGX_RTMP_MAX_URI_CHANGES        10
 
 
+#define NGX_RTMP_DISCARD_BUFFER_SIZE    4096
+#define NGX_RTMP_LINGERING_BUFFER_SIZE  4096
+
+
 /* Chunk header:
  *   max 3  basic header
  * + max 11 message header
@@ -280,6 +284,7 @@ struct ngx_rtmp_session_s {
 
     ngx_uint_t                  err_status;
 
+    time_t                      lingering_time;
     time_t                      start_sec;
     ngx_msec_t                  start_msec;
 
@@ -354,6 +359,7 @@ struct ngx_rtmp_session_s {
     unsigned                    plus_in_uri:1;
     /* URI with " " */
     unsigned                    space_in_uri:1;
+
     unsigned                    publish_session:1;
 
     ngx_int_t                   phase_status;
@@ -373,6 +379,7 @@ struct ngx_rtmp_session_s {
     unsigned                    keepalive:1;
     unsigned                    internal:1;
     unsigned                    lingering_close:1;
+    unsigned                    discard_request:1;
 
     unsigned                    request_in_file_only:1;
     unsigned                    request_in_persistent_file:1;
@@ -556,6 +563,8 @@ typedef struct {
     ngx_msec_t              lingering_timeout;
     ngx_msec_t              resolver_timeout;
 
+    ngx_uint_t              lingering_close;
+
     ngx_resolver_t         *resolver;
 
     ngx_flag_t              tcp_nopush;
@@ -567,7 +576,7 @@ typedef struct {
     size_t                  read_ahead;              /* read_ahead */
 
 #if (NGX_HAVE_OPENAT)
-    ngx_uint_t              disable_symlinks;        /* disable_symlinks */
+    ngx_uint_t                 disable_symlinks;     /* disable_symlinks */
     ngx_rtmp_complex_value_t  *disable_symlinks_from;
 #endif
 
@@ -897,6 +906,8 @@ ngx_int_t ngx_rtmp_find_application_handler(ngx_rtmp_session_t *s,
     ngx_rtmp_header_t *h, ngx_chain_t *in);
 ngx_int_t ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s,
      ngx_rtmp_header_t *h, ngx_chain_t *in);
+
+ngx_int_t ngx_rtmp_discard_request(ngx_rtmp_session_t *s);
 
 #include "ngx_rtmp_upstream.h"
 

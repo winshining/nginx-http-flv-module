@@ -539,16 +539,15 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                   v.name, v.args, v.type, v.silent);
 
     s->publish_session = 1;
+    s->lingering_close = 1;
     s->phase_status = NGX_OK;
 
     ngx_rtmp_core_run_phases(s);
 
-    if (s->phase_status == NGX_ERROR) {
+    if (s->phase_status == NGX_ERROR
+        || s->phase_status == NGX_RTMP_MOVED_TEMPORARILY)
+    {
         return NGX_ERROR;
-    }
-
-    if (s->phase_status == NGX_RTMP_MOVED_TEMPORARILY) {
-        return NGX_OK;
     }
 
     /**
@@ -559,8 +558,12 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         redirect.redirect.data = s->request_line->pos;
         redirect.redirect.len = s->request_line->last - s->request_line->pos;
 
-        return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
-                                      "error", "Connection failed", &redirect);
+        ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
+                               "error", "Connection failed", &redirect);
+
+        ngx_rtmp_discard_request(s);
+
+        return NGX_ERROR;
     }
 
     return ngx_rtmp_publish(s, &v);
@@ -631,6 +634,7 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                   (ngx_int_t) v.duration, (ngx_int_t) v.reset,
                   (ngx_int_t) v.silent);
 
+    s->lingering_close = 1;
     s->phase_status = NGX_OK;
 
     ngx_rtmp_core_run_phases(s);

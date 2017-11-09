@@ -41,4 +41,8 @@ ngx_int_t ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
     ngx_rtmp_phase_handler_t *ph);
 
 
+#define NGX_RTMP_LINGERING_OFF          0
+#define NGX_RTMP_LINGERING_ON           1
+#define NGX_RTMP_LINGERING_ALWAYS       2
+
 #endif /* _NGX_RTMP_CORE_H_INCLUDED_ */

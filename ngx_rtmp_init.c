@@ -15,6 +15,10 @@ static void ngx_rtmp_close_connection(ngx_connection_t *c);
 
 static void ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn);
 
+static void ngx_rtmp_set_lingering_close(ngx_rtmp_session_t *s);
+static void ngx_rtmp_lingering_close_handler(ngx_event_t *rev);
+static void ngx_rtmp_empty_handler(ngx_event_t *wev);
+
 extern ngx_module_t        ngx_rtmp_auto_push_module;
 
 
@@ -292,12 +296,27 @@ static void
 ngx_rtmp_close_connection(ngx_connection_t *c)
 {
     ngx_pool_t                         *pool;
+    ngx_rtmp_session_t                 *s;
+    ngx_rtmp_core_srv_conf_t           *cscf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_RTMP, c->log, 0, "close connection");
 
 #if (NGX_STAT_STUB)
     (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
 #endif
+
+    s = c->data;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    while (s->out_pos != s->out_last) {
+        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
+        s->out_pos %= s->out_queue;
+    }
+
+    if (s->out_pool) {
+        ngx_destroy_pool(s->out_pool);
+    }
 
     pool = c->pool;
     ngx_close_connection(c);
@@ -310,12 +329,12 @@ ngx_rtmp_close_session_handler(ngx_event_t *e)
 {
     ngx_rtmp_session_t                 *s;
     ngx_connection_t                   *c;
-    ngx_rtmp_core_srv_conf_t           *cscf;
+    ngx_rtmp_core_app_conf_t           *cacf;
 
     s = e->data;
     c = s->connection;
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
 
     ngx_log_debug0(NGX_LOG_DEBUG_RTMP, c->log, 0, "close session");
 
@@ -335,17 +354,16 @@ ngx_rtmp_close_session_handler(ngx_event_t *e)
 
     ngx_rtmp_free_handshake_buffers(s);
 
-    while (s->out_pos != s->out_last) {
-        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
-        s->out_pos %= s->out_queue;
-    }
-
     if (s->in_streams_pool) {
         ngx_destroy_pool(s->in_streams_pool);
     }
 
-    if (s->out_pool) {
-        ngx_destroy_pool(s->out_pool);
+    if (cacf->lingering_close == NGX_RTMP_LINGERING_ALWAYS
+        || (cacf->lingering_close == NGX_RTMP_LINGERING_ON
+            && (s->lingering_close || s->connection->read->ready)))
+    {
+        ngx_rtmp_set_lingering_close(s);
+        return;
     }
 
     ngx_rtmp_close_connection(c);
@@ -448,5 +466,114 @@ ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn)
             rconn->addr_conf = &addr[0].conf;
         }
     }
+}
+
+
+static void
+ngx_rtmp_set_lingering_close(ngx_rtmp_session_t *s)
+{
+    ngx_event_t               *rev, *wev;
+    ngx_connection_t          *c;
+    ngx_rtmp_core_app_conf_t  *cacf;
+
+    c = s->connection;
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+
+    rev = c->read;
+    rev->handler = ngx_rtmp_lingering_close_handler;
+
+    s->lingering_time = ngx_time() + (time_t) (cacf->lingering_time / 1000);
+    ngx_add_timer(rev, cacf->lingering_timeout);
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        ngx_rtmp_close_connection(c);
+        return;
+    }
+
+    wev = c->write;
+    wev->handler = ngx_rtmp_empty_handler;
+
+    if (wev->active && (ngx_event_flags & NGX_USE_LEVEL_EVENT)) {
+        if (ngx_del_event(wev, NGX_WRITE_EVENT, 0) != NGX_OK) {
+            ngx_rtmp_close_connection(c);
+            return;
+        }
+    }
+
+    if (ngx_shutdown_socket(c->fd, NGX_WRITE_SHUTDOWN) == -1) {
+        ngx_connection_error(c, ngx_socket_errno,
+                             ngx_shutdown_socket_n " failed");
+        ngx_rtmp_close_connection(c);
+        return;
+    }
+
+    if (rev->ready) {
+        ngx_rtmp_lingering_close_handler(rev);
+    }
+}
+
+
+static void
+ngx_rtmp_lingering_close_handler(ngx_event_t *rev)
+{
+    ssize_t                    n;
+    ngx_msec_t                 timer;
+    ngx_connection_t          *c;
+    ngx_rtmp_session_t        *s;
+    ngx_rtmp_core_app_conf_t  *cacf;
+    u_char                     buffer[NGX_RTMP_LINGERING_BUFFER_SIZE];
+
+    c = rev->data;
+    s = c->data;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, c->log, 0,
+                   "rtmp lingering close handler");
+
+    if (rev->timedout) {
+        ngx_rtmp_close_connection(c);
+        return;
+    }
+
+    timer = (ngx_msec_t) s->lingering_time - (ngx_msec_t) ngx_time();
+    if ((ngx_msec_int_t) timer <= 0) {
+        ngx_rtmp_close_connection(c);
+        return;
+    }
+
+    do {
+        n = c->recv(c, buffer, NGX_RTMP_LINGERING_BUFFER_SIZE);
+
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, c->log, 0, "lingering read: %z", n);
+
+        if (n == NGX_ERROR || n == 0) {
+            ngx_rtmp_close_connection(c);
+            return;
+        }
+
+    } while (rev->ready);
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        ngx_rtmp_close_connection(c);
+        return;
+    }
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+
+    timer *= 1000;
+
+    if (timer > cacf->lingering_timeout) {
+        timer = cacf->lingering_timeout;
+    }
+
+    ngx_add_timer(rev, timer);
+}
+
+static void
+ngx_rtmp_empty_handler(ngx_event_t *wev)
+{
+    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, wev->log, 0, "rtmp empty handler");
+
+    return;
 }
 

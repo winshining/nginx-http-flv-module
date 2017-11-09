@@ -55,6 +55,13 @@ static ngx_conf_post_t  ngx_rtmp_core_lowat_post =
 static ngx_conf_post_handler_pt  ngx_rtmp_core_pool_size_p =
     ngx_rtmp_core_pool_size;
 
+static ngx_conf_enum_t  ngx_rtmp_core_lingering_close[] = {
+    { ngx_string("off"), NGX_RTMP_LINGERING_OFF },
+    { ngx_string("on"), NGX_RTMP_LINGERING_ON },
+    { ngx_string("always"), NGX_RTMP_LINGERING_ALWAYS },
+    { ngx_null_string, 0 }
+};
+
 ngx_rtmp_core_main_conf_t      *ngx_rtmp_core_main_conf;
 
 
@@ -253,6 +260,13 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       NGX_RTMP_APP_CONF_OFFSET,
       0,
       NULL },
+
+    { ngx_string("lingering_close"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, lingering_close),
+      &ngx_rtmp_core_lingering_close },
 
     { ngx_string("lingering_time"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
@@ -534,6 +548,7 @@ ngx_rtmp_core_create_app_conf(ngx_conf_t *cf)
     conf->limit_rate = NGX_CONF_UNSET_SIZE;
     conf->limit_rate_after = NGX_CONF_UNSET_SIZE;
     conf->keepalive_timeout = NGX_CONF_UNSET_MSEC;
+    conf->lingering_close = NGX_CONF_UNSET_UINT;
     conf->lingering_time = NGX_CONF_UNSET_MSEC;
     conf->lingering_timeout = NGX_CONF_UNSET_MSEC;
     conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
@@ -561,6 +576,8 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
                               0);
     ngx_conf_merge_msec_value(conf->keepalive_timeout,
                               prev->keepalive_timeout, 75000);
+    ngx_conf_merge_uint_value(conf->lingering_close,
+                              prev->lingering_close, NGX_RTMP_LINGERING_ON);
     ngx_conf_merge_msec_value(conf->lingering_time,
                               prev->lingering_time, 30000);
     ngx_conf_merge_msec_value(conf->lingering_timeout,
@@ -1666,8 +1683,16 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
         redirect.redirect.data = s->request_line->pos;
         redirect.redirect.len = s->request_line->last - s->request_line->pos;
 
-        return ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
-                                      "error", "Connection failed", &redirect);
+        ngx_rtmp_send_redirect(s, "NetConnection.Connect.Rejected",
+                               "error", "Connection failed", &redirect);
+
+        /**
+         * some clients do not support redirection and persist on
+         * sending data, so discard data after sending redirection. 
+         **/
+        ngx_rtmp_discard_request(s);
+
+        return NGX_OK;
     }
 
     return NGX_OK;
