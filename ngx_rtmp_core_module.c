@@ -1639,6 +1639,11 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
     ngx_int_t            rc;
     ngx_rtmp_redirect_t  redirect;
 
+    if (s->auto_pushed) {
+        s->phase_handler++;
+        return NGX_AGAIN;
+    }
+
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "rewrite phase: %ui", s->phase_handler);
 
@@ -1688,7 +1693,7 @@ ngx_rtmp_core_rewrite_phase(ngx_rtmp_session_t *s, ngx_rtmp_phase_handler_t *ph)
 
         /**
          * some clients do not support redirection and persist on
-         * sending data, so discard data after sending redirection. 
+         * sending data, so discard data after sending redirection.
          **/
         ngx_rtmp_discard_request(s);
 
@@ -1707,7 +1712,9 @@ ngx_rtmp_core_find_config_phase(ngx_rtmp_session_t *s,
     ngx_rtmp_core_app_conf_t  **cacfp;
     ngx_uint_t                  n;
 
-    s->uri_changed = 0;
+    if (!s->auto_pushed) {
+        s->uri_changed = 0;
+    }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
@@ -1751,6 +1758,11 @@ ngx_rtmp_core_post_rewrite_phase(ngx_rtmp_session_t *s,
     ngx_rtmp_phase_handler_t *ph)
 {
     ngx_rtmp_core_srv_conf_t  *cscf;
+
+    if (s->auto_pushed) {
+        s->phase_handler++;
+        return NGX_AGAIN;
+    }
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "post rewrite phase: %ui", s->phase_handler);

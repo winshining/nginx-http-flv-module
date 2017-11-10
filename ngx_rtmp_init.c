@@ -31,6 +31,9 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
     ngx_rtmp_in_addr_t        *addr;
     ngx_rtmp_connection_t     *rconn;
     ngx_rtmp_session_t        *s;
+    struct sockaddr_un        *saun;
+    u_char                    *un;
+    size_t                     unlen;
     ngx_int_t                  unix_socket;
 #if (NGX_HAVE_INET6)
     struct sockaddr_in6       *sin6;
@@ -139,6 +142,17 @@ ngx_rtmp_init_connection(ngx_connection_t *c)
 
     /* the default server configuration for the address:port */
     rconn->conf_ctx = rconn->addr_conf->default_server->ctx;
+
+    if (unix_socket) {
+        saun = (struct sockaddr_un *) c->local_sockaddr;
+        unlen = sizeof("unix:") + ngx_strlen(saun->sun_path) + 1;
+        un = ngx_pcalloc(c->pool, unlen);
+
+        *ngx_snprintf(un, unlen, "unix:%s", saun->sun_path) = 0;
+
+        rconn->addr_conf->addr_text.data = un;
+        rconn->addr_conf->addr_text.len = ngx_strlen(un);
+    }
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0, "*%ui client connected '%V'",
                   c->number, &c->addr_text);

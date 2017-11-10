@@ -180,39 +180,44 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
-    len = ngx_strlen(v.app);
-    if (len) {
-        p = ngx_strlchr(v.app, v.app + len, '/');
-        if (p) {
-            *p = '\0';
-            len = ngx_strlen(v.app);
-            /* TODO: move args */
+    if (!s->auto_pushed) {
+        len = ngx_strlen(v.app);
+        if (len) {
+            p = ngx_strlchr(v.app, v.app + len, '/');
+            if (p) {
+                *p = '\0';
+                len = ngx_strlen(v.app);
+                /* TODO: move args */
+            }
         }
+
+        if (len > 10 && !ngx_memcmp(v.app + len - 10, "/_definst_", 10)) {
+            v.app[len - 10] = 0;
+        } else if (len && v.app[len - 1] == '/') {
+            v.app[len - 1] = 0;
+        }
+
+        ngx_rtmp_cmd_fill_args(v.app, v.args);
+
+        app = ngx_pcalloc(s->connection->pool, len + 2);
+        if (app == NULL) {
+            return NGX_ERROR;
+        }
+
+        app[0] = '/';
+        ngx_memcpy(app + 1, v.app, len);
+
+        p = (u_char *) ngx_strstr(v.tc_url, app);
+        if (p == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "connect: invalid tc_url='%s'", v.tc_url);
+
+            return NGX_ERROR;
+        }
+
+        p += len + 1; /* /app */
+        *p = '\0';
     }
-
-    if (len > 10 && !ngx_memcmp(v.app + len - 10, "/_definst_", 10)) {
-        v.app[len - 10] = 0;
-    } else if (len && v.app[len - 1] == '/') {
-        v.app[len - 1] = 0;
-    }
-
-    ngx_rtmp_cmd_fill_args(v.app, v.args);
-
-    app = ngx_pcalloc(s->connection->pool, len + 2);
-    if (app == NULL) {
-        return NGX_ERROR;
-    }
-
-    app[0] = '/';
-    ngx_memcpy(app + 1, v.app, len);
-
-    p = (u_char *) ngx_strstr(v.tc_url, app);
-    if (p == NULL) {
-        return NGX_ERROR;
-    }
-
-    p += len + 1; /* /app */
-    *p = '\0';
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
             "connect: app='%s' args='%s' flashver='%s' swf_url='%s' "
