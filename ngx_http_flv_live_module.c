@@ -276,11 +276,11 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         buf_resp_hdr.pos = chunked_resp_header.data;
         buf_resp_hdr.last = chunked_resp_header.data + chunked_resp_header.len;
 
-        if (codec_ctx->avc_header) {
+        if (codec_ctx->has_video) {
             flv_header[4] |= 0x1;
         }
 
-        if (codec_ctx->aac_header) {
+        if (codec_ctx->has_audio) {
             flv_header[4] |= (0x1 << 2);
         }
 
@@ -301,11 +301,11 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         buf_resp_hdr.pos = consec_resp_header.data;
         buf_resp_hdr.last = consec_resp_header.data + consec_resp_header.len;
 
-        if (codec_ctx->avc_header) {
+        if (codec_ctx->has_video) {
             flv_header[4] |= 0x1;
         }
 
-        if (codec_ctx->aac_header) {
+        if (codec_ctx->has_audio) {
             flv_header[4] |= (0x1 << 2);
         }
 
