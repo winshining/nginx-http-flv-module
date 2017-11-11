@@ -789,6 +789,8 @@ ngx_rtmp_cmd_disconnect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 {
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, "disconnect");
 
+    s->lingering_close = 0;
+
     return ngx_rtmp_disconnect(s);
 }
 

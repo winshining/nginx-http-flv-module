@@ -189,6 +189,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
         return NULL;
     }
 
+    s->signature = NGX_RTMP_MODULE;
     s->rtmp_connection = c->data;
 
     s->main_conf = addr_conf->default_server->ctx->main_conf;
@@ -321,15 +322,17 @@ ngx_rtmp_close_connection(ngx_connection_t *c)
 
     s = c->data;
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (s->signature == NGX_RTMP_MODULE) {
+        cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    while (s->out_pos != s->out_last) {
-        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
-        s->out_pos %= s->out_queue;
-    }
+        while (s->out_pos != s->out_last) {
+            ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
+            s->out_pos %= s->out_queue;
+        }
 
-    if (s->out_pool) {
-        ngx_destroy_pool(s->out_pool);
+        if (s->out_pool) {
+            ngx_destroy_pool(s->out_pool);
+        }
     }
 
     pool = c->pool;

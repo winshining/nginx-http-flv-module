@@ -1131,6 +1131,7 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
         return NULL;
     }
 
+    s->signature = NGX_HTTP_MODULE;
     s->rtmp_connection = c->data;
 
     s->main_conf = addr_conf->default_server->ctx->main_conf;
