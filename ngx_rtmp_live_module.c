@@ -960,7 +960,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
                 if (!hctx->header_sent) {
-                    if ((!codec_ctx->avc_header || !codec_ctx->aac_header)
+                    if ((!codec_ctx->has_video || !codec_ctx->has_audio)
                         && !codec_ctx->pure_audio)
                     {
                         ngx_rtmp_free_shared_chain(cscf, rpkt);
