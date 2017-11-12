@@ -512,9 +512,10 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
     fmt =  in->buf->pos[0];
     if (h->type == NGX_RTMP_MSG_AUDIO) {
-        ctx->has_audio = 1;
         ctx->audio_codec_id = (fmt & 0xf0) >> 4;
         ctx->audio_channels = (fmt & 0x01) + 1;
         ctx->sample_size = (fmt & 0x02) ? 2 : 1;
@@ -522,37 +523,9 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         if (ctx->sample_rate == 0) {
             ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
         }
-    } else {
-        ctx->has_video = 1;
-        ctx->video_codec_id = (fmt & 0x0f);
-    }
 
-    /* save AVC/AAC header */
-    if (in->buf->last - in->buf->pos < 3) {
-        return NGX_OK;
-    }
+        ctx->has_audio = 1;
 
-    /* PacketType = 0, FLV TAG MUST be sequence header */
-    /* PacketType = 1, FLV TAG MAY be AVC NALU or AAC Raw */
-    seq_header_type = ngx_rtmp_get_codec_header_type(s, h, in);
-    if (seq_header_type == NGX_RTMP_CODEC_NON_SEQ_HEADER) {
-        if (h->type == NGX_RTMP_MSG_VIDEO) {
-            return NGX_OK;
-        }
-    }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-    header = NULL;
-
-    sps_buf.start = buffer;
-    sps_buf.end   = buffer + sizeof(buffer);
-    sps_buf.pos   = sps_buf.start;
-    sps_buf.last  = sps_buf.pos;
-    sps.buf       = &sps_buf;
-    sps.next      = NULL;
-
-    /* MUST be audio / video sequence header */
-    if (h->type == NGX_RTMP_MSG_AUDIO) {
         if (ctx->pure_audio_threshold_count >
                         NGX_PURE_AUDIO_THRESHOLD_COUNT)
         {
@@ -566,19 +539,46 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ctx->pure_audio_threshold_count++;
             }
         }
-
-        if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
-            header = &ctx->aac_header;
-            ngx_rtmp_codec_parse_aac_header(s, in);
-        }
     } else {
         if (ctx->pure_audio) {
             return NGX_OK;
         }
 
+        ctx->has_video = 1;
+        ctx->video_codec_id = (fmt & 0x0f);
+
         ctx->pure_audio = 0;
         ctx->pure_audio_threshold_count = 0;
+    }
 
+    /* save AVC/AAC header */
+    if (in->buf->last - in->buf->pos < 3) {
+        return NGX_OK;
+    }
+
+    /* PacketType = 0, FLV TAG MUST be sequence header */
+    /* PacketType = 1, FLV TAG MAY be AVC NALU or AAC Raw */
+    seq_header_type = ngx_rtmp_get_codec_header_type(s, h, in);
+    if (seq_header_type == NGX_RTMP_CODEC_NON_SEQ_HEADER) {
+        return NGX_OK;
+    }
+
+    header = NULL;
+
+    sps_buf.start = buffer;
+    sps_buf.end   = buffer + sizeof(buffer);
+    sps_buf.pos   = sps_buf.start;
+    sps_buf.last  = sps_buf.pos;
+    sps.buf       = &sps_buf;
+    sps.next      = NULL;
+
+    /* MUST be audio / video sequence header */
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+        if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
+            header = &ctx->aac_header;
+            ngx_rtmp_codec_parse_aac_header(s, in);
+        }
+    } else {
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
 
