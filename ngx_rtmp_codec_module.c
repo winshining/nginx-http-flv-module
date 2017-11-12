@@ -562,7 +562,9 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ctx->avc_header = NULL;
             }
         } else {
-            ctx->pure_audio_threshold_count++;
+            if (!ctx->has_video) {
+                ctx->pure_audio_threshold_count++;
+            }
         }
 
         if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
