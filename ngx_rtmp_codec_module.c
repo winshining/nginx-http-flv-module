@@ -512,6 +512,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
     fmt =  in->buf->pos[0];
     if (h->type == NGX_RTMP_MSG_AUDIO) {
         ctx->audio_codec_id = (fmt & 0xf0) >> 4;
@@ -521,8 +523,32 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         if (ctx->sample_rate == 0) {
             ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
         }
+
+        ctx->has_audio = 1;
+
+        if (ctx->pure_audio_threshold_count >
+                        NGX_PURE_AUDIO_THRESHOLD_COUNT)
+        {
+            ctx->pure_audio = 1;
+            if (ctx->avc_header) {
+                ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
+                ctx->avc_header = NULL;
+            }
+        } else {
+            if (!ctx->has_video) {
+                ctx->pure_audio_threshold_count++;
+            }
+        }
     } else {
+        if (ctx->pure_audio) {
+            return NGX_OK;
+        }
+
+        ctx->has_video = 1;
         ctx->video_codec_id = (fmt & 0x0f);
+
+        ctx->pure_audio = 0;
+        ctx->pure_audio_threshold_count = 0;
     }
 
     /* save AVC/AAC header */
@@ -537,7 +563,6 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
     header = NULL;
 
     sps_buf.start = buffer;
@@ -549,25 +574,11 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     /* MUST be audio / video sequence header */
     if (h->type == NGX_RTMP_MSG_AUDIO) {
-        if (++ctx->pure_audio_threshold_count >
-                        NGX_PURE_AUDIO_THRESHOLD_COUNT)
-        {
-            ctx->pure_audio = 1;
-            ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
-            ctx->avc_header = NULL;
-        }
-
         if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
             header = &ctx->aac_header;
             ngx_rtmp_codec_parse_aac_header(s, in);
         }
     } else {
-        if (ctx->pure_audio) {
-            return NGX_OK;
-        }
-
-        ctx->pure_audio_threshold_count = 0;
-
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
 
