@@ -536,7 +536,9 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     /* PacketType = 1, FLV TAG MAY be AVC NALU or AAC Raw */
     seq_header_type = ngx_rtmp_get_codec_header_type(s, h, in);
     if (seq_header_type == NGX_RTMP_CODEC_NON_SEQ_HEADER) {
-        return NGX_OK;
+        if (h->type == NGX_RTMP_MSG_VIDEO) {
+            return NGX_OK;
+        }
     }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
@@ -555,8 +557,10 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                         NGX_PURE_AUDIO_THRESHOLD_COUNT)
         {
             ctx->pure_audio = 1;
-            ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
-            ctx->avc_header = NULL;
+            if (ctx->avc_header) {
+                ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
+                ctx->avc_header = NULL;
+            }
         } else {
             ctx->pure_audio_threshold_count++;
         }
