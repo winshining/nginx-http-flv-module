@@ -569,6 +569,10 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
 
     (*stream)->ctx = ctx;
 
+    if (ctx->stream->pub_ctx) {
+        s->publisher = ctx->stream->pub_ctx->session;
+    }
+
     if (lacf->buflen) {
         s->out_buffer = 1;
     }
