@@ -699,9 +699,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
                 } else {
                     /* non H.264 or non AAC */
-                    cs->timestamp = lh.timestamp;
-                    cs->active = 1;
-                    s->current_time = cs->timestamp;
+                    apkt = handler->append_message_pt(s, &lh, NULL,
+                                                      gop_frame->frame);
                 }
 
                 if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
@@ -713,6 +712,10 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 if (apkt) {
                     handler->free_message_pt(s, apkt);
                     apkt = NULL;
+                }
+
+                if (header == NULL) {
+                    continue;
                 }
             }
 
