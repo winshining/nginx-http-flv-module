@@ -703,7 +703,9 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                                                       gop_frame->frame);
                 }
 
-                if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
+                if (apkt && handler->send_message_pt(s, apkt,
+                                   header ? 0 : gop_frame->prio) == NGX_OK)
+                {
                     cs->timestamp = lh.timestamp;
                     cs->active = 1;
                     s->current_time = cs->timestamp;
@@ -715,6 +717,15 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 }
 
                 if (header == NULL) {
+                    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                                   "gop cache send (null header): "
+                                   "tag type='%s' prio='%d' ctimestamp='%uD "
+                                   "ltimestamp='%uD'",
+                                   gop_frame->h.type ==
+                                       NGX_RTMP_MSG_AUDIO ? "audio" : "video",
+                                   gop_frame->prio,
+                                   ch.timestamp,
+                                   lh.timestamp);
                     continue;
                 }
             }
@@ -733,16 +744,18 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 pkt = NULL;
             }
 
-            ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "gop cache send: tag type='%s' prio='%d' ltimestamp='%uD'",
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                   "gop cache send: tag type='%s' prio='%d' ctimestamp='%uD' "
+                   "ltimestamp='%uD'",
                    gop_frame->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
                    gop_frame->prio,
+                   ch.timestamp,
                    lh.timestamp);
 
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
         }
-	}
+    }
 }
 
 
