@@ -536,7 +536,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
      * Note we always leave 1 slot free */
     if (nmsg + priority * s->out_queue / 4 >= s->out_queue) {
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "flv live: HTTP drop message bufs=%ui, priority=%ui",
+                "flv live: HTTP drop message bufs='%ui', priority='%ui'",
                 nmsg, priority);
         return NGX_AGAIN;
     }
@@ -547,7 +547,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
     ngx_rtmp_acquire_shared_chain(out);
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "flv live: HTTP send nmsg=%ui, priority=%ui #%ui",
+            "flv live: HTTP send nmsg='%ui', priority='%ui' '#%ui'",
             nmsg, priority, s->out_last);
 
     if (priority && s->out_buffer && nmsg < s->out_cork) {
@@ -588,8 +588,8 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             sizeof(v.args) - 1));
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-           "flv live: name='%s' args='%s' start=%i duration=%i "
-           "reset=%i silent=%i",
+           "flv live: name='%s' args='%s' start='%i' duration='%i' "
+           "reset='%i' silent='%i'",
            v.name, v.args, (ngx_int_t) v.start,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
            (ngx_int_t) v.silent);
@@ -777,7 +777,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "flv live play: name='%s' start=%uD duration=%uD reset=%d",
+            "flv live play: name='%s' start='%uD' duration='%uD' reset='%d'",
             v->name, (uint32_t) v->start,
             (uint32_t) v->duration, (uint32_t) v->reset);
 
@@ -1169,7 +1169,7 @@ ngx_http_flv_live_preprocess_port(ngx_http_request_t *r)
 
     if (!found) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to found listen configuration: %O",
+                "flv live: failed to found listen configuration: '%O'",
                 ctx->app.srv.srv_index);
 
         return NGX_ERROR;
@@ -1289,7 +1289,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
             return NGX_ERROR;
         }
         
-        ctx->app.hash_name.len = ngx_sprintf(ctx->app.hash_name.data, "%V:%O",
+        ctx->app.hash_name.len = ngx_sprintf(ctx->app.hash_name.data, "'%V:%O'",
                 &ctx->app.app.app_name, ctx->app.srv.srv_index)
         - ctx->app.hash_name.data;
     }
@@ -1300,7 +1300,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r)
             ctx->app.hash_name.data, ctx->app.hash_name.len);
     if (value == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to find configured app: \"%V\"",
+                "flv live: failed to find configured app: '%V'",
                 &ctx->app.hash_name);
         
         return NGX_ERROR;
