@@ -204,7 +204,8 @@ ngx_rtmp_gop_free_frame(ngx_rtmp_session_t *s, ngx_rtmp_gop_frame_t *frame)
     }
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop free frame: type=%s video_frame_in_cache=%uD audio_frame_in_cache=%uD",
+           "gop free frame: type='%s' video_frame_in_cache='%uD' "
+           "audio_frame_in_cache='%uD'",
            frame->h.type == NGX_RTMP_MSG_VIDEO ? "video" : "audio",
            ctx->video_frame_in_all, ctx->audio_frame_in_all);
 
@@ -246,9 +247,11 @@ ngx_rtmp_gop_link_frame(ngx_rtmp_session_t *s, ngx_rtmp_gop_frame_t *frame)
     }
 
     ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "gop link frame: type=%s "
-            "ctx->video_frame_in_all=%uD ctx->audio_frame_in_all=%uD "
-            "cache->video_frame_in_this=%uD cache->audio_frame_in_this=%uD",
+            "gop link frame: type='%s' "
+            "ctx->video_frame_in_all='%uD' "
+            "ctx->audio_frame_in_all='%uD' "
+            "cache->video_frame_in_this='%uD' "
+            "cache->audio_frame_in_this='%uD'",
             frame->h.type == NGX_RTMP_MSG_VIDEO ? "video" : "audio",
             ctx->video_frame_in_all, ctx->audio_frame_in_all,
             cache->video_frame_in_this, cache->audio_frame_in_this);
@@ -335,7 +338,7 @@ ngx_rtmp_gop_alloc_cache(ngx_rtmp_session_t *s)
     ctx->gop_cache_count++;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop alloc cache: gop_cache_count=%uD", ctx->gop_cache_count);
+           "gop alloc cache: gop_cache_count='%uD'", ctx->gop_cache_count);
 
     return NGX_OK;
 }
@@ -397,7 +400,7 @@ ngx_rtmp_gop_free_cache(ngx_rtmp_session_t *s, ngx_rtmp_gop_cache_t *cache)
     ctx->gop_cache_count--;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop free cache: gop_cache_count=%uD", ctx->gop_cache_count);
+           "gop free cache: gop_cache_count='%uD'", ctx->gop_cache_count);
 
     return cache->next;
 }
@@ -564,9 +567,9 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         > gacf->gop_max_frame_count)
     {
         ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-               "gop cache: video_frame_in_cache='%uD' audio_frame_in_cache='%uD' "
-               "max_video_count='%uD' max_audio_count='%uD' "
-               "gop_max_frame_count='%uD'",
+               "gop cache: video_frame_in_cache='%uD' "
+               "audio_frame_in_cache='%uD' max_video_count='%uD' "
+               "max_audio_count='%uD' gop_max_frame_count='%uD'",
                ctx->video_frame_in_all, ctx->audio_frame_in_all,
                gacf->gop_max_video_count, gacf->gop_max_audio_count,
                gacf->gop_max_frame_count);
@@ -688,11 +691,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     case NGX_RTMP_MSG_VIDEO:
                         header = cache->video_seq_header;
                         break;
-                    case NGX_RTMP_MSG_AUDIO:
-                        header = cache->audio_seq_header;
-                        break;
                     default:
-                        header = NULL;
+                        header = cache->audio_seq_header;
                 }
 
                 if (header) {
@@ -719,7 +719,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 if (header == NULL) {
                     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                                    "gop cache send (null header): "
-                                   "tag type='%s' prio='%d' ctimestamp='%uD "
+                                   "tag type='%s' prio='%d' ctimestamp='%uD' "
                                    "ltimestamp='%uD'",
                                    gop_frame->h.type ==
                                        NGX_RTMP_MSG_AUDIO ? "audio" : "video",
@@ -854,22 +854,22 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "gop cache play: name='%s' start=%uD duration=%uD reset=%d",
+            "gop cache play: name='%s' start='%uD' duration='%uD' reset='%d'",
             v->name, (uint32_t) v->start,
             (uint32_t) v->duration, (uint32_t) v->reset);
 
     start = ngx_current_msec;
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "gop cache send: start_time=%uD", start);
+            "gop cache send: start_time='%uD'", start);
 
     ngx_rtmp_gop_cache_send(s);
 
     end = ngx_current_msec;
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "gop cache send: end_time=%uD", end);
+            "gop cache send: end_time='%uD'", end);
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "gop cache send: delta_time=%uD", end - start);
+            "gop cache send: delta_time='%uD'", end - start);
 
 next:
     return next_play(s, v);

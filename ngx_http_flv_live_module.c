@@ -380,7 +380,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
      * Note we always leave 1 slot free */
     if (nmsg + priority * s->out_queue / 4 >= s->out_queue) {
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "flv live: HTTP drop message bufs=%ui, priority=%ui",
+                "flv live: HTTP drop message bufs='%ui', priority='%ui'",
                 nmsg, priority);
         return NGX_AGAIN;
     }
@@ -391,7 +391,7 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
     ngx_rtmp_acquire_shared_chain(out);
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "flv live: HTTP send nmsg=%ui, priority=%ui #%ui",
+            "flv live: HTTP send nmsg='%ui', priority='%ui' '#%ui'",
             nmsg, priority, s->out_last);
 
     if (priority && s->out_buffer && nmsg < s->out_cork) {
@@ -431,8 +431,8 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             sizeof(v.args) - 1));
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-           "flv live: name='%s' args='%s' start=%i duration=%i "
-           "reset=%i silent=%i",
+           "flv live: name='%s' args='%s' start='%i' duration='%i' "
+           "reset='%i' silent='%i'",
            v.name, v.args, (ngx_int_t) v.start,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
            (ngx_int_t) v.silent);
@@ -620,7 +620,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "flv live play: name='%s' start=%uD duration=%uD reset=%d",
+            "flv live play: name='%s' start='%uD' duration='%uD' reset='%d'",
             v->name, (uint32_t) v->start,
             (uint32_t) v->duration, (uint32_t) v->reset);
 
@@ -1026,7 +1026,7 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
 
     if (n == ngx_cycle->listening.nelts) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to find configured port: \"%V\"", &port);
+                "flv live: failed to find configured port: '%V'", &port);
 
         return NGX_ERROR;
     }
@@ -1068,7 +1068,7 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r,
     c->data = rconn;
 
     ngx_log_error(NGX_LOG_INFO, c->log, 0,
-            "flv live: client connected '%V'", &c->addr_text);
+            "flv live: *%ui client connected '%V'", c->number, &c->addr_text);
 
     s = ngx_http_flv_live_init_session(r, rconn->addr_conf);
     c->data = data;
