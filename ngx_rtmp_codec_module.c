@@ -287,8 +287,8 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
     uint32_t                rlen, len;
     ngx_buf_t               *b;
     ngx_uint_t              nal_bytes;
-    ngx_int_t               has_sps = 0;
-    ngx_int_t               left;
+    ngx_uint_t              has_sps = 0;
+    ngx_uint_t              left;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL
