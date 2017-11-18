@@ -2102,7 +2102,7 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "upstream_push: connect pid=%P socket='%s' name='%V'",
-                   pid, path, &name);
+                   ngx_pid, path, &name);
 
     if (ngx_rtmp_upstream_push(s, &name, &at) != NGX_OK) {
         if (!s->upstream_retrying) {
