@@ -171,18 +171,16 @@ ngx_rtmp_upstream_create(ngx_rtmp_session_t *s)
 static void
 ngx_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
 {
-    ngx_connection_t              *c;
     ngx_rtmp_session_t            *s;
     ngx_rtmp_upstream_t           *u;
     ngx_rtmp_upstream_resolved_t  *ur;
 
     s = ctx->data;
-    c = s->connection;
 
     u = s->upstream;
     ur = u->resolved;
 
-    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, c->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "rtmp upstream resolve: \"%V?%V\"", &s->uri, &s->args);
 
     if (ctx->state) {
@@ -1987,7 +1985,6 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
     u_char                          tc_url[NGX_RTMP_MAX_NAME];
     u_char                          play_path[NGX_RTMP_MAX_NAME];
     ngx_str_t                       name;
-    ngx_pid_t                       pid;
     ngx_file_info_t                 fi;
     size_t                          add;
     ngx_str_t                       request_line;
@@ -2008,8 +2005,6 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
                            play_path;
     }
 
-    pid = ngx_pid;
-
     ngx_memzero(&at.url, sizeof(at.url));
     url = &at.url.url;
 
@@ -2024,7 +2019,7 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
                 ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                                "upstream_push: " ngx_file_info_n " failed: "
                                "pid=%P socket='%s'" "url='%V' name='%V'",
-                               pid, path, url, &name);
+                               ngx_pid, path, url, &name);
 
                 ngx_rtmp_upstream_finalize_session(s, u,
                                                    NGX_RTMP_INTERNAL_SERVER_ERROR);
