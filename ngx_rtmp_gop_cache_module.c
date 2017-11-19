@@ -506,9 +506,14 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     }
 
     if (ch->type == NGX_RTMP_MSG_VIDEO) {
-        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "video codec id='%uD' timestamp='%uD'",
-                    codec_ctx->video_codec_id, ch->timestamp);
+        // drop video when not H.264
+        if (codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) {
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                    "drop video non-H.264 encode type timestamp='%uD'",
+                    ch->timestamp);
+
+            return;
+        }
 
         // drop non-IDR
         if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache_head == NULL) {
@@ -697,15 +702,9 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
                 if (header) {
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
-                } else {
-                    /* non H.264 or non AAC */
-                    apkt = handler->append_message_pt(s, &lh, NULL,
-                                                      gop_frame->frame);
                 }
 
-                if (apkt && handler->send_message_pt(s, apkt,
-                                   header ? 0 : gop_frame->prio) == NGX_OK)
-                {
+                if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
                     cs->timestamp = lh.timestamp;
                     cs->active = 1;
                     s->current_time = cs->timestamp;
@@ -714,19 +713,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 if (apkt) {
                     handler->free_message_pt(s, apkt);
                     apkt = NULL;
-                }
-
-                if (header == NULL) {
-                    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                                   "gop cache send (null header): "
-                                   "tag type='%s' prio='%d' ctimestamp='%uD' "
-                                   "ltimestamp='%uD'",
-                                   gop_frame->h.type ==
-                                       NGX_RTMP_MSG_AUDIO ? "audio" : "video",
-                                   gop_frame->prio,
-                                   ch.timestamp,
-                                   lh.timestamp);
-                    continue;
                 }
             }
 

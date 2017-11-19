@@ -8,7 +8,7 @@
 
 * 基于HTTP协议的FLV直播流播放。
 
-* GOP缓存，降低播放延迟。
+* GOP缓存，降低播放延迟 (H.264视频和AAC音频)。
 
 * 支持'Transfer-Encoding: chunked'方式回复。
 
