@@ -637,13 +637,13 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 
     r = s->data;
     if (r && r->connection && !r->connection->destroyed) {
-        r->main->count--;
-
         sctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
         if (sctx->chunked) {
+            r->main->count--;
             sctx->chunked = 0;
             ngx_http_flv_live_send_tail(s);
         } else {
+            /* no need to decrease r->main->count */
             r->keepalive = 0;
             ngx_http_finalize_request(r, NGX_DONE);
         }
@@ -681,6 +681,11 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     }
 
     if (ctx->protocol == NGX_RTMP_PROTOCOL_RTMP) {
+        /* close RTMP live play */
+        if (!ctx->publishing) {
+            goto next;
+        }
+
         /* close all http flv live streams */
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "flv live: push closed '%s', close live streams subscribed",
