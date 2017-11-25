@@ -47,10 +47,10 @@ struct ngx_rtmp_gop_cache_s {
 
 typedef struct ngx_rtmp_gop_cache_app_conf_s {
     ngx_flag_t       gop_cache;
-    ngx_int_t        gop_cache_count;
-    ngx_int_t        gop_max_frame_count;
-    ngx_int_t        gop_max_video_count;
-    ngx_int_t        gop_max_audio_count;
+    size_t           gop_cache_count;
+    size_t           gop_max_frame_count;
+    size_t           gop_max_video_count;
+    size_t           gop_max_audio_count;
 } ngx_rtmp_gop_cache_app_conf_t;
 
 
@@ -60,10 +60,10 @@ typedef struct ngx_rtmp_gop_cache_ctx_s {
     ngx_rtmp_gop_cache_t       *cache_tail;
     ngx_rtmp_gop_cache_t       *free_cache;
     ngx_rtmp_gop_frame_t       *free_frame;
-    ngx_int_t                   gop_cache_count;
-    ngx_int_t                   video_frame_in_all;
-    ngx_int_t                   audio_frame_in_all;
-    ngx_int_t                   audio_after_last_video_count;
+    size_t                      gop_cache_count;
+    size_t                      video_frame_in_all;
+    size_t                      audio_frame_in_all;
+    size_t                      audio_after_last_video_count;
 } ngx_rtmp_gop_cache_ctx_t;
 
 

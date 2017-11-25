@@ -296,6 +296,13 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, merge_slashes),
       NULL },
 
+    { ngx_string("pure_audio_threshold"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, pure_audio_threshold),
+      NULL },
+
       ngx_null_command
 };
 
@@ -537,6 +544,7 @@ ngx_rtmp_core_create_app_conf(ngx_conf_t *cf)
     conf->lingering_time = NGX_CONF_UNSET_MSEC;
     conf->lingering_timeout = NGX_CONF_UNSET_MSEC;
     conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
+    conf->pure_audio_threshold = NGX_CONF_UNSET_SIZE;
 
     return conf;
 }
@@ -559,6 +567,8 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_size_value(conf->limit_rate, prev->limit_rate, 0);
     ngx_conf_merge_size_value(conf->limit_rate_after, prev->limit_rate_after,
                               0);
+    ngx_conf_merge_size_value(conf->pure_audio_threshold,
+                              prev->pure_audio_threshold, 160);
     ngx_conf_merge_msec_value(conf->keepalive_timeout,
                               prev->keepalive_timeout, 75000);
     ngx_conf_merge_msec_value(conf->lingering_time,
