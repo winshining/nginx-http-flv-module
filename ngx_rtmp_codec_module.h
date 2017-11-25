@@ -80,8 +80,6 @@ u_char * ngx_rtmp_get_video_codec_name(ngx_uint_t id);
 
 
 #define NGX_RTMP_SPS_MAX_LENGTH            256
-#define NGX_PURE_AUDIO_THRESHOLD_COUNT     128 /* pure audio */
-
 
 typedef struct {
     ngx_uint_t                  width;
@@ -114,7 +112,7 @@ typedef struct {
     ngx_chain_t                *flv_meta;
     ngx_chain_t                *flv_meta_chunked;
     ngx_uint_t                  meta_version;
-    size_t                      pure_audio_threshold_count;
+    size_t                      pure_audio_threshold;
     ngx_flag_t                  has_video;
     ngx_flag_t                  has_audio;
     ngx_flag_t                  pure_audio;
