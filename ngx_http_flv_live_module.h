@@ -3,8 +3,8 @@
  * Copyright (C) Winshining
  */
 
-#ifndef _NGX_HTTP_FLV_LIVE_H_INCLUDE_
-#define _NGX_HTTP_FLV_LIVE_H_INCLUDE_
+#ifndef _NGX_HTTP_FLV_LIVE_H_INCLUDED_
+#define _NGX_HTTP_FLV_LIVE_H_INCLUDED_
 
 
 #include <ngx_config.h>
@@ -31,46 +31,21 @@ extern ngx_module_t ngx_rtmp_module;
         NULL)
 
 
-typedef struct ngx_http_flv_live_srv_info_s {
-    ngx_uint_t  srv_index;
-} ngx_http_flv_live_srv_info_t;
-
-
-typedef struct ngx_http_flv_live_app_info_s {
-    ngx_uint_t  app_index;
-    ngx_str_t   app_name;
-} ngx_http_flv_live_app_info_t;
-
-
-typedef struct ngx_http_flv_live_app_s {
-    ngx_str_t                     hash_name;
-    ngx_http_flv_live_srv_info_t  srv;
-    ngx_http_flv_live_app_info_t  app;
-} ngx_http_flv_live_app_t;
-
-
 typedef struct ngx_http_flv_live_ctx_s {
-    ngx_rtmp_session_t      *s;
-    ngx_flag_t               flv_live;
-    ngx_flag_t               chunked;
-    ngx_flag_t               header_sent;
-    ngx_http_flv_live_app_t  app;
-    ngx_str_t                stream;
+    ngx_rtmp_session_t  *s;
+    ngx_flag_t           flv_live;
+    ngx_flag_t           chunked;
+    ngx_flag_t           header_sent;
+
+    ngx_str_t            app;
+    ngx_str_t            port;
+    ngx_str_t            stream;
 } ngx_http_flv_live_ctx_t;
 
 
-typedef struct ngx_http_flv_live_hash_s {
-    ngx_hash_init_t         hint;
-    ngx_hash_keys_arrays_t  ha; /* temporary for hash */
-    ngx_hash_combined_t     hash;
-} ngx_http_flv_live_hash_t;
-
-
 typedef struct ngx_http_flv_live_conf_s {
-    ngx_flag_t                flv_live;
-    ngx_flag_t                chunked;
-    ngx_http_flv_live_hash_t  app_hash;
-    ngx_http_flv_live_app_t   default_hash;
+    ngx_flag_t    flv_live;
+    ngx_flag_t    chunked;
 } ngx_http_flv_live_conf_t;
 
 

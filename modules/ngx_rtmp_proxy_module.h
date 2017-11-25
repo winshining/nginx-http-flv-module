@@ -29,14 +29,10 @@ typedef struct {
     ngx_array_t                   *proxy_lengths;
     ngx_array_t                   *proxy_values;
 
-    ngx_array_t                   *redirects;
-
     ngx_str_t                      application;
     ngx_str_t                      url;
 
     ngx_rtmp_proxy_vars_t          vars;
-
-    ngx_flag_t                     redirect;
 } ngx_rtmp_proxy_app_conf_t;
 
 

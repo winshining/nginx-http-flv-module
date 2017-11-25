@@ -480,6 +480,14 @@ ngx_rtmp_recv(ngx_event_t *rev)
                 return;
             }
 
+            /* server configuration may change due to virtual server match */
+            if (s->server_changed) {
+                cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+                st = &s->in_streams[s->in_csid];
+
+                s->server_changed = 0;
+            }
+
             if (s->in_chunk_size_changing) {
                 /* copy old data to a new buffer */
                 if (!old_size) {

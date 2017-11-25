@@ -4,6 +4,8 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Features
 
+* All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) supplies.
+
 * HTTP-based FLV live streaming (subscribe).
 
 * GOP cache for low latency (H.264 video and AAC audio).
@@ -11,6 +13,8 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 * 'Transfer-Encoding: chunked' response supported.
 
 * Missing 'listen' directive in rtmp server block will be OK.
+
+* Virtual hosts supported (experimental).
 
 * Reverse proxy supported (experimental).
 
@@ -50,6 +54,8 @@ cd to NGINX source directory & run this:
 
 # Usage
 
+For details about usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md).
+
     publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
 The appname is used to match an application block in rtmp block (see below for details).
@@ -58,15 +64,19 @@ The streamname can be specified at will.
 
 The default port for RTMP is 1935, if some other ports were used, ':port' must be specified.
 
-    subscribe: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
+    subscribe: http://example.com[:port]/dir?[port=1935&]app=myapp&stream=mystream
 
 The dir is used to match location blocks in http block (see below for details).
 
 The default port for HTTP is 80, if some other ports were used, ':port' must be specified.
 
-The default server block matched is the first one in rtmp block, if the requested server block is not the first one, 'srv=index (index start from 0)' must be specified.
+Argument 'srv=index' is not supported anymore.
 
-The default application block matched is the first one in server block, if the requested application block is not the first one, 'app=xxx' must be specified.
+The default port for RTMP is 1935, if some other ports were used, 'port=xxx' must be specified.
+
+The 'app' is used to match an application block, but if the requested 'app' appears in several server blocks and those blocks have the same address and port configuration, host name matches 'server_name' directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+
+The 'stream' is used to match the publishing streamname.
 
 # Example nginx.conf
 
@@ -102,6 +112,17 @@ The default application block matched is the first one in server block, if the r
                 flv_live on; #open flv live streaming (subscribe)
                 chunked  on; #open 'Transfer-Encoding: chunked' response
             }
+
+            location /stat {
+                #configuration of push & pull status
+
+                rtmp_stat all;
+                rtmp_stat_stylesheet stat.xsl;
+            }
+
+            location /stat.xsl {
+                root /var/www/rtmp; #specify in where stat.xsl located
+            }
         }
     }
 
@@ -116,6 +137,27 @@ The default application block matched is the first one in server block, if the r
 
         server {
             listen 1935;
+            server_name www.test.*;
+
+            application myapp {
+                live on;
+                gop_cache on; #open GOP cache for low latency
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name *.test.com;
+
+            application myapp {
+                live on;
+                gop_cache on; #open GOP cache for low latency
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name www.test.com;
 
             application myapp {
                 live on;

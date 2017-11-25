@@ -4,6 +4,8 @@
 
 # 功能
 
+* [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
+
 * 基于HTTP协议的FLV直播流播放。
 
 * GOP缓存，降低播放延迟 (H.264视频和AAC音频)。
@@ -11,6 +13,8 @@
 * 支持'Transfer-Encoding: chunked'方式回复。
 
 * rtmp配置的server块中可以省略'listen'配置项。
+
+* 支持虚拟主机（试验）。
 
 * 支持反向代理（试验）。
 
@@ -50,6 +54,8 @@
 
 # 使用方法
 
+关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md)。
+
     发布：ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
 appname用于匹配rtmp配置块中的application块（更多详情见下文）。
@@ -58,15 +64,19 @@ streamname可以随意指定。
 
 RTMP默认使用端口1935，如果要使用其他端口，必须指定':port'。
 
-    播放: http://example.com[:port]/dir?[srv=0&app=myapp&]stream=mystream
+    播放: http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
 dir用于匹配http配置块中的location块（更多详情见下文）。
 
-HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
+HTTP默认使用端口80, 如果使用了其他端口，必须指定':port'。
 
-默认匹配的server块是rtmp配置块中的第一个server块，如果请求的server块不是第一个，那么必须指定'srv=index（index从0开始）'。
+不再支持参数'srv=index'。
 
-默认匹配的application块是server块中的第一个application块，如果请求的application块不是第一个，那么必须指定'app=xxx'。
+RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx'。
+
+参数'app'用来匹配application块，但是如果请求的'app'出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的'server_name'配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+
+参数'stream'用来匹配发布流的streamname。
 
 # nginx.conf实例
 
@@ -102,6 +112,17 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
                 flv_live on; #打开HTTP播放FLV直播流功能
                 chunked  on; #支持'Transfer-Encoding: chunked'方式回复
             }
+
+            location /stat {
+                #push和pull状态的配置
+
+                rtmp_stat all;
+                rtmp_stat_stylesheet stat.xsl;
+            }
+
+            location /stat.xsl {
+                root /var/www/rtmp; #指定stat.xsl的位置
+            }
         }
     }
 
@@ -116,6 +137,27 @@ HTTP默认使用端口80, 如果要使用其他端口，必须指定':port'。
 
         server {
             listen 1935;
+            server_name www.test.*;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name *.test.com;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name www.test.com;
 
             application myapp {
                 live on;
