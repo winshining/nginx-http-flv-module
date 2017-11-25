@@ -118,7 +118,7 @@ ngx_rtmp_gop_cache_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    gacf->gop_cache = NGX_CONF_UNSET_SIZE;
+    gacf->gop_cache = NGX_CONF_UNSET;
     gacf->gop_cache_count = NGX_CONF_UNSET_SIZE;
     gacf->gop_max_frame_count = NGX_CONF_UNSET_SIZE;
     gacf->gop_max_audio_count = NGX_CONF_UNSET_SIZE;
