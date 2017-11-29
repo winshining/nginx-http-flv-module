@@ -984,7 +984,7 @@ ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
     }
 
     if (args[0]) {
-        rlen += ngx_strlen(args);
+        rlen += 1 + ngx_strlen(args);
     }
 
     s->request_line = ngx_create_temp_buf(s->connection->pool, rlen + 1);
