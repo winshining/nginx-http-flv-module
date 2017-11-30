@@ -346,10 +346,12 @@ struct ngx_rtmp_session_s {
     unsigned                    relay:1;
     unsigned                    static_relay:1;
 
+    unsigned                    upstream_retry:1;
+    unsigned                    upstream_session:1;
+    unsigned                    upstream_publish:1;
+
     unsigned                    uri_changed:1;
     unsigned                    uri_changes:4;
-
-    unsigned                    upstream_retrying:1;
 
     /* URI with "/." and on Win32 with "//" */
     unsigned                    complex_uri:1;
@@ -550,6 +552,8 @@ typedef struct {
 
     unsigned                noname:1; /* "if () {}" block or limit_except */
     unsigned                named:1;
+
+    unsigned                upstream_conf:1;
 
     size_t                  send_lowat;
     size_t                  postpone_output;

@@ -530,6 +530,7 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_rtmp_live_app_conf_t       *lacf;
 
     ngx_rtmp_relay_app_conf_t      *racf;
+    ngx_rtmp_core_app_conf_t       *cacf;
 
     /* only for subscribers */
     if (publisher) {
@@ -561,6 +562,9 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live: join '%s'", name);
 
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    s->upstream_session = cacf->upstream_conf;
+
     stream = ngx_rtmp_live_get_stream(s, name, lacf->idle_streams);
 
     if (stream == NULL ||
@@ -571,6 +575,10 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
 
         /* TODO: restore the c->read/write->handler and send error info */
         return NGX_ERROR;
+    }
+
+    if (s->upstream_session) {
+        goto upstream;
     }
 
     if ((*stream)->pub_ctx == NULL || !(*stream)->pub_ctx->publishing) {
@@ -586,6 +594,8 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
             return NGX_ERROR;
         }
     }
+
+upstream:
 
     ctx->stream = *stream;
     ctx->publishing = publisher;
@@ -641,6 +651,12 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
         r->main->count--;
 
+        return NGX_ERROR;
+    }
+
+    if (ngx_rtmp_process_request_line(s, v->name, v->args,
+            (const u_char *) "flv live play") != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -706,7 +722,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     }
 
     if (ctx->protocol == NGX_RTMP_PROTOCOL_RTMP) {
-        /* close rtmp live play */
+        /* close RTMP live play */
         if (!ctx->publishing) {
             goto next;
         }

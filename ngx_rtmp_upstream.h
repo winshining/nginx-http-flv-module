@@ -84,8 +84,10 @@ typedef struct {
     ngx_flag_t                       session_upstream;
     ngx_msec_t                       push_reconnect;
     ngx_msec_t                       pull_reconnect;
-    ngx_rtmp_upstream_ctx_t        **ctx;
+    ngx_rtmp_upstream_ctx_t        **push_ctx;
+    ngx_rtmp_upstream_ctx_t        **pull_ctx;
 } ngx_rtmp_upstream_main_conf_t;
+
 
 typedef struct ngx_rtmp_upstream_srv_conf_s    ngx_rtmp_upstream_srv_conf_t;
 
@@ -240,7 +242,7 @@ ngx_rtmp_upstream_srv_conf_t *ngx_rtmp_upstream_add(ngx_conf_t *cf,
     ngx_url_t *u, ngx_uint_t flags);
 char *ngx_rtmp_upstream_bind_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-void ngx_rtmp_upstream_push_reconnect(ngx_event_t *ev);
+void ngx_rtmp_upstream_reconnect(ngx_event_t *ev);
 
 void ngx_rtmp_upstream_recv(ngx_event_t *rev);
 void ngx_rtmp_upstream_send(ngx_event_t *wev);

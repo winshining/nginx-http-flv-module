@@ -76,6 +76,8 @@ static ngx_int_t ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s,
     ngx_rtmp_publish_t *v);
 static ngx_int_t ngx_rtmp_proxy_play(ngx_rtmp_session_t *s,
     ngx_rtmp_play_t *v);
+static void ngx_rtmp_proxy_upstream(ngx_rtmp_session_t *s,
+    ngx_flag_t publisher);
 static ngx_int_t ngx_rtmp_proxy_handshake_done(ngx_rtmp_session_t *s,
      ngx_rtmp_header_t *h, ngx_chain_t *in);
 static ngx_int_t ngx_rtmp_proxy_delete_stream(ngx_rtmp_session_t *s,
@@ -550,6 +552,28 @@ ngx_rtmp_proxy_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 static ngx_int_t
 ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
+    if (!v->silent) {
+        ngx_rtmp_proxy_upstream(s, 1);
+    }
+
+    return next_publish(s, v);
+}
+
+
+static ngx_int_t
+ngx_rtmp_proxy_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
+{
+    if (!v->silent) {
+        ngx_rtmp_proxy_upstream(s, 0);
+    }
+
+    return next_play(s, v);
+}
+
+
+static void
+ngx_rtmp_proxy_upstream(ngx_rtmp_session_t *s, ngx_flag_t publisher)
+{
     ngx_rtmp_upstream_t         *u;
     ngx_rtmp_proxy_ctx_t        *ctx;
     ngx_rtmp_proxy_app_conf_t   *pacf;
@@ -559,16 +583,19 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     if (pacf == NULL
         || (pacf->upstream.upstream == NULL && pacf->proxy_lengths == NULL))
     {
-        goto next;
+        return;
     }
 
+    s->upstream_session = 1;
+    s->upstream_publish = publisher;
+
     if (ngx_rtmp_upstream_create(s) != NGX_OK) {
-        goto next;
+        return;
     }
 
     ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_proxy_ctx_t));
     if (ctx == NULL) {
-        goto next;
+        return;
     }
 
     ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_proxy_module);
@@ -580,7 +607,7 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         u->schema = pacf->vars.schema;
     } else {
         if (ngx_rtmp_proxy_eval(s, ctx, pacf) != NGX_OK) {
-            goto next;
+            return;
         }
     }
 
@@ -594,20 +621,10 @@ ngx_rtmp_proxy_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     s->push_evt.data = s;
     s->push_evt.log = s->connection->log;
-    s->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
-    s->upstream_retrying = 0;
+    s->push_evt.handler = ngx_rtmp_upstream_reconnect;
+    s->upstream_retry = 0;
 
-    ngx_rtmp_upstream_push_reconnect(&s->push_evt);
-
-next:
-    return next_publish(s, v);
-}
-
-
-static ngx_int_t
-ngx_rtmp_proxy_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
-{
-    return next_play(s, v);
+    ngx_rtmp_upstream_reconnect(&s->push_evt);
 }
 
 
@@ -872,6 +889,7 @@ ngx_rtmp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     lacf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_live_module);
 
     cacf = ngx_rtmp_conf_get_module_app_conf(cf, ngx_rtmp_core_module);
+    cacf->upstream_conf = 1;
 
     value = cf->args->elts;
 
