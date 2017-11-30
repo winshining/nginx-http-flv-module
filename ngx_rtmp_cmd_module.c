@@ -46,8 +46,7 @@ static ngx_int_t ngx_rtmp_cmd_set_buflen(ngx_rtmp_session_t *s,
        ngx_rtmp_set_buflen_t *v);
 
 static ngx_int_t ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s);
-static ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
-       const u_char *name, const u_char *args, const u_char *cmd);
+
 
 ngx_rtmp_connect_pt         ngx_rtmp_connect;
 ngx_rtmp_disconnect_pt      ngx_rtmp_disconnect;
@@ -960,59 +959,3 @@ next:
     return NGX_OK;
 }
 
-
-static ngx_int_t
-ngx_rtmp_process_request_line(ngx_rtmp_session_t *s, const u_char *name,
-    const u_char *args, const u_char *cmd)
-{
-    size_t               rlen = 0;
-
-    s->stream.len = ngx_strlen(name);
-    if (s->stream.len) {
-        s->stream.data = ngx_palloc(s->connection->pool, s->stream.len);
-        if (s->stream.data == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_memcpy(s->stream.data, name, ngx_strlen(name));
-    }
-
-    rlen = s->tc_url.len;
-
-    if (s->stream.len) {
-        rlen += 1 + s->stream.len;
-    }
-
-    if (args[0]) {
-        rlen += ngx_strlen(args);
-    }
-
-    s->request_line = ngx_create_temp_buf(s->connection->pool, rlen + 1);
-    if (s->request_line == NULL) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "%s: failed to ngx_pcalloc for request_line", cmd);
-        return NGX_ERROR;
-    }
-
-    if (args[0]) {
-        *ngx_snprintf(s->request_line->pos, rlen + 1, "%V/%V?%s", &s->tc_url,
-                      &s->stream, args) = CR;
-    } else {
-        *ngx_snprintf(s->request_line->pos, rlen + 1, "%V/%V", &s->tc_url,
-                      &s->stream) = CR;
-    }
-
-    s->request_line->last += rlen;
-
-    if (ngx_rtmp_parse_request_line(s, s->request_line) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "%s: invalid request line: '%s'", cmd, s->request_line->pos);
-        return NGX_ERROR;
-    }
-
-    if (ngx_rtmp_process_request_uri(s) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    return NGX_OK;
-}

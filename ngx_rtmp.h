@@ -320,7 +320,9 @@ struct ngx_rtmp_session_s {
     unsigned                    relay:1;
     unsigned                    static_relay:1;
 
-    unsigned                    upstream_retrying:1;
+    unsigned                    upstream_retry:1;
+    unsigned                    upstream_session:1;
+    unsigned                    upstream_publish:1;
 
     /* URI with "/." and on Win32 with "//" */
     unsigned                    complex_uri:1;
@@ -517,6 +519,8 @@ typedef struct {
 
     unsigned                noname:1; /* "if () {}" block or limit_except */
     unsigned                named:1;
+
+    unsigned                upstream_conf:1;
 
     size_t                  send_lowat;
     size_t                  postpone_output;
@@ -834,7 +838,8 @@ ngx_int_t ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s,
 ngx_int_t ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool,
     ngx_uint_t alloc);
 ngx_int_t ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host);
-
+ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
+    const u_char *name, const u_char *args, const u_char *cmd);
 
 #include "ngx_rtmp_upstream.h"
 

@@ -81,11 +81,8 @@ static ngx_int_t ngx_rtmp_upstream_relay_create(ngx_rtmp_session_t *s,
     ngx_rtmp_upstream_create_ctx_pt create_publish_ctx,
     ngx_rtmp_upstream_create_ctx_pt create_play_ctx);
 
-#if 0
 static ngx_int_t ngx_rtmp_upstream_pull(ngx_rtmp_session_t *s, ngx_str_t *name,
     ngx_rtmp_upstream_target_t *target);
-#endif
-
 static ngx_int_t ngx_rtmp_upstream_push(ngx_rtmp_session_t *s, ngx_str_t *name,
     ngx_rtmp_upstream_target_t *target);
 static ngx_int_t ngx_rtmp_upstream_play_local(ngx_rtmp_session_t *s);
@@ -231,7 +228,7 @@ ngx_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
         u->peer.tries = u->conf->next_upstream_tries;
     }
 
-    ngx_rtmp_upstream_push_reconnect(&s->push_evt);
+    ngx_rtmp_upstream_reconnect(&s->push_evt);
 
 failed:
 
@@ -1018,7 +1015,7 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
     }
 
     if (s->connection->error) {
-        s->upstream_retrying = 0;
+        s->upstream_retry = 0;
         ngx_rtmp_upstream_finalize_session(s, u,
                                               NGX_RTMP_CLIENT_CLOSED_REQUEST);
         return;
@@ -1030,7 +1027,7 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         || ((u->conf->next_upstream & ft_type) != ft_type)
         || (timeout && ngx_current_msec - u->peer.start_time >= timeout))
     {
-        s->upstream_retrying = 0;
+        s->upstream_retry = 0;
         ngx_rtmp_upstream_finalize_session(s, u, status);
         return;
     }
@@ -1048,9 +1045,9 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         u->peer.connection = NULL;
     }
 
-    s->upstream_retrying = 1;
+    s->upstream_retry = 1;
 
-    ngx_rtmp_upstream_push_reconnect(&s->push_evt);
+    ngx_rtmp_upstream_reconnect(&s->push_evt);
 }
 
 
@@ -1723,9 +1720,11 @@ ngx_rtmp_upstream_init_main_conf(ngx_conf_t *cf, void *conf)
         }
     }
 
-    umcf->ctx = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_upstream_ctx_t *)
+    umcf->push_ctx = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_upstream_ctx_t *)
             * umcf->nbuckets);
-    if (umcf->ctx == NULL) {
+    umcf->pull_ctx = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_upstream_ctx_t *)
+            * umcf->nbuckets);
+    if (umcf->push_ctx == NULL || umcf->pull_ctx == NULL) {
         ngx_log_error(NGX_LOG_ERR, cf->log, 0,
                       "allocate for upstream context failed");
 
@@ -1737,24 +1736,57 @@ ngx_rtmp_upstream_init_main_conf(ngx_conf_t *cf, void *conf)
 
 
 void
-ngx_rtmp_upstream_push_reconnect(ngx_event_t *ev)
+ngx_rtmp_upstream_reconnect(ngx_event_t *ev)
 {
-    ngx_str_t                      *host;
-    ngx_uint_t                      i;
-    ngx_int_t                       rc;
-    ngx_resolver_ctx_t             *ctx, temp;
-    ngx_rtmp_upstream_t            *u;
-    ngx_rtmp_core_app_conf_t       *cacf;
-    ngx_rtmp_upstream_srv_conf_t   *uscf, **uscfp;
-    ngx_rtmp_upstream_main_conf_t  *umcf;
-    ngx_rtmp_session_t             *s;
-    ngx_connection_t               *c;
+    ngx_str_t                       *host;
+    ngx_uint_t                       i;
+    ngx_int_t                        rc;
+    ngx_resolver_ctx_t              *ctx, temp;
+    ngx_rtmp_upstream_t             *u;
+    ngx_rtmp_core_app_conf_t        *cacf;
+    ngx_rtmp_upstream_srv_conf_t    *uscf, **uscfp;
+    ngx_rtmp_upstream_main_conf_t   *umcf;
+    ngx_rtmp_session_t              *s;
+    ngx_connection_t                *c;
+    ngx_rtmp_upstream_ctx_t        **uctx, *play_ctx;
+    ngx_uint_t                       hash;
 
     s = ev->data;
+
+    umcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_upstream_module);
+    if (!s->upstream_publish) {
+        do {
+            play_ctx = ngx_rtmp_upstream_create_local_ctx(s, &s->stream, NULL);
+            if (play_ctx == NULL) {
+                break;
+            }
+
+            hash = ngx_hash_key(s->stream.data, s->stream.len);
+            uctx = &umcf->pull_ctx[hash % umcf->nbuckets];
+
+            for (; *uctx; uctx = &(*uctx)->next) {
+                if ((*uctx)->name.len == s->stream.len
+                    && !ngx_memcmp(s->stream.data, (*uctx)->name.data,
+                        s->stream.len))
+                {
+                    break;
+                }
+            }
+
+            if (*uctx) {
+                play_ctx->publish = (*uctx)->publish;
+                play_ctx->next = (*uctx)->play;
+                (*uctx)->play = play_ctx;
+                return;
+            }
+        } while (0);
+    }
+
     u = s->upstream;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "upstream_push: reconnect");
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "upstream_%s: reconnect",
+                   (s->upstream_publish ? "push" : "pull"));
 
     if (u->create_request_line(s) != NGX_OK) {
         ngx_rtmp_finalize_session(s);
@@ -1772,8 +1804,6 @@ ngx_rtmp_upstream_push_reconnect(ngx_event_t *ev)
         uscf = u->conf->upstream;
     } else {
         host = &u->resolved->host;
-
-        umcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_upstream_module);
 
         uscfp = umcf->upstreams.elts;
 
@@ -1989,13 +2019,15 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
     size_t                          add;
     ngx_str_t                       request_line;
     ngx_int_t                       slashes;
+    ngx_int_t                       rc;
     u_char                         *p;
     ngx_str_t                      *url;
     struct sockaddr_un             *saun;
 
     name = s->stream;
     ngx_memzero(&at, sizeof(at));
-    ngx_str_set(&at.page_url, "nginx-upstream-push");
+    ngx_str_set(&at.page_url,
+        (s->upstream_publish ? "nginx-upstream-push" : "nginx-upstream-pull"));
     at.tag = &ngx_rtmp_upstream_module;
 
     if (s->args.len) {
@@ -2016,9 +2048,10 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
             *p = 0;
 
             if (ngx_file_info(path + sizeof("unix:") - 1, &fi) != NGX_OK) {
-                ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                               "upstream_push: " ngx_file_info_n " failed: "
+                ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                               "upstream_%s: " ngx_file_info_n " failed: "
                                "pid=%P socket='%s'" "url='%V' name='%V'",
+                               (s->upstream_publish ? "push" : "pull"),
                                ngx_pid, path, url, &name);
 
                 ngx_rtmp_upstream_finalize_session(s, u,
@@ -2087,8 +2120,8 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
 
     if (ngx_parse_url(s->connection->pool, &at.url) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "upstream_push: parse_url failed "
-                      "url='%V' name='%V'", url, &name);
+                      "upstream_%s: parse_url failed url='%V' name='%V'",
+                      (s->upstream_publish ? "push" : "pull"), url, &name);
 
         ngx_rtmp_upstream_finalize_session(s, u,
                                            NGX_RTMP_INTERNAL_SERVER_ERROR);
@@ -2100,12 +2133,19 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
     at.flash_ver.data = flash_ver;
     at.flash_ver.len = p - flash_ver;
 
-    ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "upstream_push: connect pid=%P socket='%s' name='%V'",
+    ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "upstream_%s: connect pid=%P socket='%s' name='%V'",
+                   (s->upstream_publish ? "push" : "pull"),
                    ngx_pid, path, &name);
 
-    if (ngx_rtmp_upstream_push(s, &name, &at) != NGX_OK) {
-        if (!s->upstream_retrying) {
+    if (s->upstream_publish) {
+        rc = ngx_rtmp_upstream_push(s, &name, &at);
+    } else {
+        rc = ngx_rtmp_upstream_pull(s, &name, &at);
+    }
+
+    if (rc != NGX_OK) {
+        if (!s->upstream_retry) {
             ngx_rtmp_upstream_finalize_session(s, u,
                                                NGX_RTMP_INTERNAL_SERVER_ERROR);
         }
@@ -2296,8 +2336,11 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
         /* no need to destroy pool */
         return NULL;
     }
+
     rs->app_conf = cctx->app_conf;
     rs->relay = 1;
+    rs->upstream_session = 1;
+    rs->upstream_publish = s->upstream_publish;
     rctx->session = rs;
     ngx_rtmp_set_ctx(rs, rctx, ngx_rtmp_upstream_module);
 
@@ -2313,22 +2356,33 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
         return NULL;
     }
 
-    s->upstream_retrying = 0;
+    s->upstream_retry = 0;
     rs->data = s;
     rs->timeout = u->conf->connect_timeout;
     u->handshake_sent = 0;
+
+    /* delete ngx_rtmp_upstream_handler timers */
+    if (c->read->timer_set) {
+        ngx_del_timer(c->read);
+    }
+
+    if (c->write->timer_set) {
+        ngx_del_timer(c->write);
+    }
 
     if (c->write->ready) {
         ngx_rtmp_client_handshake(rs, 0);
     } else {
         ngx_rtmp_client_handshake(rs, 1);
     }
+
     return rctx;
 
 clear:
     if (pool) {
         ngx_destroy_pool(pool);
     }
+
     return NULL;
 }
 
@@ -2368,7 +2422,7 @@ ngx_rtmp_upstream_create_local_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
 
     ctx->push_evt.data = s;
     ctx->push_evt.log = s->connection->log;
-    ctx->push_evt.handler = ngx_rtmp_upstream_push_reconnect;
+    ctx->push_evt.handler = ngx_rtmp_upstream_reconnect;
 
     if (ctx->publish) {
         return NULL;
@@ -2406,7 +2460,13 @@ ngx_rtmp_upstream_relay_create(ngx_rtmp_session_t *s, ngx_str_t *name,
     }
 
     hash = ngx_hash_key(name->data, name->len);
-    cctx = &umcf->ctx[hash % umcf->nbuckets];
+
+    if (s->upstream_publish) {
+        cctx = &umcf->push_ctx[hash % umcf->nbuckets];
+    } else {
+        cctx = &umcf->pull_ctx[hash % umcf->nbuckets];
+    }
+
     for (; *cctx; cctx = &(*cctx)->next) {
         if ((*cctx)->name.len == name->len
             && !ngx_memcmp(name->data, (*cctx)->name.data,
@@ -2438,7 +2498,6 @@ ngx_rtmp_upstream_relay_create(ngx_rtmp_session_t *s, ngx_str_t *name,
 }
 
 
-#if 0
 static ngx_int_t
 ngx_rtmp_upstream_pull(ngx_rtmp_session_t *s, ngx_str_t *name,
         ngx_rtmp_upstream_target_t *target)
@@ -2451,7 +2510,6 @@ ngx_rtmp_upstream_pull(ngx_rtmp_session_t *s, ngx_str_t *name,
             ngx_rtmp_upstream_create_remote_ctx,
             ngx_rtmp_upstream_create_local_ctx);
 }
-#endif
 
 
 static ngx_int_t
@@ -3115,7 +3173,11 @@ ngx_rtmp_upstream_close(ngx_rtmp_session_t *s)
     ctx->publish = NULL;
 
     hash = ngx_hash_key(ctx->name.data, ctx->name.len);
-    cctx = &umcf->ctx[hash % umcf->nbuckets];
+    if (s->upstream_publish) {
+        cctx = &umcf->push_ctx[hash % umcf->nbuckets];
+    } else {
+        cctx = &umcf->pull_ctx[hash % umcf->nbuckets];
+    }
     for (; *cctx && *cctx != ctx; cctx = &(*cctx)->next);
     if (*cctx) {
         *cctx = ctx->next;
