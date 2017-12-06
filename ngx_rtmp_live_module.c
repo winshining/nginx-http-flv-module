@@ -793,12 +793,12 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_live_ctx_t            *ctx, *pctx;
     ngx_rtmp_codec_ctx_t           *codec_ctx;
     ngx_chain_t                    *header, *coheader, *meta,
-                                   *apkt, *aapkt, *acopkt, *rpkt;
+                                   *apkt, *acopkt, *rpkt;
     ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_session_t             *ss;
     ngx_rtmp_header_t               ch, lh, clh;
-    ngx_int_t                       rc, mandatory, dummy_audio;
+    ngx_int_t                       rc, mandatory;
     ngx_uint_t                      prio;
     ngx_uint_t                      peers;
     ngx_uint_t                      meta_version;
@@ -850,7 +850,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     peers = 0;
     rpkt = NULL;
     apkt = NULL;
-    aapkt = NULL;
     acopkt = NULL;
     header = NULL;
     coheader = NULL;
@@ -1040,21 +1039,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 continue;
             }
 
-            dummy_audio = 0;
-            if (lacf->wait_video && h->type == NGX_RTMP_MSG_VIDEO &&
-                !pctx->cs[1].active)
-            {
-                dummy_audio = 1;
-
-                /* if last pctx is RTMP and this pctx is HTTP */
-                if (aapkt) {
-                    ngx_rtmp_free_shared_chain(cscf, aapkt);
-                }
-
-                aapkt = ngx_rtmp_alloc_shared_buf(cscf);
-                handler->append_message_pt(ss, &clh, NULL, aapkt);
-            }
-
             if (header || coheader) {
 
                 /* send absolute codec header */
@@ -1084,8 +1068,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                         continue;
                     }
 
-                } else if (dummy_audio) {
-                    handler->send_message_pt(ss, aapkt, 0);
                 }
 
                 cs->timestamp = lh.timestamp;
@@ -1114,10 +1096,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ss->current_time = cs->timestamp;
 
                 ++peers;
-
-                if (dummy_audio) {
-                    handler->send_message_pt(ss, aapkt, 0);
-                }
 
                 continue;
             }
@@ -1154,10 +1132,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (apkt) {
         ngx_rtmp_free_shared_chain(cscf, apkt);
-    }
-
-    if (aapkt) {
-        ngx_rtmp_free_shared_chain(cscf, aapkt);
     }
 
     if (acopkt) {
