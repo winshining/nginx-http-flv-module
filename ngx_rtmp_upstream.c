@@ -2133,6 +2133,22 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
     at.flash_ver.data = flash_ver;
     at.flash_ver.len = p - flash_ver;
 
+    if (at.url.uri.data[0] != '/') {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "upstream_%s: invalid uri='%V'",
+                      (s->upstream_publish ? "push" : "pull"), &at.url.uri);
+
+        ngx_rtmp_upstream_finalize_session(s, u,
+                                           NGX_RTMP_INTERNAL_SERVER_ERROR);
+        return;
+    }
+
+    p = at.url.uri.data;
+    p = ngx_strlchr(p + 1, p + at.url.uri.len, '/');
+
+    at.app.data = at.url.uri.data + 1;
+    at.app.len = (p ? (size_t)(p - 1 - at.url.uri.data) : at.url.uri.len - 1);
+
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "upstream_%s: connect pid=%P socket='%s' name='%V'",
                    (s->upstream_publish ? "push" : "pull"),
@@ -2306,7 +2322,8 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
 
     c = pc->connection;
     c->pool = pool;
-    c->addr_text = rctx->url;
+    /* session here acts as a client */
+    c->addr_text = *s->addr_text;
 
     addr_conf = ngx_pcalloc(pool, sizeof(ngx_rtmp_addr_conf_t));
     if (addr_conf == NULL) {
@@ -2328,8 +2345,25 @@ ngx_rtmp_upstream_create_connection(ngx_rtmp_session_t *s,
     addr_ctx->main_conf = cctx->main_conf;
     addr_ctx->srv_conf  = cctx->srv_conf;
 
-    addr_conf->addr_text.data = target->url.host.data;
     addr_conf->addr_text.len = target->url.host.len;
+
+    if (!target->url.no_port) {
+        addr_conf->addr_text.len += 1 + target->url.port_text.len;
+    }
+
+    addr_conf->addr_text.data = ngx_pcalloc(c->pool, addr_conf->addr_text.len);
+    if (addr_conf->addr_text.data == NULL) {
+        goto clear;
+    }
+
+    p = addr_conf->addr_text.data;
+    ngx_memcpy(p, target->url.host.data, target->url.host.len);
+    p += target->url.host.len;
+
+    if (!target->url.no_port) {
+        *p++ = ':';
+        ngx_memcpy(p, target->url.port_text.data, target->url.port_text.len);
+    }
 
     rs = ngx_rtmp_init_session(c, addr_conf);
     if (rs == NULL) {
@@ -2425,6 +2459,12 @@ ngx_rtmp_upstream_create_local_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
     ctx->push_evt.handler = ngx_rtmp_upstream_reconnect;
 
     if (ctx->publish) {
+        return NULL;
+    }
+
+    if (ngx_rtmp_upstream_copy_str(s->connection->pool, &ctx->app, &s->app)
+            != NGX_OK)
+    {
         return NULL;
     }
 
