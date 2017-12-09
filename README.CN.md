@@ -10,11 +10,11 @@
 
 * GOP缓存，降低播放延迟 (H.264视频和AAC音频)。
 
-* 支持'Transfer-Encoding: chunked'方式回复。
+* 支持`Transfer-Encoding: chunked`方式的HTT回复。
 
-* rtmp配置的server块中可以省略'listen'配置项。
+* rtmp配置的server块中可以省略`listen`配置项。
 
-* 支持虚拟主机（试验）。
+* 支持虚拟主机。
 
 * 支持反向代理（试验）。
 
@@ -34,7 +34,7 @@
 
 * FFmpeg，用于发布媒体流。
 
-* VLC播放器，用于播放媒体流。
+* VLC播放器（推荐），用于播放媒体流。
 
 * 如果NGINX要支持正则表达式，需要PCRE库。
 
@@ -56,27 +56,67 @@
 
 关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md)。
 
-    发布：ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+## 发布
 
-appname用于匹配rtmp配置块中的application块（更多详情见下文）。
+    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
-streamname可以随意指定。
+`appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
-RTMP默认使用端口1935，如果要使用其他端口，必须指定':port'。
+`streamname`可以随意指定。
 
-    播放: http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+**RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
-dir用于匹配http配置块中的location块（更多详情见下文）。
+## 播放（HTTP）
 
-HTTP默认使用端口80, 如果使用了其他端口，必须指定':port'。
+    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
-不再支持参数'srv=index'。
+参数`dir`用于匹配http配置块中的location块（更多详情见下文）。
 
-RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx'。
+**HTTP默认端口**为**80**, 如果使用了其他端口，必须指定`:port`。
 
-参数'app'用来匹配application块，但是如果请求的'app'出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的'server_name'配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+**RTMP默认端口**为**1935**，如果使用了其他端口，必须指定`port=xxx`。
 
-参数'stream'用来匹配发布流的streamname。
+参数`app`用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+
+参数`stream`用来匹配发布流的streamname。
+
+## 例子
+
+假设在`http`配置块中的`listen`配置项是：
+
+    http {
+        ...
+        server {
+            listen 8080; #不是默认的80端口
+            ...
+
+            location /live {
+                flv_live on;
+            }
+        }
+    }
+
+在`rtmp`配置块中的`listen`配置项是：
+
+    rtmp {
+        ...
+        server {
+            listen 1985; #不是默认的1935端口
+            ...
+
+            application myapp {
+                live on;
+            }
+        }
+    }
+
+那么HTTP播放的url是：
+
+    http://example.com:8080/live?port=1985&app=myapp&stream=mystream
+
+# 注意
+
+由于一些播放器不支持HTTP块传输, 这种情况下最好不要在指定了`flv_live on;`的location中指定`chunked on;`，否则播放会失败。
 
 # nginx.conf实例
 
@@ -137,7 +177,7 @@ RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx
 
         server {
             listen 1935;
-            server_name www.test.*;
+            server_name www.test.*; #用于后缀通配
 
             application myapp {
                 live on;
@@ -147,7 +187,7 @@ RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx
 
         server {
             listen 1935;
-            server_name *.test.com;
+            server_name *.test.com; #用于前缀通配
 
             application myapp {
                 live on;
@@ -157,7 +197,18 @@ RTMP默认使用端口1935，如果使用了其他端口，必须指定'port=xxx
 
         server {
             listen 1935;
-            server_name www.test.com;
+            server_name www.test.com; #用于完全匹配
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        #以下两个server块是用于`upstream`的
+
+        server {
+            listen 1935;
 
             application myapp {
                 live on;
