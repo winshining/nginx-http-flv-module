@@ -10,11 +10,11 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * GOP cache for low latency (H.264 video and AAC audio).
 
-* 'Transfer-Encoding: chunked' response supported.
+* `Transfer-Encoding: chunked` HTTP response supported.
 
-* Missing 'listen' directive in rtmp server block will be OK.
+* Missing `listen` directive in rtmp server block will be OK.
 
-* Virtual hosts supported (experimental).
+* Virtual hosts supported.
 
 * Reverse proxy supported (experimental).
 
@@ -34,7 +34,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * FFmpeg for publishing media streams.
 
-* VLC player for playing media streams.
+* VLC player (recommended) for playing media streams.
 
 * PCRE for NGINX if regular expressions needed.
 
@@ -56,27 +56,67 @@ cd to NGINX source directory & run this:
 
 For details about usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md).
 
-    publish: ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+## Publish
 
-The appname is used to match an application block in rtmp block (see below for details).
+    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
-The streamname can be specified at will.
+The `appname` is used to match an application block in rtmp block (see below for details).
 
-The default port for RTMP is 1935, if some other ports were used, ':port' must be specified.
+The `streamname` can be specified at will.
 
-    subscribe: http://example.com[:port]/dir?[port=1935&]app=myapp&stream=mystream
+The **default port for RTMP** is **1935**, if some other ports were used, `:port` must be specified.
 
-The dir is used to match location blocks in http block (see below for details).
+## Play (HTTP)
 
-The default port for HTTP is 80, if some other ports were used, ':port' must be specified.
+    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
-Argument 'srv=index' is not supported anymore.
+The `dir` is used to match location blocks in http block (see below for details).
 
-The default port for RTMP is 1935, if some other ports were used, 'port=xxx' must be specified.
+The **default port for HTTP** is **80**, if some other ports were used, `:port` must be specified.
 
-The 'app' is used to match an application block, but if the requested 'app' appears in several server blocks and those blocks have the same address and port configuration, host name matches 'server_name' directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+The **default port for RTMP** is **1935**, if some other ports were used, `port=xxx` must be specified.
 
-The 'stream' is used to match the publishing streamname.
+The `app` is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+
+The `stream` is used to match the publishing streamname.
+
+## Example
+
+Assuming that `listen` directive specified in `http` block is:
+
+    http {
+        ...
+        server {
+            listen 8080; #not default port 80
+            ...
+
+            location /live {
+                flv_live on;
+            }
+        }
+    }
+
+And `listen` directive specified in `rtmp` block is:
+
+    rtmp {
+        ...
+        server {
+            listen 1985; #not default port 1935
+            ...
+
+            application myapp {
+                live on;
+            }
+        }
+    }
+
+So the url of play using HTTP is:
+
+    http://example.com:8080/live?port=1985&app=myapp&stream=mystream
+
+# Note
+
+Since some players don't support HTTP chunked transmission, it's better not to specify `chunked on;` in location where `flv_live on;` is specifed in this case, or play will fail.
 
 # Example nginx.conf
 
@@ -137,7 +177,7 @@ The 'stream' is used to match the publishing streamname.
 
         server {
             listen 1935;
-            server_name www.test.*;
+            server_name www.test.*; #for suffix wildcard
 
             application myapp {
                 live on;
@@ -147,7 +187,7 @@ The 'stream' is used to match the publishing streamname.
 
         server {
             listen 1935;
-            server_name *.test.com;
+            server_name *.test.com; #for prefix wildcard
 
             application myapp {
                 live on;
@@ -157,7 +197,18 @@ The 'stream' is used to match the publishing streamname.
 
         server {
             listen 1935;
-            server_name www.test.com;
+            server_name www.test.com; #for completely wildcard
+
+            application myapp {
+                live on;
+                gop_cache on; #open GOP cache for low latency
+            }
+        }
+
+        #the following two server blocks are for `upstream`
+
+        server {
+            listen 1935;
 
             application myapp {
                 live on;
