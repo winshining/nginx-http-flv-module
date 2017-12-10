@@ -844,7 +844,7 @@ ngx_int_t ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-            "gop cache play: name='%s' start='%uD' duration='%uD' reset='%d'",
+            "gop cache play: name='%s' start='%i' duration='%i' reset='%d'",
             v->name, (ngx_int_t) v->start,
             (ngx_int_t) v->duration, (ngx_uint_t) v->reset);
 
