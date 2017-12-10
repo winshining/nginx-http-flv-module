@@ -10,7 +10,7 @@
 
 * GOP缓存，降低播放延迟 (H.264视频和AAC音频)。
 
-* 支持`Transfer-Encoding: chunked`方式的HTT回复。
+* 支持`Transfer-Encoding: chunked`方式的HTTP回复。
 
 * rtmp配置的server块中可以省略`listen`配置项。
 
@@ -116,7 +116,7 @@
 
 # 注意
 
-由于一些播放器不支持HTTP块传输, 这种情况下最好不要在指定了`flv_live on;`的location中指定`chunked on;`，否则播放会失败。
+由于一些播放器不支持HTTP块传输, 这种情况下最好**不要**在指定了`flv_live on;`的location中指定`chunked on;`，否则播放会失败。
 
 # nginx.conf实例
 
@@ -177,7 +177,7 @@
 
         server {
             listen 1935;
-            server_name www.test.*; #用于后缀通配
+            server_name www.test.*; #用于虚拟主机名后缀通配
 
             application myapp {
                 live on;
@@ -187,7 +187,7 @@
 
         server {
             listen 1935;
-            server_name *.test.com; #用于前缀通配
+            server_name *.test.com; #用于虚拟主机名前缀通配
 
             application myapp {
                 live on;
@@ -197,7 +197,7 @@
 
         server {
             listen 1935;
-            server_name www.test.com; #用于完全匹配
+            server_name www.test.com; #用于虚拟主机名完全匹配
 
             application myapp {
                 live on;
@@ -205,7 +205,7 @@
             }
         }
 
-        #以下两个server块是用于`upstream`的
+        #以下两个server块是用于upstream的
 
         server {
             listen 1935;

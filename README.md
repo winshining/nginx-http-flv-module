@@ -116,7 +116,7 @@ So the url of play using HTTP is:
 
 # Note
 
-Since some players don't support HTTP chunked transmission, it's better not to specify `chunked on;` in location where `flv_live on;` is specifed in this case, or play will fail.
+Since some players don't support HTTP chunked transmission, it's better **NOT** to specify `chunked on;` in location where `flv_live on;` is specifed in this case, or play will fail.
 
 # Example nginx.conf
 
@@ -177,7 +177,7 @@ Since some players don't support HTTP chunked transmission, it's better not to s
 
         server {
             listen 1935;
-            server_name www.test.*; #for suffix wildcard
+            server_name www.test.*; #for suffix wildcard matching of virtual host name
 
             application myapp {
                 live on;
@@ -187,7 +187,7 @@ Since some players don't support HTTP chunked transmission, it's better not to s
 
         server {
             listen 1935;
-            server_name *.test.com; #for prefix wildcard
+            server_name *.test.com; #for prefix wildcard matching of virtual host name
 
             application myapp {
                 live on;
@@ -197,7 +197,7 @@ Since some players don't support HTTP chunked transmission, it's better not to s
 
         server {
             listen 1935;
-            server_name www.test.com; #for completely wildcard
+            server_name www.test.com; #for completely matching of virtual host name
 
             application myapp {
                 live on;
@@ -205,7 +205,7 @@ Since some players don't support HTTP chunked transmission, it's better not to s
             }
         }
 
-        #the following two server blocks are for `upstream`
+        #the following two server blocks are for upstream
 
         server {
             listen 1935;
