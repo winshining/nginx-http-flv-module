@@ -235,6 +235,8 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         CRLF
         "Cache-Control: no-cache"
         CRLF
+        "Access-Control-Allow-Origin: *"
+        CRLF
         "Transfer-Encoding: chunked"
         CRLF
         CRLF);
@@ -247,6 +249,8 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         "Connection: keep-alive"
         CRLF
         "Cache-Control: no-cache"
+        CRLF
+        "Access-Control-Allow-Origin: *"
         CRLF
         "Expires: -1"
         CRLF
