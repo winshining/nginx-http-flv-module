@@ -16,10 +16,6 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * Virtual hosts supported.
 
-* Reverse proxy supported (experimental).
-
-* Load balance (round robin) supported (experimental).
-
 # Systems supported
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).
@@ -203,41 +199,6 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
                 live on;
                 gop_cache on; #open GOP cache for low latency
             }
-        }
-
-        #the following two server blocks are for upstream
-
-        server {
-            listen 1935;
-
-            application myapp {
-                live on;
-                gop_cache on; #open GOP cache for low latency
-            }
-        }
-
-        server {
-            listen 1945;
-
-            application myapp {
-                live on;
-                gop_cache on; #open GOP cache for low latency
-            }
-        }
-
-        server {
-            listen 1985;
-
-            application myapp {
-                proxy_pass rtmp://balance; #open reverse proxy
-            }
-        }
-
-        upstream balance {
-            #open load balance
-
-            server localhost:1935;
-            server localhost:1945;
         }
     }
 
