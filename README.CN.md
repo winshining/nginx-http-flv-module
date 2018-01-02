@@ -16,6 +16,10 @@
 
 * 支持虚拟主机。
 
+* 支持反向代理（试验）。
+
+* 支持负载均衡（轮询，试验）。
+
 # 支持的系统
 
 * Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
@@ -199,6 +203,41 @@
                 live on;
                 gop_cache on; #打开GOP缓存，降低播放延迟
             }
+        }
+
+        #以下两个server块是用于upstream的
+
+        server {
+            listen 1935;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1945;
+
+            application myapp {
+                live on;
+                gop_cache on; #打开GOP缓存，降低播放延迟
+            }
+        }
+
+        server {
+            listen 1985;
+
+            application myapp {
+                proxy_pass rtmp://balance; #打开反向代理
+            }
+        }
+
+        upstream balance {
+            #打开负载均衡
+
+            server localhost:1935;
+            server localhost:1945;
         }
     }
 
