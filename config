@@ -22,8 +22,6 @@ RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_limit_module                       \
                 ngx_rtmp_hls_module                         \
                 ngx_rtmp_dash_module                        \
-                ngx_rtmp_proxy_module                       \
-                ngx_rtmp_upstream_module                    \
                 "
 
 
@@ -55,9 +53,6 @@ RTMP_DEPS="                                                     \
                 $ngx_addon_dir/ngx_rtmp_script.h                \
                 $ngx_addon_dir/hls/ngx_rtmp_mpegts.h            \
                 $ngx_addon_dir/dash/ngx_rtmp_mp4.h              \
-                $ngx_addon_dir/ngx_rtmp_upstream.h              \
-                $ngx_addon_dir/modules/ngx_rtmp_proxy_module.h  \
-                $ngx_addon_dir/ngx_rtmp_upstream_round_robin.h  \
                 "
 
 
@@ -94,13 +89,10 @@ RTMP_CORE_SRCS="                                                \
                 $ngx_addon_dir/ngx_rtmp_variables.c             \
                 $ngx_addon_dir/ngx_rtmp_script.c                \
                 $ngx_addon_dir/ngx_rtmp_parse.c                 \
-                $ngx_addon_dir/ngx_rtmp_upstream.c              \
                 $ngx_addon_dir/hls/ngx_rtmp_hls_module.c        \
                 $ngx_addon_dir/dash/ngx_rtmp_dash_module.c      \
                 $ngx_addon_dir/hls/ngx_rtmp_mpegts.c            \
                 $ngx_addon_dir/dash/ngx_rtmp_mp4.c              \
-                $ngx_addon_dir/modules/ngx_rtmp_proxy_module.c  \
-                $ngx_addon_dir/ngx_rtmp_upstream_round_robin.c  \
                 "
 
 

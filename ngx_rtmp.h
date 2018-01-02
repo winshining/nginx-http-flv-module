@@ -20,7 +20,6 @@
 
 
 typedef struct ngx_rtmp_core_srv_conf_s  ngx_rtmp_core_srv_conf_t;
-typedef struct ngx_rtmp_upstream_s       ngx_rtmp_upstream_t;
 typedef struct ngx_rtmp_session_s        ngx_rtmp_session_t;
 typedef struct ngx_rtmp_virtual_names_s  ngx_rtmp_virtual_names_t;
 
@@ -252,8 +251,6 @@ typedef struct {
 struct ngx_rtmp_session_s {
     uint32_t                    signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
-    ngx_rtmp_upstream_t        *upstream;
-
     ngx_int_t                   port;
     ngx_buf_t                  *request_line;
     ngx_str_t                   uri;
@@ -320,10 +317,6 @@ struct ngx_rtmp_session_s {
     unsigned                    relay:1;
     unsigned                    static_relay:1;
 
-    unsigned                    upstream_retry:1;
-    unsigned                    upstream_session:1;
-    unsigned                    upstream_publish:1;
-
     /* URI with "/." and on Win32 with "//" */
     unsigned                    complex_uri:1;
     /* URI with "%" */
@@ -346,18 +339,8 @@ struct ngx_rtmp_session_s {
     unsigned                    keepalive:1;
     unsigned                    lingering_close:1;
 
-    unsigned                    request_in_file_only:1;
-    unsigned                    request_in_persistent_file:1;
-    unsigned                    request_in_clean_file:1;
-    unsigned                    request_file_group_access:1;
-    unsigned                    request_file_log_level:3;
-    unsigned                    request_no_buffering:1;
-
     unsigned                    valid_application:1;
     unsigned                    valid_unparsed_uri:1;
-
-    /* sending to client when downstream */
-    ngx_chain_t                *client;
 
 #if (NGX_PCRE)
     ngx_uint_t                  ncaptures;
@@ -519,8 +502,6 @@ typedef struct {
 
     unsigned                noname:1; /* "if () {}" block or limit_except */
     unsigned                named:1;
-
-    unsigned                upstream_conf:1;
 
     size_t                  send_lowat;
     size_t                  postpone_output;
@@ -840,8 +821,6 @@ ngx_int_t ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool,
 ngx_int_t ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host);
 ngx_int_t ngx_rtmp_process_request_line(ngx_rtmp_session_t *s,
     const u_char *name, const u_char *args, const u_char *cmd);
-
-#include "ngx_rtmp_upstream.h"
 
 
 #endif /* _NGX_RTMP_H_INCLUDED_ */

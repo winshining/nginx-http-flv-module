@@ -193,7 +193,6 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, buflen),
       NULL },
 
-    /* for upstream */
     { ngx_string("tcp_nopush"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,

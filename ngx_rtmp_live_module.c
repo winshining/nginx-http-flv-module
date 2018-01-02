@@ -254,10 +254,6 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     conf->streams = ngx_pcalloc(cf->pool,
             sizeof(ngx_rtmp_live_stream_t *) * conf->nbuckets);
-    conf->upstream_push_streams = ngx_pcalloc(cf->pool,
-            sizeof(ngx_rtmp_live_stream_t *) * conf->nbuckets);
-    conf->upstream_pull_streams = ngx_pcalloc(cf->pool,
-            sizeof(ngx_rtmp_live_stream_t *) * conf->nbuckets);
 
     return NGX_CONF_OK;
 }
@@ -298,17 +294,7 @@ ngx_rtmp_live_get_stream(ngx_rtmp_session_t *s, u_char *name, int create)
     }
 
     len = ngx_strlen(name);
-    if (!s->upstream_session) {
-        stream = &lacf->streams[ngx_hash_key(name, len) % lacf->nbuckets];
-    } else {
-        if (s->upstream_publish) {
-            stream = &lacf->upstream_push_streams
-                [ngx_hash_key(name, len) % lacf->nbuckets];
-        } else {
-            stream = &lacf->upstream_pull_streams
-                [ngx_hash_key(name, len) % lacf->nbuckets];
-        }
-    }
+    stream = &lacf->streams[ngx_hash_key(name, len) % lacf->nbuckets];
 
     for (; *stream; stream = &(*stream)->next) {
         if (ngx_strcmp(name, (*stream)->name) == 0) {
