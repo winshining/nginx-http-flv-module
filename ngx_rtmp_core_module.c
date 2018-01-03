@@ -193,7 +193,6 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, buflen),
       NULL },
 
-    /* for upstream */
     { ngx_string("tcp_nopush"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -714,7 +713,10 @@ ngx_rtmp_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #endif
         lsopt.wildcard = 1;
 
-        (void) ngx_sock_ntop(&lsopt.sockaddr.sockaddr, lsopt.socklen,
+        (void) ngx_sock_ntop(&lsopt.sockaddr.sockaddr,
+#if (nginx_version >= 1005003)
+                             lsopt.socklen,
+#endif
                              lsopt.addr, NGX_SOCKADDR_STRLEN, 1);
 
         if (ngx_rtmp_add_listen(cf, cscf, &lsopt) != NGX_OK) {
@@ -780,7 +782,22 @@ static ngx_int_t
 ngx_rtmp_add_addresses(ngx_conf_t *cf, ngx_rtmp_core_srv_conf_t *cscf,
     ngx_rtmp_conf_port_t *port, ngx_rtmp_listen_opt_t *lsopt)
 {
-    ngx_uint_t             i, default_server, proxy_protocol;
+#if (nginx_version <= 1005007)
+    u_char                *p, *sockaddr_data, *sa_data;
+    size_t                 len, off;
+    struct sockaddr       *sa;
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    struct sockaddr_un    *saun;
+#endif
+
+#endif
+
+#if (nginx_version >= 1005012)
+    ngx_uint_t             proxy_protocol;
+#endif
+
+    ngx_uint_t             i, default_server;
     ngx_rtmp_conf_addr_t  *addr;
 
     /*
@@ -788,14 +805,47 @@ ngx_rtmp_add_addresses(ngx_conf_t *cf, ngx_rtmp_core_srv_conf_t *cscf,
      * may fill some fields in inherited sockaddr struct's
      */
 
+#if (nginx_version <= 1005007)
+    sa = (struct sockaddr *) &lsopt->sockaddr;
+    sockaddr_data = (u_char *) &lsopt->sockaddr;
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        off = offsetof(struct sockaddr_in6, sin6_addr);
+        len = 16;
+        break;
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case AF_UNIX:
+        off = offsetof(struct sockaddr_un, sun_path);
+        len = sizeof(saun->sun_path);
+        break;
+#endif
+
+    default: /* AF_INET */
+        off = offsetof(struct sockaddr_in, sin_addr);
+        len = 4;
+        break;
+    }
+
+    p = sockaddr_data + off;
+#endif
+
     addr = port->addrs.elts;
 
     for (i = 0; i < port->addrs.nelts; i++) {
-
+#if (nginx_version <= 1005007)
+        sa_data = (u_char *) &addr[i].opt.sockaddr;
+        if (ngx_memcmp(p, sa_data + off, len) != 0)
+#else
         if (ngx_cmp_sockaddr(&lsopt->sockaddr.sockaddr, lsopt->socklen,
                              &addr[i].opt.sockaddr.sockaddr,
                              addr[i].opt.socklen, 0)
             != NGX_OK)
+#endif
         {
             continue;
         }
@@ -808,8 +858,9 @@ ngx_rtmp_add_addresses(ngx_conf_t *cf, ngx_rtmp_core_srv_conf_t *cscf,
 
         /* preserve default_server bit during listen options overwriting */
         default_server = addr[i].opt.default_server;
-
+#if (nginx_version >= 1005012)
         proxy_protocol = lsopt->proxy_protocol || addr[i].opt.proxy_protocol;
+#endif
 
         if (lsopt->set) {
 
@@ -837,7 +888,9 @@ ngx_rtmp_add_addresses(ngx_conf_t *cf, ngx_rtmp_core_srv_conf_t *cscf,
         }
 
         addr[i].opt.default_server = default_server;
+#if (nginx_version >= 1005012)
         addr[i].opt.proxy_protocol = proxy_protocol;
+#endif
 
         return NGX_OK;
     }
@@ -1167,7 +1220,11 @@ ngx_rtmp_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     lsopt.ipv6only = 1;
 #endif
 
-    (void) ngx_sock_ntop(&lsopt.sockaddr.sockaddr, lsopt.socklen, lsopt.addr,
+    (void) ngx_sock_ntop(&lsopt.sockaddr.sockaddr,
+#if (nginx_version >= 1005003)
+                         lsopt.socklen,
+#endif
+                         lsopt.addr,
                          NGX_SOCKADDR_STRLEN, 1);
 
     for (n = 2; n < cf->args->nelts; n++) {
