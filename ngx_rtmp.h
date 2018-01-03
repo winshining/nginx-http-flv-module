@@ -236,6 +236,9 @@ enum {
 };
 
 
+#define NGX_RTMP_INTERNAL_SERVER_ERROR  500
+
+
 typedef struct {
     uint32_t                csid;       /* chunk stream id */
     uint32_t                timestamp;  /* timestamp (delta) */

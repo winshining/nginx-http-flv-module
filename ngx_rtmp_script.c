@@ -1069,20 +1069,30 @@ ngx_rtmp_script_full_name_code(ngx_rtmp_script_engine_t *e)
 {
     ngx_rtmp_script_full_name_code_t  *code;
 
-    ngx_str_t  value, *prefix;
+    ngx_str_t  value;
+
+#if (nginx_version >= 1005003)
+    ngx_str_t *prefix;
+#endif
 
     code = (ngx_rtmp_script_full_name_code_t *) e->ip;
 
     value.data = e->buf.data;
     value.len = e->pos - e->buf.data;
 
+#if (nginx_version >= 1005003)
     prefix = code->conf_prefix ? (ngx_str_t *) &ngx_cycle->conf_prefix:
                                  (ngx_str_t *) &ngx_cycle->prefix;
 
     if (ngx_get_full_name(e->request->connection->pool, prefix,
             &value) != NGX_OK)
+#else
+    if (ngx_conf_full_name((ngx_cycle_t *) ngx_cycle, &value,
+            code->conf_prefix) != NGX_OK)
+#endif
     {
         e->ip = ngx_rtmp_script_exit;
+        e->status = NGX_RTMP_INTERNAL_SERVER_ERROR;
         return;
     }
 
