@@ -777,9 +777,11 @@ ngx_rtmp_init_listening(ngx_conf_t *cf, ngx_rtmp_conf_port_t *port)
                 break;
         }
 
+#if (NGX_HAVE_REUSEPORT)
         if (ngx_clone_listening(cf, ls) != NGX_OK) {
             return NGX_ERROR;
         }
+#endif
 
         addr++;
         last--;
@@ -1340,3 +1342,63 @@ ngx_rtmp_find_virtual_server(ngx_connection_t *c,
 
     return NGX_DECLINED;
 }
+
+
+#if (nginx_version <= 1011001)
+in_port_t
+ngx_inet_get_port(struct sockaddr *sa)
+{
+    struct sockaddr_in   *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6  *sin6;
+#endif
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        return ntohs(sin6->sin6_port);
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case AF_UNIX:
+        return 0;
+#endif
+
+    default: /* AF_INET */
+        sin = (struct sockaddr_in *) sa;
+        return ntohs(sin->sin_port);
+    }
+}
+
+
+void
+ngx_inet_set_port(struct sockaddr *sa, in_port_t port)
+{
+    struct sockaddr_in   *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6  *sin6;
+#endif
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        sin6->sin6_port = htons(port);
+        break;
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case AF_UNIX:
+        break;
+#endif
+
+    default: /* AF_INET */
+        sin = (struct sockaddr_in *) sa;
+        sin->sin_port = htons(port);
+        break;
+    }
+}
+#endif
