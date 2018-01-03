@@ -195,18 +195,32 @@ ngx_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
 
 #if (NGX_DEBUG)
     {
-    u_char      text[NGX_SOCKADDR_STRLEN];
-    ngx_str_t   addr;
     ngx_uint_t  i;
 
+#if (nginx_version <= 1005007)
+    in_addr_t   addr;
+#else
+    u_char      text[NGX_SOCKADDR_STRLEN];
+    ngx_str_t   addr;
+
     addr.data = text;
+#endif
 
     for (i = 0; i < ctx->naddrs; i++) {
+#if (nginx_version <= 1005007)
+        addr = ntohl(ur->addrs[i]);
+
+        ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "name was resolved to %ud.%ud.%ud.%ud",
+                       (addr >> 24) & 0xff, (addr >> 16) & 0xff,
+                       (addr >> 8) & 0xff, addr & 0xff);
+#else
         addr.len = ngx_sock_ntop(ur->addrs[i].sockaddr, ur->addrs[i].socklen,
                                  text, NGX_SOCKADDR_STRLEN, 0);
 
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                        "name was resolved to %V", &addr);
+#endif
     }
     }
 #endif
@@ -220,7 +234,9 @@ ngx_rtmp_upstream_resolve_handler(ngx_resolver_ctx_t *ctx)
     ngx_resolve_name_done(ctx);
     ur->ctx = NULL;
 
+#if (nginx_version >= 1007006)
     u->peer.start_time = ngx_current_msec;
+#endif
 
     if (u->conf->next_upstream_tries
         && u->peer.tries > u->conf->next_upstream_tries)
@@ -836,8 +852,10 @@ ngx_rtmp_write_filter(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
     if (size == 0
         && !(c->buffered & NGX_LOWLEVEL_BUFFERED)
-        && !(last && c->need_last_buf))
-    {
+#if (nginx_version >= 1005009)
+        && !(last && c->need_last_buf)
+#endif
+    ) {
         if (last || flush || sync) {
             for (cl = s->client; cl; /* void */) {
                 ln = cl;
@@ -963,7 +981,10 @@ static void
 ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
     ngx_uint_t ft_type)
 {
+#if (nginx_version >= 1007006)
     ngx_msec_t  timeout;
+#endif
+
     ngx_uint_t  status, state;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
@@ -1021,11 +1042,16 @@ ngx_rtmp_upstream_next(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         return;
     }
 
+#if (nginx_version >= 1007006)
     timeout = u->conf->next_upstream_timeout;
+#endif
 
     if (u->peer.tries == 0
         || ((u->conf->next_upstream & ft_type) != ft_type)
-        || (timeout && ngx_current_msec - u->peer.start_time >= timeout))
+#if (nginx_version >= 1007006)
+        || (timeout && ngx_current_msec - u->peer.start_time >= timeout)
+#endif
+        )
     {
         s->upstream_retry = 0;
         ngx_rtmp_upstream_finalize_session(s, u, status);
@@ -1944,7 +1970,9 @@ found:
         return;
     }
 
+#if (nginx_version >= 1007006)
     u->peer.start_time = ngx_current_msec;
+#endif
 
     if (u->conf->next_upstream_tries
         && u->peer.tries > u->conf->next_upstream_tries)

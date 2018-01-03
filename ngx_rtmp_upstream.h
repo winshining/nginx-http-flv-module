@@ -30,6 +30,7 @@
 
 #define NGX_RTMP_WRITE_BUFFERED              0x10
 
+#define NGX_RTMP_OK                          200
 #define NGX_RTMP_SPECIAL_RESPONSE            300
 
 #define NGX_RTMP_BAD_REQUEST                 400
@@ -197,10 +198,12 @@ typedef struct {
     ngx_uint_t               no_port;
 
     ngx_uint_t               naddrs;
-#if (nginx_version > 1009012)
-    ngx_resolver_addr_t     *addrs;
-#else
+#if (nginx_version <= 1005007)
+    in_addr_t               *addrs;
+#elif (nginx_version >= 1005008 && nginx_version <= 1009012)
     ngx_addr_t              *addrs;
+#else
+    ngx_resolver_addr_t     *addrs;
 #endif
 
     struct sockaddr         *sockaddr;
