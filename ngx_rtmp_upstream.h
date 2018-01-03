@@ -117,8 +117,10 @@ typedef struct {
     unsigned                         down:1;
     unsigned                         backup:1;
 
+#if (nginx_version >= 1011004)
     NGX_COMPAT_BEGIN(6)
     NGX_COMPAT_END
+#endif
 } ngx_rtmp_upstream_server_t;
 
 
@@ -182,8 +184,10 @@ typedef struct {
 
     ngx_str_t                        module;
 
+#if (nginx_version >= 1011004)
     NGX_COMPAT_BEGIN(2)
     NGX_COMPAT_END
+#endif
 } ngx_rtmp_upstream_conf_t;
 
 
@@ -193,7 +197,11 @@ typedef struct {
     ngx_uint_t               no_port;
 
     ngx_uint_t               naddrs;
+#if (nginx_version > 1009012)
     ngx_resolver_addr_t     *addrs;
+#else
+    ngx_addr_t              *addrs;
+#endif
 
     struct sockaddr         *sockaddr;
     socklen_t                socklen;

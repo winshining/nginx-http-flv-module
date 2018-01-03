@@ -36,10 +36,14 @@ static ngx_int_t ngx_rtmp_variable_remote_addr(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_variable_remote_port(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
+#if (nginx_version >= 1005011)
 static ngx_int_t ngx_rtmp_variable_proxy_protocol_addr(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
+#endif
+#if (nginx_version >= 1010003)
 static ngx_int_t ngx_rtmp_variable_proxy_protocol_port(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
+#endif
 static ngx_int_t ngx_rtmp_variable_server_addr(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_rtmp_variable_server_port(ngx_rtmp_session_t *s,
@@ -80,11 +84,15 @@ static ngx_rtmp_variable_t  ngx_rtmp_core_variables[] = {
 
     { ngx_string("remote_port"), NULL, ngx_rtmp_variable_remote_port, 0, 0, 0 },
 
+#if (nginx_version >= 1005011)
     { ngx_string("proxy_protocol_addr"), NULL,
       ngx_rtmp_variable_proxy_protocol_addr, 0, 0, 0 },
+#endif
 
+#if (nginx_version >= 1010003)
     { ngx_string("proxy_protocol_port"), NULL,
       ngx_rtmp_variable_proxy_protocol_port, 0, 0, 0 },
+#endif
 
     { ngx_string("server_addr"), NULL, ngx_rtmp_variable_server_addr, 0, 0, 0 },
 
@@ -792,6 +800,7 @@ ngx_rtmp_variable_remote_port(ngx_rtmp_session_t *s,
 }
 
 
+#if (nginx_version >= 1005011)
 static ngx_int_t
 ngx_rtmp_variable_proxy_protocol_addr(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data)
@@ -804,8 +813,10 @@ ngx_rtmp_variable_proxy_protocol_addr(ngx_rtmp_session_t *s,
 
     return NGX_OK;
 }
+#endif
 
 
+#if (nginx_version >= 1010003)
 static ngx_int_t
 ngx_rtmp_variable_proxy_protocol_port(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data)
@@ -830,6 +841,7 @@ ngx_rtmp_variable_proxy_protocol_port(ngx_rtmp_session_t *s,
 
     return NGX_OK;
 }
+#endif
 
 
 static ngx_int_t
