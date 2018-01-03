@@ -47,8 +47,10 @@ struct ngx_rtmp_upstream_rr_peer_s {
 
     ngx_rtmp_upstream_rr_peer_t    *next;
 
+#if (nginx_version >= 1011004)
     NGX_COMPAT_BEGIN(32)
     NGX_COMPAT_END
+#endif
 };
 
 

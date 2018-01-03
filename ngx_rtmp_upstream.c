@@ -1199,6 +1199,7 @@ ngx_rtmp_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         return NGX_CONF_ERROR;
     }
 
+#if (nginx_version >= 1009011)
     for (m = 0; cf->cycle->modules[m]; m++) {
         if (cf->cycle->modules[m]->type != NGX_RTMP_MODULE) {
             continue;
@@ -1224,6 +1225,33 @@ ngx_rtmp_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
             ctx->app_conf[cf->cycle->modules[m]->ctx_index] = mconf;
         }
     }
+#else
+    for (m = 0; ngx_modules[m]; m++) {
+        if (ngx_modules[m]->type != NGX_RTMP_MODULE) {
+            continue;
+        }
+
+        module = ngx_modules[m]->ctx;
+
+        if (module->create_srv_conf) {
+            mconf = module->create_srv_conf(cf);
+            if (mconf == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ctx->srv_conf[ngx_modules[m]->ctx_index] = mconf;
+        }
+
+        if (module->create_app_conf) {
+            mconf = module->create_app_conf(cf);
+            if (mconf == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ctx->app_conf[ngx_modules[m]->ctx_index] = mconf;
+        }
+    }
+#endif
 
     uscf->servers = ngx_array_create(cf->pool, 4,
                                      sizeof(ngx_rtmp_upstream_server_t));
@@ -1579,8 +1607,14 @@ ngx_rtmp_upstream_bind_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
             return NGX_CONF_ERROR;
         }
 
+#if (nginx_version <= 1010003)
+        rc = ngx_parse_addr(cf->pool, local->addr, value[1].data,
+                            value[1].len);
+#else
+
         rc = ngx_parse_addr_port(cf->pool, local->addr, value[1].data,
                                  value[1].len);
+#endif
 
         switch (rc) {
         case NGX_OK:
@@ -1652,7 +1686,11 @@ ngx_rtmp_upstream_set_local(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u,
         return NGX_ERROR;
     }
 
+#if (nginx_version <= 1010003)
+    rc = ngx_parse_addr(s->connection->pool, addr, val.data, val.len);
+#else
     rc = ngx_parse_addr_port(s->connection->pool, addr, val.data, val.len);
+#endif
     if (rc == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -2040,7 +2078,7 @@ ngx_rtmp_upstream_send_handshake(ngx_rtmp_session_t *s, ngx_rtmp_upstream_t *u)
     ngx_memzero(&at.url, sizeof(at.url));
     url = &at.url.url;
 
-    switch (u->peer.type) {
+    switch (u->peer.sockaddr->sa_family) {
         case AF_UNIX:
             saun = (struct sockaddr_un *)u->peer.sockaddr;
 

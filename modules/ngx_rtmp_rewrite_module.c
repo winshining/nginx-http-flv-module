@@ -625,6 +625,7 @@ ngx_rtmp_rewrite_if(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+#if (nginx_version >= 1009011)
     for (i = 0; cf->cycle->modules[i]; i++) {
         if (cf->cycle->modules[i]->type != NGX_RTMP_MODULE) {
             continue;
@@ -642,6 +643,25 @@ ngx_rtmp_rewrite_if(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             ctx->app_conf[cf->cycle->modules[i]->ctx_index] = mconf;
         }
     }
+#else
+    for (i = 0; ngx_modules[i]; i++) {
+        if (ngx_modules[i]->type != NGX_RTMP_MODULE) {
+            continue;
+        }
+
+        module = ngx_modules[i]->ctx;
+
+        if (module->create_app_conf) {
+
+            mconf = module->create_app_conf(cf);
+            if (mconf == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ctx->app_conf[ngx_modules[i]->ctx_index] = mconf;
+        }
+    }
+#endif
 
     pcacf = pctx->app_conf[ngx_rtmp_core_module.ctx_index];
 

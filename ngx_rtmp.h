@@ -83,6 +83,20 @@ typedef struct {
 } ngx_rtmp_conf_port_t;
 
 
+#if (nginx_version <= 1010003)
+typedef union {
+    struct sockaddr           sockaddr;
+    struct sockaddr_in        sockaddr_in;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6       sockaddr_in6;
+#endif
+#if (NGX_HAVE_UNIX_DOMAIN)
+    struct sockaddr_un        sockaddr_un;
+#endif
+} ngx_sockaddr_t;
+#endif
+
+
 typedef struct {
     ngx_sockaddr_t             sockaddr;
     socklen_t                  socklen;
@@ -382,13 +396,6 @@ struct ngx_rtmp_session_s {
     unsigned                    internal:1;
     unsigned                    lingering_close:1;
     unsigned                    discard_request:1;
-
-    unsigned                    request_in_file_only:1;
-    unsigned                    request_in_persistent_file:1;
-    unsigned                    request_in_clean_file:1;
-    unsigned                    request_file_group_access:1;
-    unsigned                    request_file_log_level:3;
-    unsigned                    request_no_buffering:1;
 
     unsigned                    valid_application:1;
     unsigned                    valid_unparsed_uri:1;
@@ -914,6 +921,12 @@ ngx_int_t ngx_rtmp_post_rewrite_handler(ngx_rtmp_session_t *s,
      ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 ngx_int_t ngx_rtmp_discard_request(ngx_rtmp_session_t *s);
+
+#if (nginx_version <= 1011001)
+in_port_t ngx_inet_get_port(struct sockaddr *sa);
+void ngx_inet_set_port(struct sockaddr *sa, in_port_t port);
+#endif
+
 
 #include "ngx_rtmp_upstream.h"
 
