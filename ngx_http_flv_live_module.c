@@ -317,10 +317,10 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
     }
 
     buf_resp_hdr.start = buf_resp_hdr.pos;
-    buf_resp_hdr.end = buf_resp_hdr.end;
+    buf_resp_hdr.end = buf_resp_hdr.last;
 
     buf_flv_hdr.start = buf_flv_hdr.pos;
-    buf_flv_hdr.end = buf_flv_hdr.end;
+    buf_flv_hdr.end = buf_flv_hdr.last;
 
     cl_resp_hdr.buf = &buf_resp_hdr;
     cl_flv_hdr.buf = &buf_flv_hdr;
