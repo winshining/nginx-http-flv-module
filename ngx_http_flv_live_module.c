@@ -766,15 +766,17 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
         return;
     }
 
-    do {
-        n = c->recv(c, buf, sizeof(buf));
+    n = c->recv(c, buf, sizeof(buf));
 
-        if (n == NGX_ERROR || n == 0) {
+    if (n == NGX_EAGAIN || n == 0) {
+        ngx_add_timer(c->read, s->timeout);
+
+        if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
             ngx_rtmp_finalize_session(s);
-
-            break;
         }
-    } while (n != NGX_EAGAIN);
+    } else {
+        ngx_rtmp_finalize_session(s);
+    }
 }
 
 
