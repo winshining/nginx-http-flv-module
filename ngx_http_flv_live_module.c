@@ -727,7 +727,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 *cctx = (*cctx)->next;
 
-                unlink->stream = NULL;
                 unlink->next = NULL;
             } else {
                 cctx = &(*cctx)->next;
@@ -739,8 +738,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 if (!ctx->publishing && ctx->stream->active) {
                     ngx_http_flv_live_stop(s);
                 }
-
-                unlink = ctx;
 
                 *cctx = ctx->next;
 
