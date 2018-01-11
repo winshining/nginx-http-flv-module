@@ -37,8 +37,6 @@ struct ngx_rtmp_gop_cache_s {
     ngx_chain_t           *video_seq_header;
     ngx_chain_t           *audio_seq_header;
     ngx_chain_t           *meta;
-    ngx_chain_t           *flv_meta;
-    ngx_chain_t           *flv_meta_chunked;
     ngx_uint_t             meta_version;
     ngx_int_t              video_frame_in_this;
     ngx_int_t              audio_frame_in_this;
