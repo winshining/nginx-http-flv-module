@@ -783,7 +783,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_session_t             *ss;
-    ngx_rtmp_header_t               ch, lh, clh;
+    ngx_rtmp_header_t               ch, lh, clh, mch;
     ngx_int_t                       rc, mandatory;
     ngx_uint_t                      prio;
     ngx_uint_t                      peers;
@@ -845,6 +845,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     prio = (h->type == NGX_RTMP_MSG_VIDEO ?
             ngx_rtmp_get_video_frame_type(in) : 0);
+
+    mch.timestamp = 0;
+    mch.type = NGX_RTMP_MSG_AMF_META;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
@@ -970,13 +973,20 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     ngx_http_flv_live_send_header(ss);
                 }
 
-                if (hctx->chunked) {
-                    meta = codec_ctx->flv_meta_chunked;
-                } else {
-                    meta = codec_ctx->flv_meta;
+                if (meta == NULL && meta_version != pctx->meta_version) {
+                    if (hctx->chunked) {
+                        meta = ngx_http_flv_live_append_shared_bufs(cscf,
+                               &mch, codec_ctx->meta, 1);
+                    } else {
+                       meta = ngx_http_flv_live_append_shared_bufs(cscf,
+                              &mch, codec_ctx->meta, 0);
+                    }
                 }
             } else {
-                meta = codec_ctx->meta;
+                if (meta == NULL && meta_version != pctx->meta_version) {
+                    meta = ngx_rtmp_append_shared_bufs(cscf, NULL,
+                                                      codec_ctx->meta);
+                }
             }
         }
 
@@ -987,6 +997,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             if (handler->send_message_pt(ss, meta, 0) == NGX_OK) {
                 pctx->meta_version = meta_version;
             }
+
+            handler->free_message_pt(s, meta);
+            meta = NULL;
         }
 
         /* sync stream */
