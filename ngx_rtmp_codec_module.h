@@ -109,8 +109,6 @@ typedef struct {
     ngx_chain_t                *aac_header;
 
     ngx_chain_t                *meta;
-    ngx_chain_t                *flv_meta;
-    ngx_chain_t                *flv_meta_chunked;
     ngx_uint_t                  meta_version;
     size_t                      pure_audio_threshold;
     ngx_flag_t                  has_video;
