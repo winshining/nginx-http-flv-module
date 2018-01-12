@@ -594,8 +594,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     ngx_rtmp_live_chunk_stream_t   *cs;
     ngx_rtmp_process_handler_t     *handler;
     ngx_http_request_t             *r;
-    ngx_rtmp_core_srv_conf_t       *cscf;
-    ngx_rtmp_header_t               mch;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
@@ -625,11 +623,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         return;
     }
 
-    mch.timestamp = 0;
-    mch.type = NGX_RTMP_MSG_AMF_META;
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-
     for (cache = gctx->cache_head; cache; cache = cache->next) {
         if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
             r = s->data;
@@ -642,20 +635,10 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 hflctx->header_sent = 1;
                 ngx_http_flv_live_send_header(s);
             }
+        }
 
-            if (meta == NULL && meta_version != cache->meta_version) {
-                if (hflctx->chunked) {
-                    meta = ngx_http_flv_live_append_shared_bufs(cscf,
-                           &mch, cache->meta, 1);
-                } else {
-                    meta = ngx_http_flv_live_append_shared_bufs(cscf,
-                           &mch, cache->meta, 0);
-                }
-            }
-        } else {
-            if (meta == NULL && meta_version != cache->meta_version) {
-                meta = ngx_rtmp_append_shared_bufs(cscf, NULL, cache->meta);
-            }
+        if (meta == NULL && meta_version != cache->meta_version) {
+            meta = handler->meta_message_pt(s, cache->meta);
         }
 
         if (meta) {
