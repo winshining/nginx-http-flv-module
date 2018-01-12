@@ -52,6 +52,8 @@ typedef struct ngx_http_flv_live_conf_s {
 typedef struct {
     ngx_int_t (*send_message_pt)(ngx_rtmp_session_t *s,
             ngx_chain_t *out, unsigned int priority);
+    ngx_chain_t *(*meta_message_pt)(ngx_rtmp_session_t *s,
+            ngx_chain_t *in);
     ngx_chain_t *(*append_message_pt)(ngx_rtmp_session_t *s,
             ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh,
             ngx_chain_t *in);
