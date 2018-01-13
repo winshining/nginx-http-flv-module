@@ -797,7 +797,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_codec_ctx_t           *codec_ctx;
     ngx_chain_t                    *header, *coheader, *meta,
                                    *apkt, *acopkt, *rpkt;
-    ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_session_t             *ss;
     ngx_rtmp_header_t               ch, lh, clh;
@@ -862,8 +861,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     prio = (h->type == NGX_RTMP_MSG_VIDEO ?
             ngx_rtmp_get_video_frame_type(in) : 0);
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     csidx = !(lacf->interleave || h->type == NGX_RTMP_MSG_VIDEO);
 
@@ -951,16 +948,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         handler = ngx_rtmp_process_handlers[pctx->protocol];
 
-        if (rpkt) {
-            ngx_rtmp_free_shared_chain(cscf, rpkt);
-        }
-
-        rpkt = handler->append_message_pt(ss, &ch, &lh, in);
-        if (rpkt == NULL) {
-            /* request from http closed */
-            continue;
-        }
-
         /* send metadata */
         
         if (codec_ctx) {
@@ -969,7 +956,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 if (r == NULL
                     || (r->connection && r->connection->destroyed))
                 {
-                    ngx_rtmp_free_shared_chain(cscf, rpkt);
                     continue;
                 }
 
@@ -979,7 +965,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     if ((!codec_ctx->has_video || !codec_ctx->has_audio)
                         && !codec_ctx->pure_audio)
                     {
-                        ngx_rtmp_free_shared_chain(cscf, rpkt);
                         continue;
                     }
 
@@ -1001,7 +986,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 pctx->meta_version = meta_version;
             }
 
-            handler->free_message_pt(s, meta);
+            handler->free_message_pt(ss, meta);
             meta = NULL;
         }
 
@@ -1056,6 +1041,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                     rc = handler->send_message_pt(ss, apkt, 0);
                     if (rc != NGX_OK) {
+                        if (apkt) {
+                            handler->free_message_pt(ss, apkt);
+                            apkt = NULL;
+                        }
+
                         continue;
                     }
                 }
@@ -1067,6 +1057,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                     rc = handler->send_message_pt(ss, acopkt, 0);
                     if (rc != NGX_OK) {
+                        if (acopkt) {
+                            handler->free_message_pt(ss, acopkt);
+                            acopkt = NULL;
+                        }
+
                         continue;
                     }
 
@@ -1090,6 +1085,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 rc = handler->send_message_pt(ss, apkt, prio);
                 if (rc != NGX_OK) {
+                    if (apkt) {
+                        handler->free_message_pt(ss, apkt);
+                        apkt = NULL;
+                    }
+
                     continue;
                 }
 
@@ -1103,6 +1103,12 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             }
         }
 
+        rpkt = handler->append_message_pt(ss, &ch, &lh, in);
+        if (rpkt == NULL) {
+            /* request from http closed */
+            continue;
+        }
+
         /* send relative packet */
 
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
@@ -1113,6 +1119,16 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             ++pctx->ndropped;
 
             cs->dropped += delta;
+
+            if (apkt) {
+                handler->free_message_pt(ss, apkt);
+                apkt = NULL;
+            }
+
+            if (acopkt) {
+                handler->free_message_pt(ss, acopkt);
+                acopkt = NULL;
+            }
 
             if (mandatory) {
                 ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
@@ -1126,18 +1142,21 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         cs->timestamp += delta;
         ++peers;
         ss->current_time = cs->timestamp;
-    }
 
-    if (rpkt) {
-        ngx_rtmp_free_shared_chain(cscf, rpkt);
-    }
+        if (rpkt) {
+            handler->free_message_pt(ss, rpkt);
+            rpkt = NULL;
+        }
 
-    if (apkt) {
-        ngx_rtmp_free_shared_chain(cscf, apkt);
-    }
+        if (apkt) {
+            handler->free_message_pt(ss, apkt);
+            apkt = NULL;
+        }
 
-    if (acopkt) {
-        ngx_rtmp_free_shared_chain(cscf, acopkt);
+        if (acopkt) {
+            handler->free_message_pt(ss, acopkt);
+            acopkt = NULL;
+        }
     }
 
     ngx_rtmp_update_bandwidth(&ctx->stream->bw_in, h->mlen);
