@@ -771,7 +771,7 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
 
     n = c->recv(c, buf, sizeof(buf));
 
-    if (n == NGX_EAGAIN || n == 0) {
+    if (n == NGX_AGAIN) {
         ngx_add_timer(c->read, s->timeout);
 
         if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
