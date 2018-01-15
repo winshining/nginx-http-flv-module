@@ -1010,6 +1010,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 continue;
             }
 
+            if (codec_ctx->pure_audio) {
+                lacf->wait_video = 0;
+                lacf->wait_key = 0;
+            }
+
             if (lacf->wait_video && h->type == NGX_RTMP_MSG_AUDIO &&
                 !pctx->cs[0].active)
             {
