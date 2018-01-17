@@ -31,15 +31,19 @@ static void ngx_http_flv_live_free_message(ngx_rtmp_session_t *s,
         ngx_chain_t *in);
 static void ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s);
 
-extern ngx_rtmp_process_handler_t ngx_rtmp_live_process_handler;
-static ngx_rtmp_process_handler_t ngx_http_flv_live_process_handler = {
+extern ngx_rtmp_live_process_handler_t  ngx_rtmp_live_process_handler;
+static ngx_rtmp_live_process_handler_t  ngx_http_flv_live_process_handler = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
     ngx_http_flv_live_send_message,
     ngx_http_flv_live_meta_message,
     ngx_http_flv_live_append_message,
     ngx_http_flv_live_free_message
 };
 
-ngx_rtmp_process_handler_t *ngx_rtmp_process_handlers[] = {
+ngx_rtmp_live_process_handler_t  *ngx_rtmp_live_process_handlers[] = {
     &ngx_rtmp_live_process_handler,
     &ngx_http_flv_live_process_handler
 };
