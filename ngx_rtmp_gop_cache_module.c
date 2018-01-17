@@ -43,8 +43,9 @@ static char *ngx_rtmp_gop_cache_merge_app_conf(ngx_conf_t *cf,
         void *parent, void *child);
 
 
-extern ngx_rtmp_process_handler_t *ngx_rtmp_process_handlers[2];
-extern ngx_module_t                ngx_http_flv_live_module;
+extern ngx_rtmp_live_process_handler_t  *ngx_rtmp_live_process_handlers
+                                         [NGX_RTMP_PROTOCOL_HTTP + 1];
+extern ngx_module_t                      ngx_http_flv_live_module;
 
 
 static ngx_command_t ngx_rtmp_gop_cache_commands[] = {
@@ -579,21 +580,21 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
 void
 ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 {
-    ngx_rtmp_session_t             *rs;
-    ngx_chain_t                    *pkt, *apkt, *meta, *header;
-    ngx_rtmp_live_ctx_t            *ctx, *pub_ctx;
-    ngx_http_flv_live_ctx_t        *hflctx;
-    ngx_rtmp_gop_cache_ctx_t       *gctx;
-    ngx_rtmp_live_app_conf_t       *lacf;
-    ngx_rtmp_gop_cache_t           *cache;
-    ngx_rtmp_gop_frame_t           *gop_frame;
-    ngx_rtmp_header_t               ch, lh;
-    ngx_uint_t                      meta_version;
-    uint32_t                        delta;
-    ngx_int_t                       csidx;
-    ngx_rtmp_live_chunk_stream_t   *cs;
-    ngx_rtmp_process_handler_t     *handler;
-    ngx_http_request_t             *r;
+    ngx_rtmp_session_t               *rs;
+    ngx_chain_t                      *pkt, *apkt, *meta, *header;
+    ngx_rtmp_live_ctx_t              *ctx, *pub_ctx;
+    ngx_http_flv_live_ctx_t          *hflctx;
+    ngx_rtmp_gop_cache_ctx_t         *gctx;
+    ngx_rtmp_live_app_conf_t         *lacf;
+    ngx_rtmp_gop_cache_t             *cache;
+    ngx_rtmp_gop_frame_t             *gop_frame;
+    ngx_rtmp_header_t                 ch, lh;
+    ngx_uint_t                        meta_version;
+    uint32_t                          delta;
+    ngx_int_t                         csidx;
+    ngx_rtmp_live_chunk_stream_t     *cs;
+    ngx_rtmp_live_process_handler_t  *handler;
+    ngx_http_request_t               *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
@@ -616,7 +617,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
     s->publisher = rs;
-    handler = ngx_rtmp_process_handlers[ctx->protocol];
+    handler = ngx_rtmp_live_process_handlers[ctx->protocol];
 
     gctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_gop_cache_module);
     if (gctx == NULL) {
@@ -627,7 +628,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
             r = s->data;
             if (r == NULL || (r->connection && r->connection->destroyed)) {
-                return;
+                goto clear;
             }
 
             hflctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
@@ -653,9 +654,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             if (handler->send_message_pt(s, meta, 0) == NGX_OK) {
                 ctx->meta_version = meta_version;
             }
-
-            handler->free_message_pt(s, meta);
-            meta = NULL;
         }
 
         for (gop_frame = cache->frame_head;
@@ -693,11 +691,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     cs->active = 1;
                     s->current_time = cs->timestamp;
                 }
-
-                if (apkt) {
-                    handler->free_message_pt(s, apkt);
-                    apkt = NULL;
-                }
             }
 
             pkt = handler->append_message_pt(s, &ch, &lh, gop_frame->frame);
@@ -706,12 +699,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
                 cs->dropped += delta;
 
-                return;
-            }
-
-            if (pkt) {
-                handler->free_message_pt(s, pkt);
-                pkt = NULL;
+                goto clear;
             }
 
             ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
@@ -725,6 +713,22 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
         }
+    }
+
+    return;
+
+clear:
+
+    if (meta) {
+        handler->free_message_pt(s, meta);
+    }
+
+    if (pkt) {
+        handler->free_message_pt(s, pkt);
+    }
+
+    if (apkt) {
+        handler->free_message_pt(s, apkt);
     }
 }
 
