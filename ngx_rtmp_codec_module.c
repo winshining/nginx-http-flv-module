@@ -24,8 +24,7 @@ static void * ngx_rtmp_codec_create_app_conf(ngx_conf_t *cf);
 static char * ngx_rtmp_codec_merge_app_conf(ngx_conf_t *cf,
        void *parent, void *child);
 static ngx_int_t ngx_rtmp_codec_postconfiguration(ngx_conf_t *cf);
-static ngx_int_t ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s,
-       ngx_rtmp_header_t *h);
+static ngx_int_t ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_codec_copy_meta(ngx_rtmp_session_t *s,
        ngx_rtmp_header_t *h, ngx_chain_t *in);
 static ngx_int_t ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s,
@@ -194,16 +193,6 @@ ngx_rtmp_codec_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (ctx->meta) {
         ngx_rtmp_free_shared_chain(cscf, ctx->meta);
         ctx->meta = NULL;
-    }
-
-    if (ctx->flv_meta) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta);
-        ctx->flv_meta = NULL;
-    }
-
-    if (ctx->flv_meta_chunked) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta_chunked);
-        ctx->flv_meta_chunked = NULL;
     }
 
     return NGX_OK;
@@ -899,7 +888,7 @@ ngx_rtmp_codec_dump_header(ngx_rtmp_session_t *s, const char *type,
 
 
 static ngx_int_t
-ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
+ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_codec_ctx_t           *ctx;
     ngx_rtmp_core_srv_conf_t       *cscf;
@@ -922,7 +911,7 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
 
         { NGX_RTMP_AMF_STRING,
           ngx_string("Server"),
-          "NGINX RTMP (github.com/winshining/nginx-http-flv-module)", 0 },
+          "NGINX RTMP (https://github.com/winshining/nginx-http-flv-module)", 0 },
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("width"),
@@ -1000,16 +989,6 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
         ctx->meta = NULL;
     }
 
-    if (ctx->flv_meta) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta);
-        ctx->flv_meta = NULL;
-    }
-
-    if (ctx->flv_meta_chunked) {
-        ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta_chunked);
-        ctx->flv_meta_chunked = NULL;
-    }
-
     v.width = ctx->width;
     v.height = ctx->height;
     v.duration = ctx->duration;
@@ -1024,26 +1003,6 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h)
     rc = ngx_rtmp_append_amf(s, &ctx->meta, NULL, out_elts,
                              sizeof(out_elts) / sizeof(out_elts[0]));
     if (rc != NGX_OK || ctx->meta == NULL) {
-        return NGX_ERROR;
-    }
-
-    ctx->flv_meta = ngx_http_flv_live_append_shared_bufs(
-            cscf, h, ctx->meta, 0);
-
-    ctx->flv_meta_chunked = ngx_http_flv_live_append_shared_bufs(
-            cscf, h, ctx->meta, 1);
-
-    if (ctx->flv_meta == NULL || ctx->flv_meta_chunked == NULL) {
-        if (ctx->flv_meta) {
-            ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta);
-            ctx->flv_meta = NULL;
-        }
-
-        if (ctx->flv_meta_chunked) {
-            ngx_rtmp_free_shared_chain(cscf, ctx->flv_meta_chunked);
-            ctx->flv_meta_chunked = NULL;
-        }
-
         return NGX_ERROR;
     }
 
@@ -1250,7 +1209,7 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     switch (cacf->meta) {
         case NGX_RTMP_CODEC_META_ON:
-            return ngx_rtmp_codec_reconstruct_meta(s, h);
+            return ngx_rtmp_codec_reconstruct_meta(s);
         case NGX_RTMP_CODEC_META_COPY:
             return ngx_rtmp_codec_copy_meta(s, h, in);
     }

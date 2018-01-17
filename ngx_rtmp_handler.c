@@ -85,29 +85,18 @@ void
 ngx_rtmp_cycle(ngx_rtmp_session_t *s)
 {
     ngx_connection_t           *c;
-    ngx_rtmp_upstream_t        *u;
 
     c = s->connection;
-    u = s->data;
 
-    if (s->relay && u) {
-        c->read->handler = ngx_rtmp_upstream_recv;
-        c->write->handler = ngx_rtmp_upstream_send;
-    } else {
-        c->read->handler =  ngx_rtmp_recv;
-        c->write->handler = ngx_rtmp_send;
-    }
+    c->read->handler =  ngx_rtmp_recv;
+    c->write->handler = ngx_rtmp_send;
 
     s->ping_evt.data = c;
     s->ping_evt.log = c->log;
     s->ping_evt.handler = ngx_rtmp_ping;
     ngx_rtmp_reset_ping(s);
 
-    if (s->relay && u) {
-        ngx_rtmp_upstream_recv(c->read);
-    } else {
-        ngx_rtmp_recv(c->read);
-    }
+    ngx_rtmp_recv(c->read);
 }
 
 
