@@ -24,10 +24,8 @@ static char * ngx_rtmp_log_set_format(ngx_conf_t *cf, ngx_command_t *cmd,
        void *conf);
 static char * ngx_rtmp_log_compile_format(ngx_conf_t *cf, ngx_array_t *ops,
        ngx_array_t *args, ngx_uint_t s);
-static ngx_int_t ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                        ngx_chain_t *in);
-static ngx_int_t ngx_rtmp_log_flow(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                        ngx_chain_t *in);
+static ngx_int_t ngx_rtmp_log_flush(ngx_rtmp_session_t *s,
+       ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 
 typedef struct ngx_rtmp_log_op_s ngx_rtmp_log_op_t;
@@ -65,14 +63,14 @@ typedef struct {
     ngx_open_file_t            *file;
     time_t                      disk_full_time;
     time_t                      error_log_time;
-    ngx_rtmp_log_fmt_t *format;
+    ngx_rtmp_log_fmt_t         *format;
 } ngx_rtmp_log_t;
 
 
 typedef struct {
     ngx_array_t                *logs; /* ngx_rtmp_log_t */
     ngx_uint_t                  off;
-    ngx_msec_t                  interval;
+    time_t                      interval;
 } ngx_rtmp_log_app_conf_t;
 
 
@@ -89,7 +87,7 @@ typedef struct {
     u_char                      name[NGX_RTMP_MAX_NAME];
     u_char                      args[NGX_RTMP_MAX_ARGS];
     uint32_t                    last_sent;
-    uint32_t                    last_recvd;
+    uint32_t                    last_received;
 } ngx_rtmp_log_ctx_t;
 
 
@@ -112,9 +110,9 @@ static ngx_command_t  ngx_rtmp_log_commands[] = {
       0,
       NULL },
     {
-      ngx_string("logs_interval"),
+      ngx_string("log_interval"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
+      ngx_conf_set_sec_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_log_app_conf_t, interval),
       NULL 
@@ -315,6 +313,7 @@ ngx_rtmp_log_var_session_uint32_getlen(ngx_rtmp_session_t *s,
 }
 
 
+#if 0
 static u_char *
 ngx_rtmp_log_var_session_uint32_getdata(ngx_rtmp_session_t *s, u_char *buf,
     ngx_rtmp_log_op_t *op)
@@ -325,6 +324,7 @@ ngx_rtmp_log_var_session_uint32_getdata(ngx_rtmp_session_t *s, u_char *buf,
 
     return ngx_sprintf(buf, "%uD", *v);
 }
+#endif
 
 
 static size_t
@@ -401,56 +401,60 @@ ngx_rtmp_log_var_session_readable_time_getdata(ngx_rtmp_session_t *s,
 }
 
 
-
-static u_char * 
+static u_char *
 ngx_rtmp_log_var_session_bytesent_getdata(ngx_rtmp_session_t *s,
     u_char *buf, ngx_rtmp_log_op_t *op)
 {
-    uint32_t    sent;
-    ngx_rtmp_log_ctx_t *ctx;
+    ngx_rtmp_log_ctx_t  *ctx;
+    uint32_t             sent;
  
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
     if (ctx == NULL) {        
         if (s->out_bytes > 0) {
-            return ngx_sprintf(buf, "%O", s->out_bytes);
+            return ngx_sprintf(buf, "%uD", s->out_bytes);
         }
+
         *buf = '0';
-        return buf + 1;;
+        return buf + 1;
     }
     
     sent = s->out_bytes - ctx->last_sent;
     ctx->last_sent = s->out_bytes;
+
     if (sent > 0) {
-        return ngx_sprintf(buf, "%O", sent);
+        return ngx_sprintf(buf, "%uD", sent);
     }
+
     *buf = '0';
     return buf + 1;
 }
 
-static u_char * 
-ngx_rtmp_log_var_session_byterecvd_getdata(ngx_rtmp_session_t *s,
+static u_char *
+ngx_rtmp_log_var_session_bytereceived_getdata(ngx_rtmp_session_t *s,
     u_char *buf, ngx_rtmp_log_op_t *op)
 {
-    uint32_t    recvd;
-    ngx_rtmp_log_ctx_t *ctx;
+    ngx_rtmp_log_ctx_t  *ctx;
+    uint32_t             received;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
     if (ctx == NULL) {
         if (s->in_bytes > 0) {
-            return ngx_sprintf(buf, "%O", s->in_bytes);
+            return ngx_sprintf(buf, "%uD", s->in_bytes);
         }
+
         *buf = '0';
-        return buf + 1;;
-     }
-    
-    recvd = s->in_bytes - ctx->last_recvd;
-    ctx->last_recvd = s->in_bytes;
-    if (recvd > 0) {
-        return ngx_sprintf(buf, "%O", recvd);
+        return buf + 1;
     }
+
+    received = s->in_bytes - ctx->last_received;
+    ctx->last_received = s->in_bytes;
+
+    if (received > 0) {
+        return ngx_sprintf(buf, "%uD", received);
+    }
+
     *buf = '0';
     return buf + 1;
-
 }
 
 
@@ -512,7 +516,7 @@ static ngx_rtmp_log_var_t ngx_rtmp_log_vars[] = {
 
     { ngx_string("bytes_received"),
       ngx_rtmp_log_var_session_uint32_getlen,
-      ngx_rtmp_log_var_session_byterecvd_getdata,
+      ngx_rtmp_log_var_session_bytereceived_getdata,
       0 },
 
     { ngx_string("time_local"),
@@ -582,7 +586,8 @@ ngx_rtmp_log_create_app_conf(ngx_conf_t *cf)
     if (lacf == NULL) {
         return NULL;
     }
-    lacf->interval = NGX_CONF_UNSET_MSEC;
+
+    lacf->interval = NGX_CONF_UNSET;
 
     return lacf;
 }
@@ -596,11 +601,8 @@ ngx_rtmp_log_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_log_main_conf_t   *lmcf;
     ngx_rtmp_log_fmt_t         *fmt;
     ngx_rtmp_log_t             *log;
-   
-    if(prev->interval <= 1000) {
-        return NGX_CONF_ERROR;
-    }
-    ngx_conf_merge_msec_value(conf->interval, prev->interval, 300000);
+
+    ngx_conf_merge_sec_value(conf->interval, prev->interval, 0);
 
     if (conf->logs || conf->off) {
         return NGX_OK;
@@ -612,7 +614,7 @@ ngx_rtmp_log_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->logs || conf->off) {
         return NGX_OK;
     }
-    
+
     conf->logs = ngx_array_create(cf->pool, 2, sizeof(ngx_rtmp_log_t));
     if (conf->logs == NULL) {
         return NGX_CONF_ERROR;
@@ -881,24 +883,30 @@ invalid:
     return NGX_CONF_ERROR;
 }
 
-static void ngx_http_rtmplogsplit_output_event(ngx_event_t *ev)
+
+static void
+ngx_rtmp_log_split_output_handler(ngx_event_t *ev)
 {
-    ngx_rtmp_session_t *s = ev->data;
-    ngx_rtmp_log_app_conf_t *lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_log_module);
+    ngx_rtmp_session_t       *s;
+    ngx_rtmp_log_app_conf_t  *lacf;
+
+    s = ev->data;
+    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_log_module);
     if (lacf == NULL || lacf->off || lacf->logs == NULL) {
-        return ;
+        return;
     }
-    
+
     ngx_add_timer(ev, lacf->interval);
-    ngx_rtmp_log_flow(s,0,0);
+    ngx_rtmp_log_flush(s, 0, 0);
 }
+
 
 static ngx_rtmp_log_ctx_t *
 ngx_rtmp_log_set_names(ngx_rtmp_session_t *s, u_char *name, u_char *args)
 {
-    ngx_rtmp_log_ctx_t *ctx;
-    ngx_rtmp_log_app_conf_t    *lacf;
-    
+    ngx_rtmp_log_ctx_t       *ctx;
+    ngx_rtmp_log_app_conf_t  *lacf;
+
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_log_module);
     if (lacf == NULL || lacf->off || lacf->logs == NULL) {
         return NULL;
@@ -910,16 +918,19 @@ ngx_rtmp_log_set_names(ngx_rtmp_session_t *s, u_char *name, u_char *args)
         if (ctx == NULL) {
             return NULL;
         }
-        ctx->ev.handler = ngx_http_rtmplogsplit_output_event;
-        ctx->ev.log = s->connection->log;
-        ctx->ev.data = s;
-        ctx->ev.timer_set = 0;
-        ctx->last_recvd = 0;
-        ctx->last_sent = 0;
-        
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_log_module);
 
-        ngx_add_timer(&ctx->ev, lacf->interval);
+        if (lacf->interval) {
+            ctx->ev.handler = ngx_rtmp_log_split_output_handler;
+            ctx->ev.log = s->connection->log;
+            ctx->ev.data = s;
+            ctx->ev.timer_set = 0;
+            ctx->last_sent = 0;
+            ctx->last_received = 0;
+
+            ngx_add_timer(&ctx->ev, lacf->interval);
+        }
+
+        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_log_module);
     }
 
     ngx_memcpy(ctx->name, name, NGX_RTMP_MAX_NAME);
@@ -1012,9 +1023,10 @@ ngx_rtmp_log_write(ngx_rtmp_session_t *s, ngx_rtmp_log_t *log, u_char *buf,
     }
 }
 
+
 static ngx_int_t
-ngx_rtmp_log_flow(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-                        ngx_chain_t *in)
+ngx_rtmp_log_flush(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
+                   ngx_chain_t *in)
 {
     ngx_rtmp_log_app_conf_t    *lacf;
     ngx_rtmp_log_t             *log;
@@ -1022,9 +1034,6 @@ ngx_rtmp_log_flow(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_uint_t                  n, i;
     u_char                     *line, *p;
     size_t                      len;
-    ngx_rtmp_log_ctx_t *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
 
     if (s->auto_pushed || s->relay) {
         return NGX_OK;
@@ -1081,10 +1090,8 @@ ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_log_op_t          *op;
     ngx_uint_t                  n, i;
     u_char                     *line, *p;
+    ngx_rtmp_log_ctx_t         *ctx;
     size_t                      len;
-    ngx_rtmp_log_ctx_t *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
 
     if (s->auto_pushed || s->relay) {
         return NGX_OK;
@@ -1127,13 +1134,9 @@ ngx_rtmp_log_disconnect(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         ngx_rtmp_log_write(s, log, line, p - line);
     }
-    if(!ctx)
-    {
-        return NGX_OK;
-    }
 
-    if(ctx->ev.timer_set)
-    {
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_log_module);
+    if(ctx && ctx->ev.timer_set) {
         ngx_del_timer(&ctx->ev);
     }
 

@@ -843,4 +843,7 @@ in_port_t ngx_inet_get_port(struct sockaddr *sa);
 void ngx_inet_set_port(struct sockaddr *sa, in_port_t port);
 #endif
 
+ngx_int_t ngx_rtmp_send_fcpublish(ngx_rtmp_session_t *s, u_char *desc);
+ngx_int_t ngx_rtmp_send_fcunpublish(ngx_rtmp_session_t *s, u_char *desc);
+
 #endif /* _NGX_RTMP_H_INCLUDED_ */
