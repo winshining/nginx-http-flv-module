@@ -40,8 +40,9 @@ static ngx_chain_t *ngx_rtmp_live_append_message(ngx_rtmp_session_t *s,
 static void ngx_rtmp_live_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in);
 
 
-#define ACTION_LEN  128
-#define STREAM_LEN  1024
+#define ACTION_VAR_LEN  128
+#define STREAM_VAR_LEN  1024
+
 
 ngx_rtmp_live_process_handler_t  ngx_rtmp_live_process_handler = {
     NULL,
@@ -1341,8 +1342,8 @@ ngx_rtmp_live_on_fcpublish(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     static struct {
         double                 trans;
-        u_char                 action[ACTION_LEN];
-        u_char                 stream[STREAM_LEN];
+        u_char                 action[ACTION_VAR_LEN];
+        u_char                 stream[STREAM_VAR_LEN];
     } v;
 
     static ngx_rtmp_amf_elt_t  in_elts[] = {
@@ -1392,8 +1393,8 @@ ngx_rtmp_live_on_fcunpublish(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     static struct {
         double                  trans;
-        u_char                  action[ACTION_LEN];
-        u_char                  stream[STREAM_LEN];
+        u_char                  action[ACTION_VAR_LEN];
+        u_char                  stream[STREAM_VAR_LEN];
     } v;
 
     static ngx_rtmp_amf_elt_t   in_elts[] = {
