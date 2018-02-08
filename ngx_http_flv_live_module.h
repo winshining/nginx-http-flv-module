@@ -17,7 +17,7 @@
 
 #define NGX_HASH_MAX_SIZE              0x80
 #define NGX_HASH_MAX_BUKET_SIZE        0x40
-#define NGX_BUFF_MAX_SIZE              0X80
+#define NGX_BUFF_MAX_SIZE              0x80
 #define NGX_FLV_TAG_HEADER_SIZE        11
 
 

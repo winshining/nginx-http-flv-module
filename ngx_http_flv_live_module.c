@@ -1236,7 +1236,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 #undef NGX_RTMP_SET_STRPAR
 
     s->stream.len = stream->len;
-    s->stream.data = ngx_pstrdup(r->pool, stream);
+    s->stream.data = ngx_pstrdup(s->connection->pool, stream);
 
     return ngx_rtmp_connect(s, &v);
 }

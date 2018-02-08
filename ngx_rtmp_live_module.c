@@ -1102,7 +1102,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             }
         }
 
-        handler->rpkt = handler->append_message_pt(ss, &ch, &lh, in);
+        if (handler->rpkt == NULL) {
+            handler->rpkt = handler->append_message_pt(ss, &ch, &lh, in);
+        }
 
         /* send relative packet */
 
