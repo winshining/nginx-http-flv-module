@@ -1076,13 +1076,8 @@ ngx_rtmp_relay_send_create_stream(ngx_rtmp_session_t *s)
     h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
     h.type = NGX_RTMP_MSG_AMF_CMD;
     
-    
-    return ngx_rtmp_relay_send_release_stream(s) != NGX_OK
-           || ngx_rtmp_relay_send_fcpublish(s) != NGX_OK 
-           || ngx_rtmp_send_amf(s, &h, out_elts,
-            sizeof(out_elts) / sizeof(out_elts[0]))!= NGX_OK
-           ? NGX_ERROR
-           : NGX_OK;
+    return ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]));
 
 }
 
