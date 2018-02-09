@@ -429,6 +429,7 @@ ngx_rtmp_log_var_session_bytesent_getdata(ngx_rtmp_session_t *s,
     return buf + 1;
 }
 
+
 static u_char *
 ngx_rtmp_log_var_session_bytereceived_getdata(ngx_rtmp_session_t *s,
     u_char *buf, ngx_rtmp_log_op_t *op)
