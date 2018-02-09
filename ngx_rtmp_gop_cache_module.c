@@ -627,7 +627,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     for (cache = gctx->cache_head; cache; cache = cache->next) {
         /**
          * send only one GOP to decrease probability of 
-         * 'TCP Window Full' which leads to playback lag 
+         * 'TCP Window Full' which leads to playback lag
          **/
         if (gctx->gop_cache_count == 2 && cache->next) {
             continue;
@@ -636,7 +636,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
             r = s->data;
             if (r == NULL || (r->connection && r->connection->destroyed)) {
-                goto clear;
+                return;
             }
 
             hflctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
@@ -659,9 +659,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                     "gop cache send: meta");
 
-            if (handler->send_message_pt(s, meta, 0) == NGX_OK) {
-                ctx->meta_version = meta_version;
+            if (handler->send_message_pt(s, meta, 0) == NGX_ERROR) {
+                ngx_rtmp_finalize_session(s);
+                return;
             }
+
+            ctx->meta_version = meta_version;
+            handler->free_message_pt(s, meta);
         }
 
         for (gop_frame = cache->frame_head;
@@ -694,7 +698,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
                 }
 
-                if (apkt && handler->send_message_pt(s, apkt, 0) == NGX_OK) {
+                if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_ERROR) {
                     cs->timestamp = lh.timestamp;
                     cs->active = 1;
                     s->current_time = cs->timestamp;
@@ -702,12 +706,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
 
             pkt = handler->append_message_pt(s, &ch, &lh, gop_frame->frame);
-            if (handler->send_message_pt(s, pkt, gop_frame->prio) != NGX_OK) {
+            if (handler->send_message_pt(s, pkt, gop_frame->prio) == NGX_ERROR) {
                 ++pub_ctx->ndropped;
 
                 cs->dropped += delta;
 
-                goto clear;
+                ngx_rtmp_finalize_session(s);
+                return;
             }
 
             ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
@@ -720,23 +725,17 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
+
+            if (pkt) {
+                handler->free_message_pt(s, pkt);
+                pkt = NULL;
+            }
+
+            if (apkt) {
+                handler->free_message_pt(s, apkt);
+                apkt = NULL;
+            }
         }
-    }
-
-    return;
-
-clear:
-
-    if (meta) {
-        handler->free_message_pt(s, meta);
-    }
-
-    if (pkt) {
-        handler->free_message_pt(s, pkt);
-    }
-
-    if (apkt) {
-        handler->free_message_pt(s, apkt);
     }
 }
 
