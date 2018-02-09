@@ -51,7 +51,9 @@ typedef struct {
 
 
 #define NGX_RTMP_RELAY_CONNECT_TRANS            1
-#define NGX_RTMP_RELAY_CREATE_STREAM_TRANS      2
+#define NGX_RTMP_RELAY_RELEASE_STREAM_TRANS      2
+#define NGX_RTMP_RELAY_FCPUBLISH_STREAM_TRANS      3
+#define NGX_RTMP_RELAY_CREATE_STREAM_TRANS      4
 
 
 #define NGX_RTMP_RELAY_CSID_AMF_INI             3
@@ -656,7 +658,7 @@ ngx_rtmp_relay_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ngx_str_t                       name;
     size_t                          n;
     ngx_rtmp_relay_ctx_t           *ctx;
-
+    u_char                          play_path[NGX_RTMP_MAX_NAME];
     if (s->auto_pushed) {
         goto next;
     }
@@ -683,7 +685,11 @@ ngx_rtmp_relay_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         {
             continue;
         }
-
+        if (ngx_strlen(v->args) > 0) {
+            target->play_path.data = play_path;
+            target->play_path.len = ngx_snprintf(play_path, sizeof(play_path),
+                                        "%s?%s", v->name, v->args) - play_path;
+        }
         if (ngx_rtmp_relay_push(s, &name, target) == NGX_OK) {
             continue;
         }
@@ -712,7 +718,8 @@ ngx_rtmp_relay_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     ngx_str_t                       name;
     size_t                          n;
     ngx_rtmp_relay_ctx_t           *ctx;
-
+    u_char                          play_path[NGX_RTMP_MAX_NAME];
+    
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
     if (ctx && s->relay) {
         goto next;
@@ -734,6 +741,11 @@ ngx_rtmp_relay_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
             ngx_memcmp(name.data, target->name.data, name.len)))
         {
             continue;
+        }
+        if (ngx_strlen(v->args) > 0) {
+            target->play_path.data = play_path;
+            target->play_path.len = ngx_snprintf(play_path, sizeof(play_path),
+                                        "%s?%s", v->name, v->args) - play_path;
         }
 
         if (ngx_rtmp_relay_pull(s, &name, target) == NGX_OK) {
@@ -934,6 +946,110 @@ ngx_rtmp_relay_send_connect(ngx_rtmp_session_t *s)
 
 
 static ngx_int_t
+ngx_rtmp_relay_send_release_stream(ngx_rtmp_session_t *s)
+{
+    static double               trans = NGX_RTMP_RELAY_RELEASE_STREAM_TRANS;
+
+    static ngx_rtmp_amf_elt_t   out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "releaseStream", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("stream"),
+          NULL, 0 }
+    };
+
+    ngx_rtmp_header_t           h;
+
+    ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_core_srv_conf_t   *cscf;
+    ngx_rtmp_relay_ctx_t       *ctx;
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
+    if (cacf == NULL || ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ctx->play_path.len) {
+        out_elts[3].data = ctx->play_path.data;
+        out_elts[3].len  = ctx->play_path.len;
+    } else {
+        out_elts[3].data = ctx->name.data;
+        out_elts[3].len  = ctx->name.len;
+    }
+
+    ngx_memzero(&h, sizeof(h));
+    h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+
+    return ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]));
+}
+
+
+static ngx_int_t
+ngx_rtmp_relay_send_fcpublish(ngx_rtmp_session_t *s)
+{
+    static double               trans = NGX_RTMP_RELAY_FCPUBLISH_STREAM_TRANS;
+
+    static ngx_rtmp_amf_elt_t   out_elts[] = {
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_null_string,
+          "FCPublish", 0 },
+
+        { NGX_RTMP_AMF_NUMBER,
+          ngx_null_string,
+          &trans, 0 },
+
+        { NGX_RTMP_AMF_NULL,
+          ngx_null_string,
+          NULL, 0 },
+
+        { NGX_RTMP_AMF_STRING,
+          ngx_string("stream"),
+          NULL, 0 }
+    };
+
+    ngx_rtmp_header_t           h;
+
+    ngx_rtmp_core_app_conf_t   *cacf;
+    ngx_rtmp_core_srv_conf_t   *cscf;
+    ngx_rtmp_relay_ctx_t       *ctx;
+
+    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
+    if (cacf == NULL || ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ctx->name.len) {
+        out_elts[3].data = ctx->name.data;
+        out_elts[3].len  = ctx->name.len;
+    } 
+
+    ngx_memzero(&h, sizeof(h));
+    h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
+    h.type = NGX_RTMP_MSG_AMF_CMD;
+
+    return ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]));
+}
+
+static ngx_int_t
 ngx_rtmp_relay_send_create_stream(ngx_rtmp_session_t *s)
 {
     static double               trans = NGX_RTMP_RELAY_CREATE_STREAM_TRANS;
@@ -959,9 +1075,15 @@ ngx_rtmp_relay_send_create_stream(ngx_rtmp_session_t *s)
     ngx_memzero(&h, sizeof(h));
     h.csid = NGX_RTMP_RELAY_CSID_AMF_INI;
     h.type = NGX_RTMP_MSG_AMF_CMD;
+    
+    
+    return ngx_rtmp_relay_send_release_stream(s) != NGX_OK
+           || ngx_rtmp_relay_send_fcpublish(s) != NGX_OK 
+           || ngx_rtmp_send_amf(s, &h, out_elts,
+            sizeof(out_elts) / sizeof(out_elts[0]))!= NGX_OK
+           ? NGX_ERROR
+           : NGX_OK;
 
-    return ngx_rtmp_send_amf(s, &h, out_elts,
-            sizeof(out_elts) / sizeof(out_elts[0]));
 }
 
 
