@@ -1104,6 +1104,81 @@ ngx_rtmp_init_process(ngx_cycle_t *cycle)
 
 
 ngx_int_t
+ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
+{
+    u_char     *p;
+    ngx_int_t   rc;
+    ngx_str_t   host;
+    ngx_str_t   hschema, rschema, *schema;
+
+    if (s->auto_pushed) {
+        goto next;
+    }
+
+    hschema.data = (u_char *)"http://";
+    hschema.len = ngx_strlen(hschema.data);
+
+    rschema.data = (u_char *) "rtmp://";
+    rschema.len = ngx_strlen(rschema.data);
+
+    do {
+        schema = &hschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        schema = &rschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        return NGX_ERROR;
+    } while (0);
+
+    s->host_start = s->tc_url.data + schema->len;
+
+    p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, ':');
+    if (p) {
+        s->host_end = p;
+    } else {
+        p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, '/');
+        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema->len);
+    }
+
+next:
+    host.len = s->host_end - s->host_start;
+    host.data = s->host_start;
+
+    rc = ngx_rtmp_validate_host(&host, s->connection->pool, 0);
+
+    if (rc == NGX_DECLINED) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "client send invalid host in request line");
+        return NGX_ERROR;
+    }
+
+#if 0
+    /* TODO: send error details to client */
+    if (rc == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+#endif
+
+    if (ngx_rtmp_set_virtual_server(s, &host) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
 ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
 {
     u_char  *h, ch;
