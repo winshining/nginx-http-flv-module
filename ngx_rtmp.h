@@ -909,6 +909,7 @@ ngx_int_t ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s,
 ngx_int_t ngx_rtmp_set_disable_symlinks(ngx_rtmp_session_t *s,
     ngx_rtmp_core_app_conf_t *cacf, ngx_str_t *path, ngx_open_file_info_t *of);
 
+ngx_int_t ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s);
 ngx_int_t ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool,
     ngx_uint_t alloc);
 ngx_int_t ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host);
