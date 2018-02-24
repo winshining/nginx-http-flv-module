@@ -46,9 +46,21 @@ Uncompress them.
 
 cd to NGINX source directory & run this:
 
+## Compile the module into [NGINX](http://nginx.org)
+
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+## Compile the module as a dynamic module
+
+    ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
+    make
+    make install
+
+### Note
+
+If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) version **MUST** be equal to or greater than 1.9.11.
 
 # Usage
 
@@ -114,7 +126,7 @@ So the url of play using HTTP is:
 
 # Note
 
-Since some players don't support HTTP chunked transmission, it's better **NOT** to specify `chunked on;` in location where `flv_live on;` is specifed in this case, or play will fail.
+Since some players don't support HTTP chunked transmission, it's better **NOT** to specify `chunked on;` in location where `flv_live on;` is specified in this case, or play will fail.
 
 # Example nginx.conf
 
@@ -122,6 +134,12 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
     worker_cpu_affinity  0001 0010 0100 1000;
 
     error_log logs/error.log error;
+
+    #if the module is compiled as a dynamic module and features relevant
+    #to RTMP are needed, the command below MUST be specified and MUST be
+    #located before events directive, otherwise the module won't be loaded
+    #or will be loaded unsuccessfully when NGINX is started
+    #load_module modules/ngx_rtmp_module.so;
 
     events {
         worker_connections  1024;

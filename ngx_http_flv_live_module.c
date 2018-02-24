@@ -900,6 +900,14 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
 
+    /** 
+     * if requested args are escaped, for example, urls in the 
+     * history list of vlc for Android (or all mobile platforms) 
+     **/
+    if (r->args.len == 0 && r->uri.len) {
+        ngx_http_split_args(r, &r->uri, &r->args);
+    }
+
     if (ngx_http_arg(r, arg_port.data, arg_port.len, &port) != NGX_OK) {
         /* no port in args */
         port.data = (u_char *) "1935";

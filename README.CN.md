@@ -46,9 +46,21 @@
 
 打开NGINX的源代码路径并执行：
 
+## 将模块编译进[NGINX](http://nginx.org)
+
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+## 将模块编译为动态模块
+
+    ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
+    make
+    make install
+
+### 注意
+
+如果将模块编译为动态模块，那么[NGINX](http://nginx.org)的版本号**必须**大于或者等于1.9.11。
 
 # 使用方法
 
@@ -122,6 +134,11 @@
     worker_cpu_affinity  0001 0010 0100 1000;
 
     error_log logs/error.log error;
+
+    #如果此模块被编译为动态模块并且要使用与RTMP相关的功
+    #能时，必须指定下面的配置项并且它必须位于events配置
+    #项之前，否则NGINX启动时不会加载此模块或者加载失败
+    #load_module modules/ngx_rtmp_module.so;
 
     events {
         worker_connections  1024;
