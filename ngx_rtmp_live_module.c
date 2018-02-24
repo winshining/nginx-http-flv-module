@@ -1187,10 +1187,11 @@ ngx_rtmp_live_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_uint_t                      peers;
     uint32_t                        delta;
     ngx_rtmp_live_chunk_stream_t   *cs;
-
+#ifdef NGX_DEBUG
     u_char                         *msg_type;
 
     msg_type = (u_char *)out_elts[0].data;
+#endif
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
