@@ -8,13 +8,6 @@
 #define _NGX_RTMP_GOP_CACHE_H_INCLUDE_
 
 
-#include <ngx_config.h>
-#include <ngx_core.h>
-#include "ngx_rtmp_cmd_module.h"
-#include "ngx_rtmp_live_module.h"
-#include "ngx_rtmp_codec_module.h"
-
-
 #define NGX_GOP_CACHE_POOL_CREATE_SIZE          4096
 
 
