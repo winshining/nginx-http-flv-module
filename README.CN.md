@@ -130,8 +130,8 @@
 
 # nginx.conf实例
 
-    worker_processes  4;
-    worker_cpu_affinity  0001 0010 0100 1000;
+    worker_processes  4; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
+    worker_cpu_affinity  0001 0010 0100 1000; #运行在Windows上时，省略此配置项
 
     error_log logs/error.log error;
 
@@ -181,9 +181,9 @@
         }
     }
 
-    rtmp_auto_push on;
+    rtmp_auto_push on; #Windows不支持
     rtmp_auto_push_reconnect 1s;
-    rtmp_socket_dir /tmp;
+    rtmp_socket_dir /tmp; #Windows不支持
 
     rtmp {
         out_queue   4096;

@@ -130,8 +130,8 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
 
 # Example nginx.conf
 
-    worker_processes  4;
-    worker_cpu_affinity  0001 0010 0100 1000;
+    worker_processes  4; #should be 1 for Windows, for it doesn't support Unix domain socket
+    worker_cpu_affinity  0001 0010 0100 1000; #should be eliminated for Windows
 
     error_log logs/error.log error;
 
@@ -182,9 +182,9 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
         }
     }
 
-    rtmp_auto_push on;
+    rtmp_auto_push on; #not supported by Windows
     rtmp_auto_push_reconnect 1s;
-    rtmp_socket_dir /tmp;
+    rtmp_socket_dir /tmp; #not supported by Windows
 
     rtmp {
         out_queue   4096;

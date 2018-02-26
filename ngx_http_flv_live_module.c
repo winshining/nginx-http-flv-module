@@ -3,6 +3,9 @@
  * Copyright (C) Winshining
  */
 
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
 #include "ngx_http_flv_live_module.h"
 #include "ngx_rtmp_relay_module.h"
 
@@ -358,7 +361,7 @@ ngx_http_flv_live_send_tail(ngx_rtmp_session_t *s)
     buf_resp_hdr.pos = response_tail.data;
     buf_resp_hdr.last = response_tail.data + response_tail.len;
     buf_resp_hdr.start = buf_resp_hdr.pos;
-    buf_resp_hdr.end = buf_resp_hdr.end;
+    buf_resp_hdr.end = buf_resp_hdr.last;
 
     cl_resp_hdr.buf = &buf_resp_hdr;
     cl_resp_hdr.next = NULL;
@@ -1303,8 +1306,14 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
 {
     ngx_chain_t        *tag, *chunk_head, *chunk_tail, chunk,
                        *iter, *last_in, **tail, prev_tag_size;
-    u_char             *pos, *p, chunk_item[ngx_strlen("1000003"CRLF) + 1];
-    uint32_t            data_size, tag_size, size;
+    u_char             *pos, *p,
+#if !(NGX_WIN32)
+                        chunk_item[ngx_strlen("0000000000000000" CRLF) + 1];
+#else
+                        chunk_item[19];
+#endif
+    uint32_t            data_size, size;
+    off_t               tag_size;
     ngx_buf_t           prev_tag_size_buf, chunk_buf;
 
     for (data_size = 0, iter = in, last_in = iter; iter; iter = iter->next) {
@@ -1372,7 +1381,7 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
     /* add chunk header and tail */
     if (chunked) {
         /* 4 is the size of previous tag size itself */
-        *ngx_sprintf(chunk_item, "%xO"CRLF, tag_size + 4) = 0;
+        *ngx_sprintf(chunk_item, "%xO" CRLF, tag_size + 4) = 0;
 
         chunk_buf.start = chunk_item;
         chunk_buf.pos = chunk_buf.start;
