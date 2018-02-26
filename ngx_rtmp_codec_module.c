@@ -242,12 +242,12 @@ ngx_rtmp_codec_video_is_combined_nals(ngx_chain_t *in, ngx_rtmp_session_t *s)
 }
 
 
-static inline ngx_int_t
+static ngx_inline ngx_int_t
 ngx_rtmp_get_codec_header_type(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
 {
     if (ngx_rtmp_is_codec_header(in)) {
-        ngx_log_debug(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "codec: a sequence header in chain");
 
         return NGX_RTMP_CODEC_SINGLE_SEQ_HEADER;
@@ -256,7 +256,7 @@ ngx_rtmp_get_codec_header_type(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (h->type == NGX_RTMP_MSG_VIDEO &&
         ngx_rtmp_codec_video_is_combined_nals(in, s) == NGX_OK)
     {
-        ngx_log_debug(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "codec: an AVC NALU or an AAC raw packet in chain");
 
         return NGX_RTMP_CODEC_COMBO_SEQ_HEADER;
