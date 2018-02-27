@@ -7,9 +7,6 @@
 #define _NGX_HTTP_FLV_LIVE_H_INCLUDED_
 
 
-#include <ngx_config.h>
-#include <ngx_core.h>
-#include <ngx_http.h>
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_live_module.h"
 #include "ngx_rtmp_codec_module.h"
@@ -17,7 +14,7 @@
 
 #define NGX_HASH_MAX_SIZE              0x80
 #define NGX_HASH_MAX_BUKET_SIZE        0x40
-#define NGX_BUFF_MAX_SIZE              0X80
+#define NGX_BUFF_MAX_SIZE              0x80
 #define NGX_FLV_TAG_HEADER_SIZE        11
 
 
@@ -50,14 +47,21 @@ typedef struct ngx_http_flv_live_conf_s {
 
 
 typedef struct {
+    ngx_chain_t  *meta;
+    ngx_chain_t  *apkt;
+    ngx_chain_t  *acopkt;
+    ngx_chain_t  *rpkt;
+
     ngx_int_t (*send_message_pt)(ngx_rtmp_session_t *s,
             ngx_chain_t *out, unsigned int priority);
+    ngx_chain_t *(*meta_message_pt)(ngx_rtmp_session_t *s,
+            ngx_chain_t *in);
     ngx_chain_t *(*append_message_pt)(ngx_rtmp_session_t *s,
             ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh,
             ngx_chain_t *in);
     void (*free_message_pt)(ngx_rtmp_session_t *s,
             ngx_chain_t *in);
-} ngx_rtmp_process_handler_t;
+} ngx_rtmp_live_process_handler_t;
 
 
 ngx_int_t ngx_http_flv_live_send_header(ngx_rtmp_session_t *s);

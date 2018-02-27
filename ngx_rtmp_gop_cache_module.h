@@ -8,13 +8,6 @@
 #define _NGX_RTMP_GOP_CACHE_H_INCLUDE_
 
 
-#include <ngx_config.h>
-#include <ngx_core.h>
-#include "ngx_rtmp_cmd_module.h"
-#include "ngx_rtmp_live_module.h"
-#include "ngx_rtmp_codec_module.h"
-
-
 #define NGX_GOP_CACHE_POOL_CREATE_SIZE          4096
 
 
@@ -37,8 +30,6 @@ struct ngx_rtmp_gop_cache_s {
     ngx_chain_t           *video_seq_header;
     ngx_chain_t           *audio_seq_header;
     ngx_chain_t           *meta;
-    ngx_chain_t           *flv_meta;
-    ngx_chain_t           *flv_meta_chunked;
     ngx_uint_t             meta_version;
     ngx_int_t              video_frame_in_this;
     ngx_int_t              audio_frame_in_this;

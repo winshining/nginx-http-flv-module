@@ -1,5 +1,7 @@
 # nginx-http-flv-module
 
+[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
+
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
 # Features
@@ -15,10 +17,6 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 * Missing `listen` directive in rtmp server block will be OK.
 
 * Virtual hosts supported.
-
-* Reverse proxy supported (experimental).
-
-* Load balance (round robin) supported (experimental).
 
 # Systems supported
 
@@ -48,9 +46,21 @@ Uncompress them.
 
 cd to NGINX source directory & run this:
 
+## Compile the module into [NGINX](http://nginx.org)
+
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+## Compile the module as a dynamic module
+
+    ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
+    make
+    make install
+
+### Note
+
+If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) version **MUST** be equal to or greater than 1.9.11.
 
 # Usage
 
@@ -116,14 +126,20 @@ So the url of play using HTTP is:
 
 # Note
 
-Since some players don't support HTTP chunked transmission, it's better **NOT** to specify `chunked on;` in location where `flv_live on;` is specifed in this case, or play will fail.
+Since some players don't support HTTP chunked transmission, it's better **NOT** to specify `chunked on;` in location where `flv_live on;` is specified in this case, or play will fail.
 
 # Example nginx.conf
 
-    worker_processes  4;
-    worker_cpu_affinity  0001 0010 0100 1000;
+    worker_processes  4; #should be 1 for Windows, for it doesn't support Unix domain socket
+    worker_cpu_affinity  0001 0010 0100 1000; #should be eliminated for Windows
 
     error_log logs/error.log error;
+
+    #if the module is compiled as a dynamic module and features relevant
+    #to RTMP are needed, the command below MUST be specified and MUST be
+    #located before events directive, otherwise the module won't be loaded
+    #or will be loaded unsuccessfully when NGINX is started
+    #load_module modules/ngx_rtmp_module.so;
 
     events {
         worker_connections  1024;
@@ -166,9 +182,9 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
         }
     }
 
-    rtmp_auto_push on;
+    rtmp_auto_push on; #not supported by Windows
     rtmp_auto_push_reconnect 1s;
-    rtmp_socket_dir /tmp;
+    rtmp_socket_dir /tmp; #not supported by Windows
 
     rtmp {
         out_queue   4096;
@@ -203,41 +219,6 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
                 live on;
                 gop_cache on; #open GOP cache for low latency
             }
-        }
-
-        #the following two server blocks are for upstream
-
-        server {
-            listen 1935;
-
-            application myapp {
-                live on;
-                gop_cache on; #open GOP cache for low latency
-            }
-        }
-
-        server {
-            listen 1945;
-
-            application myapp {
-                live on;
-                gop_cache on; #open GOP cache for low latency
-            }
-        }
-
-        server {
-            listen 1985;
-
-            application myapp {
-                proxy_pass rtmp://balance; #open reverse proxy
-            }
-        }
-
-        upstream balance {
-            #open load balance
-
-            server localhost:1935;
-            server localhost:1945;
         }
     }
 

@@ -1,5 +1,7 @@
 # nginx-http-flv-module
 
+[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
+
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
 # 功能
@@ -15,10 +17,6 @@
 * rtmp配置的server块中可以省略`listen`配置项。
 
 * 支持虚拟主机。
-
-* 支持反向代理（试验）。
-
-* 支持负载均衡（轮询，试验）。
 
 # 支持的系统
 
@@ -48,9 +46,21 @@
 
 打开NGINX的源代码路径并执行：
 
+## 将模块编译进[NGINX](http://nginx.org)
+
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+## 将模块编译为动态模块
+
+    ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
+    make
+    make install
+
+### 注意
+
+如果将模块编译为动态模块，那么[NGINX](http://nginx.org)的版本号**必须**大于或者等于1.9.11。
 
 # 使用方法
 
@@ -120,10 +130,15 @@
 
 # nginx.conf实例
 
-    worker_processes  4;
-    worker_cpu_affinity  0001 0010 0100 1000;
+    worker_processes  4; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
+    worker_cpu_affinity  0001 0010 0100 1000; #运行在Windows上时，省略此配置项
 
     error_log logs/error.log error;
+
+    #如果此模块被编译为动态模块并且要使用与RTMP相关的功
+    #能时，必须指定下面的配置项并且它必须位于events配置
+    #项之前，否则NGINX启动时不会加载此模块或者加载失败
+    #load_module modules/ngx_rtmp_module.so;
 
     events {
         worker_connections  1024;
@@ -166,9 +181,9 @@
         }
     }
 
-    rtmp_auto_push on;
+    rtmp_auto_push on; #Windows不支持
     rtmp_auto_push_reconnect 1s;
-    rtmp_socket_dir /tmp;
+    rtmp_socket_dir /tmp; #Windows不支持
 
     rtmp {
         out_queue   4096;
@@ -203,41 +218,6 @@
                 live on;
                 gop_cache on; #打开GOP缓存，降低播放延迟
             }
-        }
-
-        #以下两个server块是用于upstream的
-
-        server {
-            listen 1935;
-
-            application myapp {
-                live on;
-                gop_cache on; #打开GOP缓存，降低播放延迟
-            }
-        }
-
-        server {
-            listen 1945;
-
-            application myapp {
-                live on;
-                gop_cache on; #打开GOP缓存，降低播放延迟
-            }
-        }
-
-        server {
-            listen 1985;
-
-            application myapp {
-                proxy_pass rtmp://balance; #打开反向代理
-            }
-        }
-
-        upstream balance {
-            #打开负载均衡
-
-            server localhost:1935;
-            server localhost:1945;
         }
     }
 

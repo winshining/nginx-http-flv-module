@@ -777,9 +777,11 @@ ngx_rtmp_init_listening(ngx_conf_t *cf, ngx_rtmp_conf_port_t *port)
                 break;
         }
 
+#if (NGX_HAVE_REUSEPORT)
         if (ngx_clone_listening(cf, ls) != NGX_OK) {
             return NGX_ERROR;
         }
+#endif
 
         addr++;
         last--;
@@ -1102,6 +1104,81 @@ ngx_rtmp_init_process(ngx_cycle_t *cycle)
 
 
 ngx_int_t
+ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
+{
+    u_char     *p;
+    ngx_int_t   rc;
+    ngx_str_t   host;
+    ngx_str_t   hschema, rschema, *schema;
+
+    if (s->auto_pushed) {
+        goto next;
+    }
+
+    hschema.data = (u_char *)"http://";
+    hschema.len = ngx_strlen(hschema.data);
+
+    rschema.data = (u_char *) "rtmp://";
+    rschema.len = ngx_strlen(rschema.data);
+
+    do {
+        schema = &hschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        schema = &rschema;
+
+        if (s->tc_url.len > schema->len
+            && ngx_strncasecmp(s->tc_url.data, schema->data, schema->len) == 0)
+        {
+            break;
+        }
+
+        return NGX_ERROR;
+    } while (0);
+
+    s->host_start = s->tc_url.data + schema->len;
+
+    p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, ':');
+    if (p) {
+        s->host_end = p;
+    } else {
+        p = ngx_strlchr(s->host_start, s->tc_url.data + s->tc_url.len, '/');
+        s->host_end = p ? p : (s->host_start + s->tc_url.len - schema->len);
+    }
+
+next:
+    host.len = s->host_end - s->host_start;
+    host.data = s->host_start;
+
+    rc = ngx_rtmp_validate_host(&host, s->connection->pool, 0);
+
+    if (rc == NGX_DECLINED) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "client send invalid host in request line");
+        return NGX_ERROR;
+    }
+
+#if 0
+    /* TODO: send error details to client */
+    if (rc == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+#endif
+
+    if (ngx_rtmp_set_virtual_server(s, &host) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
 ngx_rtmp_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
 {
     u_char  *h, ch;
@@ -1340,3 +1417,63 @@ ngx_rtmp_find_virtual_server(ngx_connection_t *c,
 
     return NGX_DECLINED;
 }
+
+
+#if (nginx_version <= 1011001)
+in_port_t
+ngx_inet_get_port(struct sockaddr *sa)
+{
+    struct sockaddr_in   *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6  *sin6;
+#endif
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        return ntohs(sin6->sin6_port);
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case AF_UNIX:
+        return 0;
+#endif
+
+    default: /* AF_INET */
+        sin = (struct sockaddr_in *) sa;
+        return ntohs(sin->sin_port);
+    }
+}
+
+
+void
+ngx_inet_set_port(struct sockaddr *sa, in_port_t port)
+{
+    struct sockaddr_in   *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6  *sin6;
+#endif
+
+    switch (sa->sa_family) {
+
+#if (NGX_HAVE_INET6)
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        sin6->sin6_port = htons(port);
+        break;
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case AF_UNIX:
+        break;
+#endif
+
+    default: /* AF_INET */
+        sin = (struct sockaddr_in *) sa;
+        sin->sin_port = htons(port);
+        break;
+    }
+}
+#endif
