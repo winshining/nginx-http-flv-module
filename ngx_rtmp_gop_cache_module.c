@@ -628,14 +628,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     }
 
     for (cache = gctx->cache_head; cache; cache = cache->next) {
-        /**
-         * send only one GOP to decrease probability of 
-         * 'TCP Window Full' which leads to playback lag
-         **/
-        if (gctx->gop_cache_count == 2 && cache->next) {
-            continue;
-        }
-
         if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
             r = s->data;
             if (r == NULL || (r->connection && r->connection->destroyed)) {
