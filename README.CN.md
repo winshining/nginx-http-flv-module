@@ -182,7 +182,7 @@
     }
 
     rtmp_auto_push on; #Windows不支持
-    rtmp_auto_push_reconnect 1s;
+    rtmp_auto_push_reconnect 1s; #Windows不支持
     rtmp_socket_dir /tmp; #Windows不支持
 
     rtmp {

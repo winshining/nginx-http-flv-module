@@ -183,7 +183,7 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
     }
 
     rtmp_auto_push on; #not supported by Windows
-    rtmp_auto_push_reconnect 1s;
+    rtmp_auto_push_reconnect 1s; #not supported by Windows
     rtmp_socket_dir /tmp; #not supported by Windows
 
     rtmp {
