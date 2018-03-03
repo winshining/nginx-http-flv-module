@@ -10,6 +10,7 @@
 #include "ngx_rtmp_relay_module.h"
 
 
+static ngx_rtmp_connect_pt      next_connect;
 static ngx_rtmp_play_pt         next_play;
 static ngx_rtmp_close_stream_pt next_close_stream;
 
@@ -61,6 +62,8 @@ static ngx_int_t ngx_http_flv_live_request(ngx_rtmp_session_t *s,
 static ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
         unsigned int publisher);
 static void ngx_http_flv_live_stop(ngx_rtmp_session_t *s);
+static ngx_int_t ngx_http_flv_live_connect(ngx_rtmp_session_t *s,
+        ngx_rtmp_connect_t *v);
 static ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
 static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
@@ -193,6 +196,9 @@ ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle)
     /* rtmp live conf aready exsits, so add additional event handlers */
     h = ngx_array_push(&cmcf->events[NGX_HTTP_FLV_LIVE_REQUEST]);
     *h = ngx_http_flv_live_request;
+
+    next_connect = ngx_rtmp_connect;
+    ngx_rtmp_connect = ngx_http_flv_live_connect;
 
     next_play = ngx_rtmp_play;
     ngx_rtmp_play = ngx_http_flv_live_play;
@@ -595,6 +601,75 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     }
 
     return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_http_flv_live_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
+{
+    ngx_rtmp_core_srv_conf_t       *cscf;
+    ngx_rtmp_core_app_conf_t      **cacfp;
+    ngx_uint_t                      n;
+    u_char                         *p;
+
+#define NGX_RTMP_SET_STRPAR(name)                                             \
+    do {                                                                      \
+        if (s->name.len != ngx_strlen(v->name)                                \
+            || ngx_strncasecmp(s->name.data, v->name, ngx_strlen(v->name)))   \
+        {                                                                     \
+            s->name.len = ngx_strlen(v->name);                                \
+            s->name.data = ngx_palloc(s->connection->pool,                    \
+                                      ngx_strlen(v->name));                   \
+            ngx_memcpy(s->name.data, v->name, ngx_strlen(v->name));           \
+        }                                                                     \
+    } while (0)
+
+    NGX_RTMP_SET_STRPAR(app);
+    NGX_RTMP_SET_STRPAR(args);
+    NGX_RTMP_SET_STRPAR(flashver);
+    NGX_RTMP_SET_STRPAR(swf_url);
+    NGX_RTMP_SET_STRPAR(tc_url);
+    NGX_RTMP_SET_STRPAR(page_url);
+
+#undef NGX_RTMP_SET_STRPAR
+
+    if (s->auto_pushed) {
+        s->host_start = v->server_name;
+        s->host_end = v->server_name + ngx_strlen(v->server_name);
+    }
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
+    if (p) {
+        s->app.len = (p - s->app.data);
+    }
+
+    /* find application & set app_conf */
+    cacfp = cscf->applications.elts;
+    for(n = 0; n < cscf->applications.nelts; ++n, ++cacfp) {
+        if ((*cacfp)->name.len == s->app.len &&
+            ngx_strncmp((*cacfp)->name.data, s->app.data, s->app.len) == 0)
+        {
+            /* found app! */
+            s->app_conf = (*cacfp)->app_conf;
+            s->valid_application = 1;
+            s->app_found = 1;
+            break;
+        }
+    }
+
+    if (s->app_conf == NULL) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "connect: application not found: '%V'", &s->app);
+        return NGX_ERROR;
+    }
+
+    return next_connect(s, v);
 }
 
 
