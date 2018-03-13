@@ -1288,10 +1288,6 @@ ngx_rtmp_notify_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ngx_rtmp_notify_srv_conf_t     *nscf;
     ngx_rtmp_netcall_init_t         ci;
     ngx_url_t                      *url;
-    ngx_rtmp_core_srv_conf_t       *cscf;
-    ngx_rtmp_core_app_conf_t      **cacfp;
-    ngx_uint_t                      n;
-    u_char                         *p;
 
     if (s->auto_pushed || s->relay) {
         goto next;
@@ -1314,54 +1310,6 @@ ngx_rtmp_notify_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ci.handle = ngx_rtmp_notify_connect_handle;
     ci.arg = v;
     ci.argsize = sizeof(*v);
-
-    /** 
-     * request from http doesn't call ngx_rtmp_cmd_connect, so some 
-     * work is done here to avoid that *_conf is NULL in next calls
-     **/
-#define NGX_RTMP_SET_STRPAR(name)                                             \
-    s->name.len = ngx_strlen(v->name);                                        \
-    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
-    ngx_memcpy(s->name.data, v->name, s->name.len)
-
-    NGX_RTMP_SET_STRPAR(app);
-    NGX_RTMP_SET_STRPAR(args);
-    NGX_RTMP_SET_STRPAR(flashver);
-    NGX_RTMP_SET_STRPAR(swf_url);
-    NGX_RTMP_SET_STRPAR(tc_url);
-    NGX_RTMP_SET_STRPAR(page_url);
-
-#undef NGX_RTMP_SET_STRPAR
-
-    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-
-    p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
-    if (p) {
-        s->app.len = (p - s->app.data);
-    }
-
-    /* find application & set app_conf */
-    cacfp = cscf->applications.elts;
-    for(n = 0; n < cscf->applications.nelts; ++n, ++cacfp) {
-        if ((*cacfp)->name.len == s->app.len &&
-            ngx_strncmp((*cacfp)->name.data, s->app.data, s->app.len) == 0)
-        {
-            /* found app! */
-            s->app_conf = (*cacfp)->app_conf;
-            s->valid_application = 1;
-            break;
-        }
-    }
-
-    if (s->app_conf == NULL) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                      "connect: application not found: '%V'", &s->app);
-        return NGX_ERROR;
-    }
 
     return ngx_rtmp_netcall_create(s, &ci);
 

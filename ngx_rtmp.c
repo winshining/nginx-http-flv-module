@@ -1111,6 +1111,10 @@ ngx_rtmp_process_virtual_host(ngx_rtmp_session_t *s)
     ngx_str_t   host;
     ngx_str_t   hschema, rschema, *schema;
 
+    if (s->app_found) {
+        return NGX_OK;
+    }
+
     if (s->auto_pushed) {
         goto next;
     }
