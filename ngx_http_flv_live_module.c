@@ -8,6 +8,7 @@
 #include <ngx_http.h>
 #include "ngx_http_flv_live_module.h"
 #include "ngx_rtmp_relay_module.h"
+#include "ngx_rtmp_notify_module.h"
 
 
 static ngx_rtmp_connect_pt      next_connect;
@@ -59,8 +60,6 @@ static ngx_int_t ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_flv_live_request(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 
-static ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
-        unsigned int publisher);
 static void ngx_http_flv_live_stop(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_connect(ngx_rtmp_session_t *s,
         ngx_rtmp_connect_t *v);
@@ -601,14 +600,23 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                 "flv live: stream not publishing, check relay pulls");
 
-        /* check if there are some pulls */
-        racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
-        if (racf == NULL || racf->pulls.nelts == 0) {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                    "flv live: no racf or relay pulls, quit");
+        do {
+            /* check if there are some pulls */
+            racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
+            if (racf && racf->pulls.nelts) {
+                break;
+            }
 
-            return NGX_ERROR;
-        }
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, 
+                          "flv live: no racf or relay pulls, check on_play");
+
+            if (!s->wait_notification) {
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0, 
+                              "flv live: no relay pulls and no on_play, quit");
+
+                return NGX_ERROR;
+            }
+        } while (0);
     }
 
 upstream:
@@ -711,6 +719,7 @@ ngx_int_t
 ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t        *lacf;
+    ngx_rtmp_notify_app_conf_t      *nacf;
     ngx_http_request_t              *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -729,6 +738,12 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     r->main->count++;
+
+    nacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_notify_module);
+    if (nacf && nacf->url[NGX_RTMP_NOTIFY_PLAY]) {
+        s->wait_notification = 1;
+        goto next;
+    }
 
     /* join stream as a subscriber */
 
@@ -838,6 +853,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 unlink->next = NULL;
             } else {
+                ngx_rtmp_finalize_session((*cctx)->session);
                 cctx = &(*cctx)->next;
             }
         }

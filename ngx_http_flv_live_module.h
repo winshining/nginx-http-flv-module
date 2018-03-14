@@ -64,6 +64,8 @@ typedef struct {
 } ngx_rtmp_live_process_handler_t;
 
 
+ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
+        unsigned int publisher);
 ngx_int_t ngx_http_flv_live_send_header(ngx_rtmp_session_t *s);
 void ngx_http_flv_live_start(ngx_rtmp_session_t *s);
 ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
