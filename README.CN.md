@@ -40,19 +40,25 @@
 
 # 创建
 
+# 在Windows上
+
+编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)。
+
+## 在类Unix系统上
+
 下载[NGINX](http://nginx.org)和nginx-http-flv-module。
 
 将它们解压到某一路径。
 
 打开NGINX的源代码路径并执行：
 
-## 将模块编译进[NGINX](http://nginx.org)
+### 将模块编译进[NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
 
-## 将模块编译为动态模块
+### 将模块编译为动态模块
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
@@ -130,6 +136,10 @@
 
 # nginx.conf实例
 
+## 注意
+
+配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
+
     worker_processes  4; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     worker_cpu_affinity  0001 0010 0100 1000; #运行在Windows上时，省略此配置项
 
@@ -181,9 +191,9 @@
         }
     }
 
-    rtmp_auto_push on; #Windows不支持
-    rtmp_auto_push_reconnect 1s; #Windows不支持
-    rtmp_socket_dir /tmp; #Windows不支持
+    rtmp_auto_push on;
+    rtmp_auto_push_reconnect 1s;
+    rtmp_socket_dir /tmp;
 
     rtmp {
         out_queue   4096;

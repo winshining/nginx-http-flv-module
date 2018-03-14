@@ -1492,6 +1492,13 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         /* request from http */
         r = s->data;
         if (r) {
+            if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
+                r->main->count--;
+                return NGX_ERROR;
+            }
+
+            s->wait_notification = 0;
+
             goto next;
         }
     }

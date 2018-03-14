@@ -12,6 +12,7 @@
 #include "ngx_rtmp_netcall_module.h"
 #include "ngx_rtmp_record_module.h"
 #include "ngx_rtmp_relay_module.h"
+#include "ngx_rtmp_notify_module.h"
 
 
 static ngx_rtmp_connect_pt                      next_connect;
@@ -45,41 +46,6 @@ ngx_str_t   ngx_rtmp_notify_urlencoded =
 
 #define NGX_RTMP_NOTIFY_PUBLISHING              0x01
 #define NGX_RTMP_NOTIFY_PLAYING                 0x02
-
-
-enum {
-    NGX_RTMP_NOTIFY_PLAY,
-    NGX_RTMP_NOTIFY_PUBLISH,
-    NGX_RTMP_NOTIFY_PLAY_DONE,
-    NGX_RTMP_NOTIFY_PUBLISH_DONE,
-    NGX_RTMP_NOTIFY_DONE,
-    NGX_RTMP_NOTIFY_RECORD_DONE,
-    NGX_RTMP_NOTIFY_UPDATE,
-    NGX_RTMP_NOTIFY_APP_MAX
-};
-
-
-enum {
-    NGX_RTMP_NOTIFY_CONNECT,
-    NGX_RTMP_NOTIFY_DISCONNECT,
-    NGX_RTMP_NOTIFY_SRV_MAX
-};
-
-
-typedef struct {
-    ngx_url_t                                  *url[NGX_RTMP_NOTIFY_APP_MAX];
-    ngx_flag_t                                  active;
-    ngx_uint_t                                  method;
-    ngx_msec_t                                  update_timeout;
-    ngx_flag_t                                  update_strict;
-    ngx_flag_t                                  relay_redirect;
-} ngx_rtmp_notify_app_conf_t;
-
-
-typedef struct {
-    ngx_url_t                                  *url[NGX_RTMP_NOTIFY_SRV_MAX];
-    ngx_uint_t                                  method;
-} ngx_rtmp_notify_srv_conf_t;
 
 
 typedef struct {
@@ -1142,7 +1108,7 @@ ngx_rtmp_notify_play_handle(ngx_rtmp_session_t *s,
     u->url.len = rc - 7;
     u->default_port = 1935;
     u->uri_part = 1;
-    u->no_resolve = 1; /* want ip here */
+    u->no_resolve = (s->wait_notification ? 0 : 1); /* want ip here */
 
     if (ngx_parse_url(s->connection->pool, u) != NGX_OK) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,

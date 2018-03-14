@@ -44,6 +44,7 @@ RTMP_DEPS="                                                     \
                 $ngx_addon_dir/ngx_rtmp_netcall_module.h        \
                 $ngx_addon_dir/ngx_rtmp_play_module.h           \
                 $ngx_addon_dir/ngx_rtmp_record_module.h         \
+                $ngx_addon_dir/ngx_rtmp_notify_module.h         \
                 $ngx_addon_dir/ngx_rtmp_gop_cache_module.h      \
                 $ngx_addon_dir/ngx_rtmp_relay_module.h          \
                 $ngx_addon_dir/ngx_rtmp_streams.h               \

@@ -40,19 +40,25 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Build
 
+## On Windows
+
+Build steps please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html).
+
+## On Unix-like systems
+
 Download [NGINX](http://nginx.org) and nginx-http-flv-module.
 
 Uncompress them.
 
 cd to NGINX source directory & run this:
 
-## Compile the module into [NGINX](http://nginx.org)
+### Compile the module into [NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
 
-## Compile the module as a dynamic module
+### Compile the module as a dynamic module
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
@@ -130,6 +136,10 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
 
 # Example nginx.conf
 
+## Note
+
+The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
+
     worker_processes  4; #should be 1 for Windows, for it doesn't support Unix domain socket
     worker_cpu_affinity  0001 0010 0100 1000; #should be eliminated for Windows
 
@@ -182,9 +192,9 @@ Since some players don't support HTTP chunked transmission, it's better **NOT** 
         }
     }
 
-    rtmp_auto_push on; #not supported by Windows
-    rtmp_auto_push_reconnect 1s; #not supported by Windows
-    rtmp_socket_dir /tmp; #not supported by Windows
+    rtmp_auto_push on;
+    rtmp_auto_push_reconnect 1s;
+    rtmp_socket_dir /tmp;
 
     rtmp {
         out_queue   4096;

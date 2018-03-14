@@ -380,6 +380,7 @@ struct ngx_rtmp_session_s {
 
     unsigned                    app_found:1;
     unsigned                    server_changed:1;
+    unsigned                    wait_notification:1;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
