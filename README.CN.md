@@ -38,6 +38,8 @@
 
 * 如果NGINX要支持加密访问，需要OpenSSL库。
 
+* 如果NGINX要支持压缩，需要zlib库。
+
 # 创建
 
 ## 在Windows上
@@ -132,7 +134,11 @@
 
 # 注意
 
-由于一些播放器不支持HTTP块传输, 这种情况下最好**不要**在指定了`flv_live on;`的location中指定`chunked on;`，否则播放会失败。
+由于一些原因，例如，有些人询问nginx-http-flv-module是否支持CORS（跨域资源分享），重写了HTTP-FLV直播模块的回复。nginx-http-flv-module之前版本的HTTP—FLV回复是硬编码的，这意味着不能通过config文件添加一些定制的HTTP头，例如`Access-Control-Allow-Origin`。另外，由于硬编码，NGINX的HTTP模块提供的一些配置项不起作用，所以重写了这个功能。
+
+**chunked**配置项已经废弃，它提供的功能由标准的NGINX配置项**chunked_transfer_encoding**代替，**注意**，如果使用的是HTTP版本1.1（HTTP/1.1）,`chunked_transfer_encoding`配置项默认是打开的。
+
+由于一些播放器不支持HTTP块传输, 这种情况下最好在指定了`flv_live on;`的location中指定`chunked_transfer_encoding off`，否则播放会失败。
 
 # nginx.conf实例
 
@@ -175,7 +181,7 @@
 
             location /live {
                 flv_live on; #打开HTTP播放FLV直播流功能
-                chunked  on; #支持'Transfer-Encoding: chunked'方式回复
+                chunked_transfer_encoding on; #支持'Transfer-Encoding: chunked'方式回复
             }
 
             location /stat {

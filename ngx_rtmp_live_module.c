@@ -1493,7 +1493,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         r = s->data;
         if (r) {
             if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-                r->main->count--;
+                r->main->blocked--;
                 return NGX_ERROR;
             }
 

@@ -35,6 +35,128 @@ static ngx_chain_t *ngx_http_flv_live_append_message(ngx_rtmp_session_t *s,
 static void ngx_http_flv_live_free_message(ngx_rtmp_session_t *s,
         ngx_chain_t *in);
 static void ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s);
+static ngx_int_t ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s);
+static ngx_int_t ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s);
+
+
+typedef struct ngx_http_header_val_s  ngx_http_header_val_t;
+
+typedef ngx_int_t (*ngx_http_set_header_pt)(ngx_http_request_t *r,
+    ngx_http_header_val_t *hv, ngx_str_t *value);
+
+
+typedef struct {
+    ngx_str_t                  name;
+    ngx_uint_t                 offset;
+    ngx_http_set_header_pt     handler;
+} ngx_http_set_header_t;
+
+
+struct ngx_http_header_val_s {
+    ngx_http_complex_value_t   value;
+    ngx_str_t                  key;
+    ngx_http_set_header_pt     handler;
+    ngx_uint_t                 offset;
+    ngx_uint_t                 always;  /* unsigned  always:1 */
+};
+
+
+typedef enum {
+    NGX_HTTP_EXPIRES_OFF,
+} ngx_http_expires_t;
+
+
+typedef struct {
+    ngx_http_expires_t         expires;
+    time_t                     expires_time;
+    ngx_http_complex_value_t  *expires_value;
+    ngx_array_t               *headers;
+} ngx_http_headers_conf_t;
+
+
+extern ngx_module_t    ngx_http_headers_filter_module;
+
+
+static u_char ngx_http_server_string[] = "Server: nginx" CRLF;
+static u_char ngx_http_server_full_string[] = "Server: " NGINX_VER CRLF;
+static u_char ngx_http_server_build_string[] = "Server: " NGINX_VER_BUILD CRLF;
+
+
+static ngx_str_t ngx_http_status_lines[] = {
+
+    ngx_string("200 OK"),
+    ngx_null_string,  /* "201 Created" */
+    ngx_null_string,  /* "202 Accepted" */
+    ngx_null_string,  /* "203 Non-Authoritative Information" */
+    ngx_null_string,  /* "204 No Content" */
+    ngx_null_string,  /* "205 Reset Content" */
+    ngx_null_string,  /* "206 Partial Content" */
+
+    /* ngx_null_string, */  /* "207 Multi-Status" */
+
+#define NGX_HTTP_LAST_2XX  207
+#define NGX_HTTP_OFF_3XX   (NGX_HTTP_LAST_2XX - 200)
+
+    /* ngx_null_string, */  /* "300 Multiple Choices" */
+
+    ngx_string("301 Moved Permanently"),
+    ngx_string("302 Moved Temporarily"),
+    ngx_null_string,  /* "303 See Other" */
+    ngx_null_string,  /* "304 Not Modified" */
+    ngx_null_string,  /* "305 Use Proxy" */
+    ngx_null_string,  /* "306 unused" */
+    ngx_string("307 Temporary Redirect"),
+
+#define NGX_HTTP_LAST_3XX  308
+#define NGX_HTTP_OFF_4XX   (NGX_HTTP_LAST_3XX - 301 + NGX_HTTP_OFF_3XX)
+
+    ngx_string("400 Bad Request"),
+    ngx_null_string,  /* "401 Unauthorized" */
+    ngx_null_string,  /* "402 Payment Required" */
+    ngx_string("403 Forbidden"),
+    ngx_string("404 Not Found"),
+    ngx_string("405 Not Allowed"),
+    ngx_null_string,  /* "406 Not Acceptable" */
+    ngx_null_string,  /* "407 Proxy Authentication Required" */
+    ngx_null_string,  /* "408 Request Time-out" */
+    ngx_null_string,  /* "409 Conflict" */
+    ngx_null_string,  /* "410 Gone" */
+    ngx_null_string,  /* "411 Length Required" */
+    ngx_null_string,  /* "412 Precondition Failed" */
+    ngx_null_string,  /* "413 Request Entity Too Large" */
+    ngx_null_string,  /* "414 Request-URI Too Large" */
+    ngx_null_string,  /* "415 Unsupported Media Type" */
+    ngx_null_string,  /* "416 Requested Range Not Satisfiable" */
+    ngx_null_string,  /* "417 Expectation Failed" */
+    ngx_null_string,  /* "418 unused" */
+    ngx_null_string,  /* "419 unused" */
+    ngx_null_string,  /* "420 unused" */
+    ngx_null_string,  /* "421 Misdirected Request" */
+
+    /* ngx_null_string, */  /* "422 Unprocessable Entity" */
+    /* ngx_null_string, */  /* "423 Locked" */
+    /* ngx_null_string, */  /* "424 Failed Dependency" */
+
+#define NGX_HTTP_LAST_4XX  422
+#define NGX_HTTP_OFF_5XX   (NGX_HTTP_LAST_4XX - 400 + NGX_HTTP_OFF_4XX)
+
+    ngx_string("500 Internal Server Error"),
+    ngx_null_string,  /* "501 Not Implemented" */
+    ngx_null_string,  /* "502 Bad Gateway" */
+    ngx_string("503 Service Temporarily Unavailable"),
+    ngx_null_string,  /* "504 Gateway Time-out" */
+    ngx_null_string,        /* "505 HTTP Version Not Supported" */
+    ngx_null_string,        /* "506 Variant Also Negotiates" */
+    ngx_null_string,  /* "507 Insufficient Storage" */
+
+    /* ngx_null_string, */  /* "508 unused" */
+    /* ngx_null_string, */  /* "509 unused" */
+    /* ngx_null_string, */  /* "510 Not Extended" */
+
+#define NGX_HTTP_LAST_5XX  508
+
+};
+
 
 extern ngx_rtmp_live_process_handler_t  ngx_rtmp_live_process_handler;
 static ngx_rtmp_live_process_handler_t  ngx_http_flv_live_process_handler = {
@@ -103,13 +225,6 @@ static ngx_command_t ngx_http_flv_live_commands[] = {
       offsetof(ngx_http_flv_live_conf_t, flv_live),
       NULL },
 
-    { ngx_string("chunked"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_flag_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_flv_live_conf_t, chunked),
-      NULL },
-
     ngx_null_command
 };
 
@@ -161,7 +276,6 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
     }
 
     conf->flv_live = NGX_CONF_UNSET;
-    conf->chunked = NGX_CONF_UNSET;
 
     return (void *)conf;
 }
@@ -175,7 +289,6 @@ ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
     ngx_http_flv_live_conf_t *conf = child;
 
     ngx_conf_merge_value(conf->flv_live, prev->flv_live, 0);
-    ngx_conf_merge_value(conf->chunked, prev->chunked, 0);
 
     return NGX_CONF_OK;
 }
@@ -229,49 +342,32 @@ ngx_int_t
 ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_core_srv_conf_t        *cscf;
-    ngx_http_flv_live_ctx_t         *ctx;
+    ngx_http_core_loc_conf_t        *clcf;
     ngx_http_request_t              *r;
     ngx_rtmp_live_ctx_t             *live_ctx;
     ngx_rtmp_codec_ctx_t            *codec_ctx;
+    ngx_table_elt_t                 *e;
     u_char                          *p;
-    ngx_chain_t                      cl_resp_hdr, cl_flv_hdr, *pkt;
-    ngx_buf_t                        buf_resp_hdr, buf_flv_hdr;
+    ngx_chain_t                      cl_flv_hdr, *pkt;
+    ngx_buf_t                        buf_flv_hdr;
     ngx_str_t                        chunked_flv_header;
     ngx_str_t                        consec_flv_header;
     u_char                           chunked_flv_header_data[18];
-    ngx_flag_t                       chunked;
-
-    const ngx_str_t chunked_resp_header = ngx_string(
-        "HTTP/1.1 200 OK"
-        CRLF
-        "Content-Type: video/x-flv"
-        CRLF
-        "Connection: keep-alive"
-        CRLF
-        "Cache-Control: no-cache"
-        CRLF
-        "Transfer-Encoding: chunked"
-        CRLF
-        CRLF);
-
-    const ngx_str_t consec_resp_header = ngx_string(
-        "HTTP/1.1 200 OK"
-        CRLF
-        "Content-Type: video/x-flv"
-        CRLF
-        "Connection: keep-alive"
-        CRLF
-        "Cache-Control: no-cache"
-        CRLF
-        "Expires: -1"
-        CRLF
-        CRLF);
 
     /**
      * |F|L|V|ver|00000101|header_size|0|0|0|0|, ngx_http_flv_module.c
      * for more details, please refer to http://www.adobe.com/devnet/f4v.html
      **/
     u_char flv_header[] = "FLV\x1\0\0\0\0\x9\0\0\0\0";
+
+    r = s->data;
+
+    r->headers_out.status = NGX_HTTP_OK;
+
+    ngx_str_set(&r->headers_out.content_type, "video/x-flv");
+
+    /* force HTTP header Connection to be keep-alive */
+    r->keepalive = 1;
 
     live_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
     if (live_ctx && !live_ctx->active) {
@@ -281,15 +377,12 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         return NGX_ERROR;
     }
 
-    r = s->data;
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    chunked = ctx->chunked;
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
     codec_ctx = ngx_rtmp_get_module_ctx(s->publisher, ngx_rtmp_codec_module);
 
-    if (chunked) {
-        buf_resp_hdr.pos = chunked_resp_header.data;
-        buf_resp_hdr.last = chunked_resp_header.data + chunked_resp_header.len;
+    if (clcf->chunked_transfer_encoding) {
+        r->chunked = 1;
 
         if (codec_ctx->has_video) {
             flv_header[4] |= 0x1;
@@ -313,9 +406,6 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         buf_flv_hdr.pos = chunked_flv_header.data;
         buf_flv_hdr.last = chunked_flv_header.data + chunked_flv_header.len;
     } else {
-        buf_resp_hdr.pos = consec_resp_header.data;
-        buf_resp_hdr.last = consec_resp_header.data + consec_resp_header.len;
-
         if (codec_ctx->has_video) {
             flv_header[4] |= 0x1;
         }
@@ -331,21 +421,422 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         buf_flv_hdr.last = consec_flv_header.data + consec_flv_header.len;
     }
 
-    buf_resp_hdr.start = buf_resp_hdr.pos;
-    buf_resp_hdr.end = buf_resp_hdr.last;
+    e = r->headers_out.expires;
+    if (e == NULL) {
+
+        e = ngx_list_push(&r->headers_out.headers);
+        if (e == NULL) {
+            return NGX_ERROR;
+        }
+
+        r->headers_out.expires = e;
+
+        e->hash = 1;
+        ngx_str_set(&e->key, "Expires");
+    }
+
+    e->value.data = (u_char *) "-1";
+    e->value.len = ngx_strlen("-1");
+
+    if (ngx_http_flv_live_headers_filter(s) == NGX_ERROR) {
+        return NGX_ERROR;
+    }
 
     buf_flv_hdr.start = buf_flv_hdr.pos;
     buf_flv_hdr.end = buf_flv_hdr.last;
 
-    cl_resp_hdr.buf = &buf_resp_hdr;
     cl_flv_hdr.buf = &buf_flv_hdr;
-
-    cl_resp_hdr.next = &cl_flv_hdr;
     cl_flv_hdr.next = NULL;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    pkt = ngx_rtmp_append_shared_bufs(cscf, NULL, &cl_resp_hdr);
+    pkt = ngx_rtmp_append_shared_bufs(cscf, NULL, &cl_flv_hdr);
+    if (pkt == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_http_flv_live_send_message(s, pkt, 0);
+    ngx_rtmp_free_shared_chain(cscf, pkt);
+
+    return NGX_OK;
+}
+
+
+/**
+ * for adding non-standard HTTP headers 
+ **/
+ngx_int_t
+ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
+{
+    ngx_str_t                 value;
+    ngx_uint_t                i, safe_status;
+    ngx_http_header_val_t    *h;
+    ngx_http_headers_conf_t  *conf;
+    ngx_http_request_t       *r;
+
+    r = s->data;
+
+    conf = ngx_http_get_module_loc_conf(r, ngx_http_headers_filter_module);
+
+    /* force */
+    conf->expires = NGX_HTTP_EXPIRES_OFF;
+
+    if (conf->headers == NULL) {
+        return ngx_http_flv_live_header_filter(s);
+    }
+
+    switch (r->headers_out.status) {
+
+    case NGX_HTTP_OK:
+    case NGX_HTTP_CREATED:
+    case NGX_HTTP_NO_CONTENT:
+    case NGX_HTTP_PARTIAL_CONTENT:
+    case NGX_HTTP_MOVED_PERMANENTLY:
+    case NGX_HTTP_MOVED_TEMPORARILY:
+    case NGX_HTTP_SEE_OTHER:
+    case NGX_HTTP_NOT_MODIFIED:
+    case NGX_HTTP_TEMPORARY_REDIRECT:
+        safe_status = 1;
+        break;
+
+    default:
+        safe_status = 0;
+    }
+
+    if (conf->headers) {
+        h = conf->headers->elts;
+        for (i = 0; i < conf->headers->nelts; i++) {
+
+            if (!safe_status && !h[i].always) {
+                continue;
+            }
+
+            if (ngx_http_complex_value(r, &h[i].value, &value) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+            if (h[i].handler(r, &h[i], &value) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+    }
+
+    return ngx_http_flv_live_header_filter(s);
+}
+
+
+ngx_int_t
+ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
+{
+    u_char                    *p;
+    size_t                     len;
+    ngx_str_t                  *status_line;
+    ngx_buf_t                 *b;
+    ngx_uint_t                 status, i;
+    ngx_chain_t                out, *pkt;
+    ngx_list_part_t           *part;
+    ngx_table_elt_t           *header;
+    ngx_http_core_loc_conf_t  *clcf;
+    ngx_rtmp_core_srv_conf_t  *cscf;
+    ngx_http_request_t        *r;
+
+    r = s->data;
+
+    if (r->header_sent) {
+        return NGX_OK;
+    }
+
+    r->header_sent = 1;
+
+    if (r->chunked && r->http_version < NGX_HTTP_VERSION_11) {
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                      "flv live: chunked only supported by HTTP/1.1");
+
+        r->chunked = 0;
+    }
+
+    len = sizeof("HTTP/1.x ") - 1 + sizeof(CRLF) - 1
+          /* the end of the header */
+          + sizeof(CRLF) - 1;
+
+    /* status line */
+
+    if (r->headers_out.status_line.len) {
+        len += r->headers_out.status_line.len;
+        status_line = &r->headers_out.status_line;
+#if (NGX_SUPPRESS_WARN)
+        status = 0;
+#endif
+
+    } else {
+
+        status = r->headers_out.status;
+
+        if (status >= NGX_HTTP_OK
+            && status < NGX_HTTP_LAST_2XX)
+        {
+            /* 2XX */
+
+            status -= NGX_HTTP_OK;
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_MOVED_PERMANENTLY
+                   && status < NGX_HTTP_LAST_3XX)
+        {
+            /* 3XX */
+
+            status = status - NGX_HTTP_MOVED_PERMANENTLY + NGX_HTTP_OFF_3XX;
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_BAD_REQUEST
+                   && status < NGX_HTTP_LAST_4XX)
+        {
+            /* 4XX */
+            status = status - NGX_HTTP_BAD_REQUEST
+                            + NGX_HTTP_OFF_4XX;
+
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_INTERNAL_SERVER_ERROR
+                   && status < NGX_HTTP_LAST_5XX)
+        {
+            /* 5XX */
+            status = status - NGX_HTTP_INTERNAL_SERVER_ERROR
+                            + NGX_HTTP_OFF_5XX;
+
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else {
+            len += NGX_INT_T_LEN + 1 /* SP */;
+            status_line = NULL;
+        }
+
+        if (status_line && status_line->len == 0) {
+            status = r->headers_out.status;
+            len += NGX_INT_T_LEN + 1 /* SP */;
+            status_line = NULL;
+        }
+    }
+
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+    if (r->headers_out.server == NULL) {
+        if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
+            len += sizeof(ngx_http_server_full_string) - 1;
+
+        } else if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_BUILD) {
+            len += sizeof(ngx_http_server_build_string) - 1;
+
+        } else {
+            len += sizeof(ngx_http_server_string) - 1;
+        }
+    }
+
+    if (r->headers_out.date == NULL) {
+        len += sizeof("Date: Mon, 28 Sep 1970 06:00:00 GMT" CRLF) - 1;
+    }
+
+    if (r->headers_out.content_type.len) {
+        len += sizeof("Content-Type: ") - 1
+               + r->headers_out.content_type.len + 2;
+
+        if (r->headers_out.content_type_len == r->headers_out.content_type.len
+            && r->headers_out.charset.len)
+        {
+            len += sizeof("; charset=") - 1 + r->headers_out.charset.len;
+        }
+    }
+
+    if (r->headers_out.content_length == NULL
+        && r->headers_out.content_length_n >= 0)
+    {
+        len += sizeof("Content-Length: ") - 1 + NGX_OFF_T_LEN + 2;
+    }
+
+    if (r->headers_out.last_modified == NULL
+        && r->headers_out.last_modified_time != -1)
+    {
+        len += sizeof("Last-Modified: Mon, 28 Sep 1970 06:00:00 GMT" CRLF) - 1;
+    }
+
+    if (r->chunked) {
+        len += sizeof("Transfer-Encoding: chunked" CRLF) - 1;
+    }
+
+    if (r->keepalive) {
+        len += sizeof("Connection: keep-alive" CRLF) - 1;
+
+        /*
+         * MSIE and Opera ignore the "Keep-Alive: timeout=<N>" header.
+         * MSIE keeps the connection alive for about 60-65 seconds.
+         * Opera keeps the connection alive very long.
+         * Mozilla keeps the connection alive for N plus about 1-10 seconds.
+         * Konqueror keeps the connection alive for about N seconds.
+         */
+
+        if (clcf->keepalive_header) {
+            len += sizeof("Keep-Alive: timeout=") - 1 + NGX_TIME_T_LEN + 2;
+        }
+
+    } else {
+        len += sizeof("Connection: close" CRLF) - 1;
+    }
+
+    part = &r->headers_out.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        if (header[i].hash == 0) {
+            continue;
+        }
+
+        len += header[i].key.len + sizeof(": ") - 1 + header[i].value.len
+               + sizeof(CRLF) - 1;
+    }
+
+    b = ngx_create_temp_buf(r->pool, len);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    /* "HTTP/1.x " */
+    b->last = ngx_cpymem(b->last, "HTTP/1.1 ", sizeof("HTTP/1.x ") - 1);
+
+    /* status line */
+    if (status_line) {
+        b->last = ngx_copy(b->last, status_line->data, status_line->len);
+
+    } else {
+        b->last = ngx_sprintf(b->last, "%03ui ", status);
+    }
+    *b->last++ = CR; *b->last++ = LF;
+
+    if (r->headers_out.server == NULL) {
+        if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
+            p = ngx_http_server_full_string;
+            len = sizeof(ngx_http_server_full_string) - 1;
+
+        } else if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_BUILD) {
+            p = ngx_http_server_build_string;
+            len = sizeof(ngx_http_server_build_string) - 1;
+
+        } else {
+            p = ngx_http_server_string;
+            len = sizeof(ngx_http_server_string) - 1;
+        }
+
+        b->last = ngx_cpymem(b->last, p, len);
+    }
+
+    if (r->headers_out.date == NULL) {
+        b->last = ngx_cpymem(b->last, "Date: ", sizeof("Date: ") - 1);
+        b->last = ngx_cpymem(b->last, ngx_cached_http_time.data,
+                             ngx_cached_http_time.len);
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (r->headers_out.content_type.len) {
+        b->last = ngx_cpymem(b->last, "Content-Type: ",
+                             sizeof("Content-Type: ") - 1);
+        p = b->last;
+        b->last = ngx_copy(b->last, r->headers_out.content_type.data,
+                           r->headers_out.content_type.len);
+
+        if (r->headers_out.content_type_len == r->headers_out.content_type.len
+            && r->headers_out.charset.len)
+        {
+            b->last = ngx_cpymem(b->last, "; charset=",
+                                 sizeof("; charset=") - 1);
+            b->last = ngx_copy(b->last, r->headers_out.charset.data,
+                               r->headers_out.charset.len);
+
+            /* update r->headers_out.content_type for possible logging */
+
+            r->headers_out.content_type.len = b->last - p;
+            r->headers_out.content_type.data = p;
+        }
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (r->chunked) {
+        b->last = ngx_cpymem(b->last, "Transfer-Encoding: chunked" CRLF,
+                             sizeof("Transfer-Encoding: chunked" CRLF) - 1);
+    }
+
+    if (r->keepalive) {
+        b->last = ngx_cpymem(b->last, "Connection: keep-alive" CRLF,
+                             sizeof("Connection: keep-alive" CRLF) - 1);
+
+        if (clcf->keepalive_header) {
+            b->last = ngx_sprintf(b->last, "Keep-Alive: timeout=%T" CRLF,
+                                  clcf->keepalive_header);
+        }
+
+    } else {
+        b->last = ngx_cpymem(b->last, "Connection: close" CRLF,
+                             sizeof("Connection: close" CRLF) - 1);
+    }
+
+    part = &r->headers_out.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        if (header[i].hash == 0) {
+            continue;
+        }
+
+        b->last = ngx_copy(b->last, header[i].key.data, header[i].key.len);
+        *b->last++ = ':'; *b->last++ = ' ';
+
+        b->last = ngx_copy(b->last, header[i].value.data, header[i].value.len);
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "%*s", (size_t) (b->last - b->pos), b->pos);
+
+    /* the end of HTTP header */
+    *b->last++ = CR; *b->last++ = LF;
+
+    r->header_size = b->last - b->pos;
+
+    out.buf = b;
+    out.next = NULL;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
+    pkt = ngx_rtmp_append_shared_bufs(cscf, NULL, &out);
+    if (pkt == NULL) {
+        return NGX_ERROR;
+    }
 
     ngx_http_flv_live_send_message(s, pkt, 0);
     ngx_rtmp_free_shared_chain(cscf, pkt);
@@ -698,7 +1189,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
-    r->main->count++;
+    r->main->blocked++;
 
     nacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_notify_module);
     if (nacf && nacf->url[NGX_RTMP_NOTIFY_PLAY]) {
@@ -709,7 +1200,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     /* join stream as a subscriber */
 
     if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-        r->main->count--;
+        r->main->blocked--;
 
         return NGX_ERROR;
     }
@@ -733,18 +1224,15 @@ next:
 static void
 ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 {
-    ngx_http_flv_live_ctx_t    *sctx;
     ngx_http_request_t         *r;
 
     r = s->data;
     if (r && r->connection && !r->connection->destroyed) {
-        sctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-        if (sctx->chunked) {
-            r->main->count--;
-            sctx->chunked = 0;
+        r->main->blocked--;
+
+        if (r->chunked) {
             ngx_http_flv_live_send_tail(s);
         } else {
-            /* no need to decrease r->main->count */
             r->keepalive = 0;
             ngx_http_finalize_request(r, NGX_DONE);
         }
@@ -1361,9 +1849,7 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_rtmp_header_t *lh, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t        *cscf;
-    ngx_http_flv_live_ctx_t         *ctx;
     ngx_http_request_t              *r;
-    ngx_flag_t                       chunked;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
     if (cscf == NULL) {
@@ -1377,10 +1863,7 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NULL;
     }
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    chunked = ctx->chunked;
-
-    return ngx_http_flv_live_append_shared_bufs(cscf, h, in, chunked);
+    return ngx_http_flv_live_append_shared_bufs(cscf, h, in, r->chunked);
 }
 
 
@@ -1606,9 +2089,16 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     ngx_rtmp_session_t              *s;
     ngx_rtmp_connection_t           *rconn;
 
-    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
+    if (!(r->method & (NGX_HTTP_GET))) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: HTTP method was not \"GET\" or \"HEAD\"");
+                "flv live: HTTP method was not \"GET\"");
+
+        return NGX_HTTP_NOT_ALLOWED;
+    }
+
+    if (r->http_version < NGX_HTTP_VERSION_10) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "flv live: HTTP version 0.9 not supported");
 
         return NGX_HTTP_NOT_ALLOWED;
     }
@@ -1653,7 +2143,6 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    ctx->chunked = hfcf->chunked;
     ctx->s = s;
 
     /* live, ranges not allowed */
