@@ -31,7 +31,6 @@ extern ngx_module_t ngx_rtmp_module;
 typedef struct ngx_http_flv_live_ctx_s {
     ngx_rtmp_session_t  *s;
     ngx_flag_t           flv_live;
-    ngx_flag_t           chunked;
     ngx_flag_t           header_sent;
 
     ngx_str_t            app;
@@ -42,7 +41,6 @@ typedef struct ngx_http_flv_live_ctx_s {
 
 typedef struct ngx_http_flv_live_conf_s {
     ngx_flag_t    flv_live;
-    ngx_flag_t    chunked;
 } ngx_http_flv_live_conf_t;
 
 
