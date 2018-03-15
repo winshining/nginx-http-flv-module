@@ -40,7 +40,7 @@
 
 # 创建
 
-# 在Windows上
+## 在Windows上
 
 编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)。
 
