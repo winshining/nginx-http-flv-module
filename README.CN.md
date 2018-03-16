@@ -182,6 +182,9 @@
             location /live {
                 flv_live on; #打开HTTP播放FLV直播流功能
                 chunked_transfer_encoding on; #支持'Transfer-Encoding: chunked'方式回复
+
+                add_header 'Access-Control-Allow-Origin' '*'; #添加额外的HTTP头
+                add_header 'Access-Control-Allow-Credentials' 'true'; #添加额外的HTTP头
             }
 
             location /stat {

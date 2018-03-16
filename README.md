@@ -183,6 +183,9 @@ The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir
             location /live {
                 flv_live on; #open flv live streaming (subscribe)
                 chunked_transfer_encoding  on; #open 'Transfer-Encoding: chunked' response
+
+                add_header 'Access-Control-Allow-Origin' '*'; #add additional HTTP header
+                add_header 'Access-Control-Allow-Credentials' 'true'; #add additional HTTP header
             }
 
             location /stat {

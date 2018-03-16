@@ -366,8 +366,8 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
 
     ngx_str_set(&r->headers_out.content_type, "video/x-flv");
 
-    /* force HTTP header Connection to be keep-alive */
-    r->keepalive = 1;
+    /* force HTTP header Connection to be close */
+    r->keepalive = 0;
 
     live_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
     if (live_ctx && !live_ctx->active) {
@@ -1233,7 +1233,6 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
         if (r->chunked) {
             ngx_http_flv_live_send_tail(s);
         } else {
-            r->keepalive = 0;
             ngx_http_finalize_request(r, NGX_DONE);
         }
     }
