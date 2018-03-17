@@ -1108,7 +1108,7 @@ ngx_rtmp_notify_play_handle(ngx_rtmp_session_t *s,
     u->url.len = rc - 7;
     u->default_port = 1935;
     u->uri_part = 1;
-    u->no_resolve = (s->wait_notification ? 0 : 1); /* want ip here */
+    u->no_resolve = (s->wait_notify_play ? 0 : 1); /* want ip here */
 
     if (ngx_parse_url(s->connection->pool, u) != NGX_OK) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
