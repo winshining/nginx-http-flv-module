@@ -276,16 +276,9 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 
 #define NGX_RTMP_SET_STRPAR(name)                                             \
-    do {                                                                      \
-        if (s->name.len != ngx_strlen(v->name)                                \
-            || ngx_strncasecmp(s->name.data, v->name, ngx_strlen(v->name)))   \
-        {                                                                     \
-            s->name.len = ngx_strlen(v->name);                                \
-            s->name.data = ngx_palloc(s->connection->pool,                    \
-                                      ngx_strlen(v->name));                   \
-            ngx_memcpy(s->name.data, v->name, ngx_strlen(v->name));           \
-        }                                                                     \
-    } while (0)
+    s->name.len = ngx_strlen(v->name);                                        \
+    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
+    ngx_memcpy(s->name.data, v->name, s->name.len)
 
     NGX_RTMP_SET_STRPAR(app);
     NGX_RTMP_SET_STRPAR(args);
@@ -307,14 +300,13 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
-    if (s->app_found) {
-        goto next;
-    }
-
     p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
     if (p) {
         s->app.len = (p - s->app.data);
     }
+
+    s->acodecs = (uint32_t) v->acodecs;
+    s->vcodecs = (uint32_t) v->vcodecs;
 
     /* find application & set app_conf */
     cacfp = cscf->applications.elts;
@@ -325,7 +317,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
             /* found app! */
             s->app_conf = (*cacfp)->app_conf;
             s->valid_application = 1;
-            s->app_found = 1;
             break;
         }
     }
@@ -336,11 +327,11 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
-next:
-    s->acodecs = (uint32_t) v->acodecs;
-    s->vcodecs = (uint32_t) v->vcodecs;
-
     object_encoding = v->object_encoding;
+
+    if (s->wait_notify_connect) {
+        s->wait_notify_connect = 0;
+    }
 
     return ngx_rtmp_send_ack_size(s, cscf->ack_window) != NGX_OK ||
            ngx_rtmp_send_bandwidth(s, cscf->ack_window,
