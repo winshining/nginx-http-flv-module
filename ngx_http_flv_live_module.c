@@ -188,7 +188,7 @@ static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         ngx_rtmp_close_stream_t *v);
 
 
-static void ngx_http_flv_live_play_handler(ngx_event_t *wev);
+static void ngx_http_flv_live_play_handler(ngx_event_t *ev);
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
 
@@ -950,7 +950,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ctx->play.log = s->connection->log;
         ctx->play.data = s->connection;
 
-        ngx_add_timer(&ctx->play, 20);
+        ngx_http_flv_live_play_handler(&ctx->play);
 
         if (r->main->blocked == 0) {
             r->blocked++;
@@ -1137,7 +1137,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     r = s->data;
-    if (r == NULL) {
+    if (r == NULL || s->wait_notify_play) {
         goto next;
     }
 
