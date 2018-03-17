@@ -1242,7 +1242,7 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
                 return NGX_ERROR;
             }
 
-            s->wait_notification = 0;
+            s->wait_notify_play = 0;
 
             goto next;
         }

@@ -306,16 +306,9 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 
 #define NGX_RTMP_SET_STRPAR(name)                                             \
-    do {                                                                      \
-        if (s->name.len != ngx_strlen(v->name)                                \
-            || ngx_strncasecmp(s->name.data, v->name, ngx_strlen(v->name)))   \
-        {                                                                     \
-            s->name.len = ngx_strlen(v->name);                                \
-            s->name.data = ngx_palloc(s->connection->pool,                    \
-                                      ngx_strlen(v->name));                   \
-            ngx_memcpy(s->name.data, v->name, ngx_strlen(v->name));           \
-        }                                                                     \
-    } while (0)
+    s->name.len = ngx_strlen(v->name);                                        \
+    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
+    ngx_memcpy(s->name.data, v->name, s->name.len)
 
     NGX_RTMP_SET_STRPAR(app);
     NGX_RTMP_SET_STRPAR(args);
@@ -348,6 +341,10 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     /* find application will processed in push/play */
 
     object_encoding = v->object_encoding;
+
+    if (s->wait_notify_connect) {
+        s->wait_notify_connect = 0;
+    }
 
     return ngx_rtmp_send_ack_size(s, cscf->ack_window) != NGX_OK ||
            ngx_rtmp_send_bandwidth(s, cscf->ack_window,
