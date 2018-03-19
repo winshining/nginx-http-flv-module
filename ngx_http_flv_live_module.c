@@ -915,12 +915,6 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_http_request_t          *r;
     ngx_http_flv_live_ctx_t     *ctx;
-    ngx_rtmp_notify_srv_conf_t  *nscf;
-
-    nscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_notify_module);
-    if (nscf && nscf->url[NGX_RTMP_NOTIFY_CONNECT]) {
-        s->wait_notify_connect = 1;
-    }
 
     r = s->data;
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
@@ -1805,8 +1799,9 @@ ngx_int_t
 ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
         ngx_str_t *stream)
 {
-    ngx_rtmp_connect_t     v;
-    ngx_http_request_t    *r;
+    ngx_rtmp_connect_t           v;
+    ngx_http_request_t          *r;
+    ngx_rtmp_notify_srv_conf_t  *nscf;
 
     r = s->data;
 
@@ -1836,6 +1831,11 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
                       "flv live: failed to process virtual host");
 
         return NGX_ERROR;
+    }
+
+    nscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_notify_module);
+    if (nscf && nscf->url[NGX_RTMP_NOTIFY_CONNECT]) {
+        s->wait_notify_connect = 1;
     }
 
     s->stream.len = stream->len;

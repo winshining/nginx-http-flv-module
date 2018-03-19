@@ -202,14 +202,14 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+    ngx_rtmp_cmd_fill_args(v.app, v.args);
+
     len = ngx_strlen(v.app);
     if (len > 10 && !ngx_memcmp(v.app + len - 10, "/_definst_", 10)) {
         v.app[len - 10] = 0;
     } else if (len && v.app[len - 1] == '/') {
         v.app[len - 1] = 0;
     }
-
-    ngx_rtmp_cmd_fill_args(v.app, v.args);
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
             "connect: app='%s' args='%s' flashver='%s' swf_url='%s' "
