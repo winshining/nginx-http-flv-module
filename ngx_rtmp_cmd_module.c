@@ -176,6 +176,32 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+#define NGX_RTMP_SET_STRPAR(name)                                             \
+    s->name.len = ngx_strlen(v.name);                                         \
+    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
+    ngx_memcpy(s->name.data, v.name, s->name.len)
+
+    NGX_RTMP_SET_STRPAR(app);
+    NGX_RTMP_SET_STRPAR(args);
+    NGX_RTMP_SET_STRPAR(flashver);
+    NGX_RTMP_SET_STRPAR(swf_url);
+    NGX_RTMP_SET_STRPAR(tc_url);
+    NGX_RTMP_SET_STRPAR(page_url);
+
+#undef NGX_RTMP_SET_STRPAR
+
+    if (s->auto_pushed) {
+        s->host_start = v.server_name;
+        s->host_end = v.server_name + ngx_strlen(v.server_name);
+    }
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "connect: failed to process virtual host");
+
+        return NGX_ERROR;
+    }
+
     len = ngx_strlen(v.app);
     if (len > 10 && !ngx_memcmp(v.app + len - 10, "/_definst_", 10)) {
         v.app[len - 10] = 0;
@@ -265,6 +291,8 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         return NGX_ERROR;
     }
 
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+
     trans = v->trans;
 
     /* fill session parameters */
@@ -276,9 +304,15 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
 
 #define NGX_RTMP_SET_STRPAR(name)                                             \
-    s->name.len = ngx_strlen(v->name);                                        \
-    s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \
-    ngx_memcpy(s->name.data, v->name, s->name.len)
+    do {                                                                      \
+        if (s->name.len != ngx_strlen(v->name)                                \
+            || ngx_strncasecmp(s->name.data, v->name, s->name.len))           \
+        {                                                                     \
+            s->name.len = ngx_strlen(v->name);                                \
+            s->name.data = ngx_palloc(s->connection->pool, s->name.len);      \
+            ngx_memcpy(s->name.data, v->name, s->name.len);                   \
+        }                                                                     \
+    } while (0)
 
     NGX_RTMP_SET_STRPAR(app);
     NGX_RTMP_SET_STRPAR(args);
@@ -288,17 +322,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     NGX_RTMP_SET_STRPAR(page_url);
 
 #undef NGX_RTMP_SET_STRPAR
-
-    if (s->auto_pushed) {
-        s->host_start = v->server_name;
-        s->host_end = v->server_name + ngx_strlen(v->server_name);
-    }
-
-    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
 
     p = ngx_strlchr(s->app.data, s->app.data + s->app.len, '?');
     if (p) {

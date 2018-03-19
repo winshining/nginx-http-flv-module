@@ -953,10 +953,10 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_http_flv_live_play_handler(&ctx->play);
 
         if (r->main->blocked == 0) {
-            r->blocked++;
+            r->main->blocked++;
         }
 
-        return NGX_OK;
+        return ctx->error ? NGX_ERROR : NGX_OK;
     }
 
     return ngx_rtmp_play(s, &v);
@@ -1137,12 +1137,16 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     r = s->data;
-    if (r == NULL || s->wait_notify_play) {
+    if (r == NULL) {
         goto next;
     }
 
     if (r->main->blocked == 0) {
         r->main->blocked++;
+    }
+
+    if (s->wait_notify_play) {
+        goto next;
     }
 
     /* join stream as a subscriber */
@@ -1297,20 +1301,19 @@ ngx_http_flv_live_play_handler(ngx_event_t *ev)
     ngx_http_flv_live_ctx_t    *ctx;
 
     c = ev->data;
-    r = c->data;
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    s = ctx->s;
-
     if (c->destroyed) {
         return;
     }
 
-    if (!s->wait_notify_connect) {
-        if (ev->timer_set) {
-            ngx_del_timer(ev);
-        }
+    r = c->data;
+    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+    s = ctx->s;
 
+    if (ev->timer_set) {
+        ngx_del_timer(ev);
+    }
+
+    if (!s->wait_notify_connect) {
         ngx_memzero(&v, sizeof(ngx_rtmp_play_t));
 
         ngx_memcpy(v.name, ctx->stream.data, ngx_min(ctx->stream.len,
@@ -1329,7 +1332,9 @@ ngx_http_flv_live_play_handler(ngx_event_t *ev)
             r->blocked--;
         }
 
-        ngx_rtmp_play(s, &v);
+        if (ngx_rtmp_play(s, &v) != NGX_OK) {
+            ctx->error = 1;
+        }
     } else {
         ngx_add_timer(ev, 20);
     }
@@ -1825,6 +1830,13 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     NGX_RTMP_SET_STRPAR(tc_url);
 
 #undef NGX_RTMP_SET_STRPAR
+
+    if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "flv live: failed to process virtual host");
+
+        return NGX_ERROR;
+    }
 
     s->stream.len = stream->len;
     s->stream.data = ngx_pstrdup(s->connection->pool, stream);
