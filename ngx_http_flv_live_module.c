@@ -181,7 +181,6 @@ static ngx_int_t ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_flv_live_request(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in);
 
-static void ngx_http_flv_live_stop(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
 static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
@@ -979,30 +978,13 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
  * omit the user control message feedback
  */
 void
-ngx_http_flv_live_start(ngx_rtmp_session_t *s)
+ngx_http_flv_live_set_status(ngx_rtmp_session_t *s, unsigned active)
 {
     ngx_rtmp_live_ctx_t        *ctx;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
 
-    ctx->active = 1;
-
-    ctx->cs[0].active = 0;
-    ctx->cs[0].dropped = 0;
-
-    ctx->cs[1].active = 0;
-    ctx->cs[1].dropped = 0;
-}
-
-
-void
-ngx_http_flv_live_stop(ngx_rtmp_session_t *s)
-{
-    ngx_rtmp_live_ctx_t        *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-
-    ctx->active = 0;
+    ctx->active = active;
 
     ctx->cs[0].active = 0;
     ctx->cs[0].dropped = 0;
@@ -1021,6 +1003,7 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_rtmp_live_app_conf_t       *lacf;
 
     ngx_rtmp_relay_app_conf_t      *racf;
+    ngx_flag_t                      create;
 
     /* only for subscribers */
     if (publisher) {
@@ -1048,14 +1031,22 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_memzero(ctx, sizeof(*ctx));
 
     ctx->session = s;
+    create = 0;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live: join '%s'", name);
 
-    stream = ngx_rtmp_live_get_stream(s, name, lacf->idle_streams);
+    racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
+    if (racf && racf->pulls.nelts) {
+        create = 1;
+    }
+
+    stream = ngx_rtmp_live_get_stream(s, name,
+                        lacf->idle_streams || s->wait_notify_play || create);
 
     if (stream == NULL ||
-        !(publisher || (*stream)->publishing || lacf->idle_streams))
+        !(publisher || (*stream)->publishing || lacf->idle_streams ||
+           s->wait_notify_play || create))
     {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                 "flv live: stream not found");
@@ -1069,18 +1060,17 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
                 "flv live: stream not publishing, check relay pulls");
 
         do {
-            /* check if there are some pulls */
-            racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
-            if (racf && racf->pulls.nelts) {
+            if (s->wait_notify_play) {
                 break;
             }
 
             ngx_log_error(NGX_LOG_INFO, s->connection->log, 0, 
-                          "flv live: no racf or relay pulls, check on_play");
+                          "flv live: no on_play, check relay pulls");
 
-            if (!s->wait_notify_play) {
+            /* check if there are some pulls */
+            if (!create) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0, 
-                              "flv live: no relay pulls and no on_play, quit");
+                              "flv live: no on_play and no relay pulls, quit");
 
                 return NGX_ERROR;
             }
@@ -1106,7 +1096,7 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ctx->cs[1].csid = NGX_RTMP_CSID_AUDIO;
 
     if (!ctx->publishing && ctx->stream->active) {
-        ngx_http_flv_live_start(s);
+        ngx_http_flv_live_set_status(s, 1);
     }
 
     return NGX_OK;
@@ -1242,7 +1232,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 ngx_http_flv_live_close_http_request((*cctx)->session);
 
                 if (!(*cctx)->publishing && (*cctx)->stream->active) {
-                    ngx_http_flv_live_stop((*cctx)->session);
+                    ngx_http_flv_live_set_status((*cctx)->session, 0);
                 }
 
                 unlink = *cctx;
@@ -1259,7 +1249,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         for (cctx = &ctx->stream->ctx; *cctx; /* void */) {
             if (*cctx == ctx) {
                 if (!ctx->publishing && ctx->stream->active) {
-                    ngx_http_flv_live_stop(s);
+                    ngx_http_flv_live_set_status(s, 0);
                 }
 
                 *cctx = ctx->next;

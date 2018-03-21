@@ -68,7 +68,7 @@ typedef struct {
 ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
         unsigned int publisher);
 ngx_int_t ngx_http_flv_live_send_header(ngx_rtmp_session_t *s);
-void ngx_http_flv_live_start(ngx_rtmp_session_t *s);
+void ngx_http_flv_live_set_status(ngx_rtmp_session_t *s, unsigned active);
 ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
         ngx_rtmp_core_srv_conf_t *cscf,
         ngx_rtmp_header_t *h,
