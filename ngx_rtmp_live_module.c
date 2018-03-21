@@ -428,7 +428,7 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
             if (pctx->publishing == 0) {
                 if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
                     pctx->session->publisher = s;
-                    ngx_http_flv_live_start(pctx->session);
+                    ngx_http_flv_live_set_status(pctx->session, active);
                 } else {
                     ngx_rtmp_live_set_status(pctx->session, control, status,
                                          nstatus, active);
@@ -442,7 +442,7 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
     /* subscriber */
 
     if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
-        ngx_http_flv_live_start(s);
+        ngx_http_flv_live_set_status(s, active);
     } else {
         if (control && ngx_rtmp_send_message(s, control, 0) != NGX_OK) {
             ngx_rtmp_finalize_session(s);
@@ -985,7 +985,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 }
 
                 hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-
                 if (!hctx->header_sent) {
                     if ((!codec_ctx->has_video || !codec_ctx->has_audio)
                         && !codec_ctx->pure_audio)
