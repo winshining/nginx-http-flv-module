@@ -340,10 +340,12 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
     ngx_http_request_t              *r;
     ngx_rtmp_live_ctx_t             *live_ctx;
     ngx_rtmp_codec_ctx_t            *codec_ctx;
-    ngx_table_elt_t                 *e;
+    ngx_list_part_t                 *part;
+    ngx_table_elt_t                 *e, *header;
     u_char                          *p;
     ngx_chain_t                      cl_flv_hdr, *pkt;
     ngx_buf_t                        buf_flv_hdr;
+    ngx_uint_t                       i;
     ngx_str_t                        chunked_flv_header;
     ngx_str_t                        consec_flv_header;
     u_char                           chunked_flv_header_data[18];
@@ -360,8 +362,37 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
 
     ngx_str_set(&r->headers_out.content_type, "video/x-flv");
 
-    /* force HTTP header Connection to be close */
-    r->keepalive = 0;
+    /* fill HTTP header 'Connection' according to headers_in */
+    part = &r->headers_in.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */; i++) {
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        if (header[i].hash == 0) {
+            continue;
+        }
+
+        if (ngx_strcasecmp(header[i].key.data, (u_char *) "connection") == 0) {
+            if (ngx_strcasecmp(header[i].value.data, (u_char *) "keep-alive")
+                == 0)
+            {
+                r->keepalive = 1;
+            } else {
+                r->keepalive = 0;
+            }
+
+            break;
+        }
+    }
 
     live_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
     if (live_ctx && !live_ctx->active) {
@@ -1128,6 +1159,18 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     if (r->main->blocked == 0) {
         r->main->blocked++;
     }
+
+#if (nginx_version >= 1013001)
+        /** 
+         * when playing from pull, the downstream requests on the most 
+         * of time return before the upstream requests, flv.js always 
+         * sends HTTP header 'Connection: keep-alive', but Nginx has 
+         * deleted r->blocked in ngx_http_finalize_request, that causes 
+         * ngx_http_set_keepalive to run the cleanup handlers to close 
+         * the connection between downstream and server, so play fails
+         **/
+        r->keepalive = 0;
+#endif
 
     if (s->wait_notify_play) {
         goto next;

@@ -1492,15 +1492,17 @@ ngx_rtmp_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         /* request from http */
         r = s->data;
         if (r) {
-            if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-                if (r->main->blocked) {
-                    r->main->blocked--;
+            if (s->wait_notify_play) {
+                if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
+                    if (r->main->blocked) {
+                        r->main->blocked--;
+                    }
+
+                    return NGX_ERROR;
                 }
 
-                return NGX_ERROR;
+                s->wait_notify_play = 0;
             }
-
-            s->wait_notify_play = 0;
 
             goto next;
         }
