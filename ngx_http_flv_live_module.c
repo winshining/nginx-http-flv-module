@@ -78,8 +78,9 @@ extern ngx_module_t    ngx_http_headers_filter_module;
 
 static u_char ngx_http_server_string[] = "Server: nginx" CRLF;
 static u_char ngx_http_server_full_string[] = "Server: " NGINX_VER CRLF;
+#if (nginx_version >= 1011010)
 static u_char ngx_http_server_build_string[] = "Server: " NGINX_VER_BUILD CRLF;
-
+#endif
 
 static ngx_str_t ngx_http_status_lines[] = {
 
@@ -650,6 +651,7 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
     if (r->headers_out.server == NULL) {
+#if (nginx_version >= 1011010)
         if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
             len += sizeof(ngx_http_server_full_string) - 1;
 
@@ -659,6 +661,10 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
         } else {
             len += sizeof(ngx_http_server_string) - 1;
         }
+#else
+        len += clcf->server_tokens ? sizeof(ngx_http_server_full_string) - 1 :
+                                     sizeof(ngx_http_server_string) - 1;
+#endif
     }
 
     if (r->headers_out.date == NULL) {
@@ -752,6 +758,7 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
     *b->last++ = CR; *b->last++ = LF;
 
     if (r->headers_out.server == NULL) {
+#if (nginx_version >= 1011010)
         if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
             p = ngx_http_server_full_string;
             len = sizeof(ngx_http_server_full_string) - 1;
@@ -761,6 +768,13 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
             len = sizeof(ngx_http_server_build_string) - 1;
 
         } else {
+#else
+        if (clcf->server_tokens) {
+            p = (u_char *) ngx_http_server_full_string;
+            len = sizeof(ngx_http_server_full_string) - 1;
+
+        } else {
+#endif
             p = ngx_http_server_string;
             len = sizeof(ngx_http_server_string) - 1;
         }
