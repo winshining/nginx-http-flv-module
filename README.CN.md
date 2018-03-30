@@ -22,6 +22,10 @@
 
 * Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
 
+# 支持的播放器
+
+* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
+
 # 依赖
 
 * 在类Unix系统上，需要GNU make，用于调用编译器来编译软件。
@@ -44,7 +48,7 @@
 
 ## 在Windows上
 
-编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)。
+编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)，不要忘了在`Run configure script`步骤中添加`--add-module=/path/to/nginx-http-flv-module`。
 
 ## 在类Unix系统上
 
@@ -128,7 +132,7 @@
         }
     }
 
-那么HTTP播放的url是：
+那么基于HTTP的播放url是：
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 

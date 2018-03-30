@@ -22,6 +22,10 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).
 
+# Players supported
+
+* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
+
 # Prerequisites
 
 * GNU make for activating compiler on Unix-like systems to compile software.
@@ -44,7 +48,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 ## On Windows
 
-Build steps please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html).
+Build steps please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
 ## On Unix-like systems
 
@@ -128,7 +132,7 @@ And `listen` directive specified in `rtmp` block is:
         }
     }
 
-So the url of play using HTTP is:
+Then the url of play based on HTTP is:
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
