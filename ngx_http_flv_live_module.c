@@ -9,6 +9,7 @@
 #include "ngx_http_flv_live_module.h"
 #include "ngx_rtmp_relay_module.h"
 #include "ngx_rtmp_notify_module.h"
+#include "ngx_rtmp_bandwidth.h"
 
 
 static ngx_rtmp_play_pt         next_play;
@@ -1484,6 +1485,7 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 
         s->out_bytes += n;
         s->ping_reset = 1;
+        ngx_rtmp_update_bandwidth(&ngx_rtmp_bw_out, n);
         s->out_bpos += n;
 
         if (s->out_bpos == s->out_chain->buf->last) {
@@ -1725,6 +1727,8 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r,
 
     /* the default server configuration for the address:port */
     rconn->conf_ctx = rconn->addr_conf->default_server->ctx;
+
+    ++ngx_rtmp_naccepted;
 
     data = c->data;
     c->data = rconn;
