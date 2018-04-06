@@ -976,11 +976,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
                 if (!hctx->header_sent) {
-                    if ((!codec_ctx->has_video || !codec_ctx->has_audio)
-                        && !codec_ctx->pure_audio)
-                    {
-                        continue;
-                    }
 
                     hctx->header_sent = 1;
                     ngx_http_flv_live_send_header(ss);
@@ -1019,11 +1014,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
                                "live: skipping header");
                 continue;
-            }
-
-            if (codec_ctx->pure_audio) {
-                lacf->wait_video = 0;
-                lacf->wait_key = 0;
             }
 
             if (lacf->wait_video && h->type == NGX_RTMP_MSG_AUDIO &&
