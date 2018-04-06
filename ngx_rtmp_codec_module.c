@@ -476,7 +476,6 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t           *cscf;
-    ngx_rtmp_core_app_conf_t           *cacf;
     ngx_rtmp_codec_ctx_t               *ctx;
     ngx_chain_t                       **header;
     ngx_buf_t                           sps_buf;
@@ -503,7 +502,6 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-    cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
 
     fmt =  in->buf->pos[0];
     if (h->type == NGX_RTMP_MSG_AUDIO) {
@@ -515,29 +513,8 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             ctx->sample_rate = sample_rates[(fmt & 0x0c) >> 2];
         }
 
-        ctx->has_audio = 1;
-
-        if (ctx->pure_audio_threshold > cacf->pure_audio_threshold) {
-            ctx->pure_audio = 1;
-            if (ctx->avc_header) {
-                ngx_rtmp_free_shared_chain(cscf, ctx->avc_header);
-                ctx->avc_header = NULL;
-            }
-        } else {
-            if (!ctx->has_video) {
-                ctx->pure_audio_threshold++;
-            }
-        }
     } else {
-        if (ctx->pure_audio) {
-            return NGX_OK;
-        }
-
-        ctx->has_video = 1;
         ctx->video_codec_id = (fmt & 0x0f);
-
-        ctx->pure_audio = 0;
-        ctx->pure_audio_threshold = 0;
     }
 
     /* save AVC/AAC header */

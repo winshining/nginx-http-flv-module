@@ -415,17 +415,18 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
     codec_ctx = ngx_rtmp_get_module_ctx(s->publisher, ngx_rtmp_codec_module);
+    if (codec_ctx->video_codec_id != 0) {
+        flv_header[4] |= 0x1;
+    }
+
+    if (codec_ctx->audio_codec_id != 0
+        && codec_ctx->audio_codec_id != NGX_RTMP_AUDIO_UNCOMPRESSED)
+    {
+        flv_header[4] |= (0x1 << 2);
+    }
 
     if (clcf->chunked_transfer_encoding) {
         r->chunked = 1;
-
-        if (codec_ctx->has_video) {
-            flv_header[4] |= 0x1;
-        }
-
-        if (codec_ctx->has_audio) {
-            flv_header[4] |= (0x1 << 2);
-        }
 
         p = chunked_flv_header_data;
         *p++ = 'd';
@@ -441,14 +442,6 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         buf_flv_hdr.pos = chunked_flv_header.data;
         buf_flv_hdr.last = chunked_flv_header.data + chunked_flv_header.len;
     } else {
-        if (codec_ctx->has_video) {
-            flv_header[4] |= 0x1;
-        }
-
-        if (codec_ctx->has_audio) {
-            flv_header[4] |= (0x1 << 2);
-        }
-
         consec_flv_header.data = flv_header;
         consec_flv_header.len = 13;
 

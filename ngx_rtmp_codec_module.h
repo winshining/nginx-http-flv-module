@@ -110,10 +110,6 @@ typedef struct {
 
     ngx_chain_t                *meta;
     ngx_uint_t                  meta_version;
-    size_t                      pure_audio_threshold;
-    ngx_flag_t                  has_video;
-    ngx_flag_t                  has_audio;
-    ngx_flag_t                  pure_audio;
 } ngx_rtmp_codec_ctx_t;
 
 
