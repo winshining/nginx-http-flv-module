@@ -243,8 +243,6 @@ ngx_rtmp_gop_link_frame(ngx_rtmp_session_t *s, ngx_rtmp_gop_frame_t *frame)
     if (frame->h.type == NGX_RTMP_MSG_VIDEO) {
         ctx->video_frame_in_all++;
         cache->video_frame_in_this++;
-
-        ctx->audio_after_last_video_count = 0;
     } else if(frame->h.type == NGX_RTMP_MSG_AUDIO) {
         ctx->audio_frame_in_all++;
         cache->audio_frame_in_this++;
@@ -422,7 +420,6 @@ ngx_rtmp_gop_cleanup(ngx_rtmp_session_t *s)
     ctx->free_frame = NULL;
     ctx->video_frame_in_all = 0;
     ctx->audio_frame_in_all = 0;
-    ctx->audio_after_last_video_count = 0;
 }
 
 
@@ -521,15 +518,6 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
                     "drop audio frame timestamp='%uD'",
                     ch->timestamp);
 
-        return;
-    }
-
-    if (ch->type == NGX_RTMP_MSG_AUDIO) {
-        ctx->audio_after_last_video_count++;
-    }
-
-    if (ctx->audio_after_last_video_count > cacf->pure_audio_threshold) {
-        ngx_rtmp_gop_cleanup(s);
         return;
     }
 
