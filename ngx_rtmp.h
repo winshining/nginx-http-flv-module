@@ -528,8 +528,6 @@ typedef struct {
     size_t                  limit_rate_after;
     size_t                  sendfile_max_chunk;
 
-    size_t                  pure_audio_threshold;
-
     ngx_msec_t              send_timeout;
     ngx_msec_t              keepalive_timeout;
     ngx_msec_t              lingering_time;
