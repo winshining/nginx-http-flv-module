@@ -1292,7 +1292,10 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 unlink->next = NULL;
             } else {
-                ngx_rtmp_finalize_session((*cctx)->session);
+                if (s->relay) {
+                    ngx_rtmp_finalize_session((*cctx)->session);
+                }
+
                 cctx = &(*cctx)->next;
             }
         }
@@ -1831,7 +1834,7 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
         return NULL;
     }
 
-    s->data = (void *)r;
+    s->data = (void *) r;
 
     return s;
 }
