@@ -54,7 +54,6 @@ typedef struct ngx_rtmp_gop_cache_ctx_s {
     size_t                      gop_cache_count;
     size_t                      video_frame_in_all;
     size_t                      audio_frame_in_all;
-    size_t                      audio_after_last_video_count;
 } ngx_rtmp_gop_cache_ctx_t;
 
 

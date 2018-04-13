@@ -128,7 +128,7 @@ ngx_rtmp_gop_cache_create_app_conf(ngx_conf_t *cf)
     gacf->gop_max_audio_count = NGX_CONF_UNSET_SIZE;
     gacf->gop_max_video_count = NGX_CONF_UNSET_SIZE;
 
-    return (void *)gacf;
+    return (void *) gacf;
 }
 
 
@@ -285,7 +285,7 @@ ngx_rtmp_gop_alloc_cache(ngx_rtmp_session_t *s)
         return NGX_ERROR;
     }
 
-    if (ctx->free_cache != NULL) {
+    if (ctx->free_cache) {
         cache = ctx->free_cache;
         ctx->free_cache = cache->next;
 
@@ -409,7 +409,7 @@ ngx_rtmp_gop_cleanup(ngx_rtmp_session_t *s)
         ngx_rtmp_gop_free_cache(s, cache);
     }
 
-    if (ctx->pool != NULL) {
+    if (ctx->pool) {
         ngx_destroy_pool(ctx->pool);
         ctx->pool = NULL;
     }
@@ -849,7 +849,7 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-    if (ctx == NULL || ctx->stream == NULL) {
+    if (ctx == NULL) {
         goto next;
     }
 
