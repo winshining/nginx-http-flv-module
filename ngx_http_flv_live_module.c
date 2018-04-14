@@ -23,6 +23,7 @@ static char *ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
 
 
 static ngx_int_t ngx_http_flv_live_handler(ngx_http_request_t *r);
+static void ngx_http_flv_live_cleanup(void *data);
 static ngx_int_t ngx_http_flv_live_init_process(ngx_cycle_t *cycle);
 
 static void ngx_http_flv_live_send_tail(ngx_rtmp_session_t *s);
@@ -277,7 +278,7 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 
     conf->flv_live = NGX_CONF_UNSET;
 
-    return (void *)conf;
+    return (void *) conf;
 }
 
 
@@ -1238,6 +1239,8 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 {
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_rtmp_live_app_conf_t   *lacf;
+    ngx_http_request_t         *r;
+    ngx_http_cleanup_t        **cln;
     ngx_flag_t                  passive;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -1322,6 +1325,29 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
      * close only http requests here, the other 
      * requests were left for next_clost_stream 
      **/
+    r = s->data;
+    if (r) {
+        for (cln = &r->cleanup; *cln; /* void */) {
+            if ((*cln)->handler == ngx_http_flv_live_cleanup) {
+                *cln = (*cln)->next;
+                break;
+            }
+
+            cln = &(*cln)->next;
+        }
+
+        ngx_http_free_request(r, 0);
+
+#if (NGX_HTTP_SSL)
+        if (r->connection->ssl) {
+            ngx_ssl_shutdown(r->connection);
+        }
+#endif
+
+#if (NGX_STAT_STUB)
+        (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
+#endif
+    }
 
 next:
     return next_close_stream(s, v);
