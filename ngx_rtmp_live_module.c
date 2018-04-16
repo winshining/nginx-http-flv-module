@@ -985,6 +985,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         if (handler->meta == NULL && meta_version != pctx->meta_version) {
             handler->meta = handler->meta_message_pt(ss, codec_ctx->meta);
+            if (handler->meta == NULL) {
+                continue;
+            }
         }
 
         if (handler->meta && meta_version != pctx->meta_version) {
@@ -1044,6 +1047,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     if (handler->apkt == NULL) {
                         handler->apkt = handler->append_message_pt(ss, &lh,
                                                              NULL, header);
+                        if (handler->apkt == NULL) {
+                            continue;
+                        }
                     }
 
                     rc = handler->send_message_pt(ss, handler->apkt, 0);
@@ -1056,6 +1062,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     if (handler->acopkt == NULL) {
                         handler->acopkt = handler->append_message_pt(ss, &clh,
                                                               NULL, coheader);
+                        if (handler->acopkt == NULL) {
+                            continue;
+                        }
                     }
 
                     rc = handler->send_message_pt(ss, handler->acopkt, 0);
@@ -1080,6 +1089,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 if (handler->apkt == NULL) {
                     handler->apkt = handler->append_message_pt(ss, &ch,
                                                              NULL, in);
+                    if (handler->apkt == NULL) {
+                        continue;
+                    }
                 }
 
                 rc = handler->send_message_pt(ss, handler->apkt, prio);
@@ -1099,6 +1111,9 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         if (handler->rpkt == NULL) {
             handler->rpkt = handler->append_message_pt(ss, &ch, &lh, in);
+            if (handler->rpkt == NULL) {
+                continue;
+            }
         }
 
         /* send relative packet */

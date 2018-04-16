@@ -1919,7 +1919,20 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 ngx_chain_t *
 ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
-    ngx_rtmp_header_t    ch;
+    ngx_rtmp_core_srv_conf_t        *cscf;
+    ngx_http_request_t              *r;
+    ngx_rtmp_header_t                ch;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (cscf == NULL) {
+        return NULL;
+    }
+
+    r = s->data;
+    if (r == NULL || (r->connection && r->connection->destroyed)) {
+        ngx_rtmp_free_shared_chain(cscf, in);
+        return NULL;
+    }
 
     ch.timestamp = 0;
     ch.type = NGX_RTMP_MSG_AMF_META;
@@ -1937,7 +1950,6 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
     if (cscf == NULL) {
-        ngx_rtmp_free_shared_chain(cscf, in);
         return NULL;
     }
 
