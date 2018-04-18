@@ -976,7 +976,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
                 if (!hctx->header_sent) {
-
                     hctx->header_sent = 1;
                     ngx_http_flv_live_send_header(ss);
                 }

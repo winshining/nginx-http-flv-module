@@ -189,6 +189,7 @@ static ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
         ngx_rtmp_play_t *v);
 static ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         ngx_rtmp_close_stream_t *v);
+static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
 
 static void ngx_http_flv_live_play_handler(ngx_event_t *ev);
@@ -1224,12 +1225,8 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 
         if (r->chunked) {
             ngx_http_flv_live_send_tail(s);
-        } else {
-            ngx_http_finalize_request(r, NGX_DONE);
         }
     }
-
-    s->data = NULL;
 }
 
 
@@ -1239,8 +1236,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 {
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_rtmp_live_app_conf_t   *lacf;
-    ngx_http_request_t         *r;
-    ngx_http_cleanup_t        **cln;
     ngx_flag_t                  passive;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -1289,6 +1284,8 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                     ngx_http_flv_live_set_status((*cctx)->session, 0);
                 }
 
+                ngx_http_flv_live_free_request((*cctx)->session);
+
                 unlink = *cctx;
 
                 *cctx = (*cctx)->next;
@@ -1314,6 +1311,8 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 ctx->next = NULL;
                 ctx->stream = NULL;
 
+                ngx_http_flv_live_free_request(s);
+
                 break;
             } else {
                 cctx = &(*cctx)->next;
@@ -1325,6 +1324,18 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
      * close only http requests here, the other 
      * requests were left for next_clost_stream 
      **/
+
+next:
+    return next_close_stream(s, v);
+}
+
+
+static void
+ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
+{
+    ngx_http_request_t   *r;
+    ngx_http_cleanup_t  **cln;
+
     r = s->data;
     if (r) {
         for (cln = &r->cleanup; *cln; /* void */) {
@@ -1348,9 +1359,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
 #endif
     }
-
-next:
-    return next_close_stream(s, v);
 }
 
 
