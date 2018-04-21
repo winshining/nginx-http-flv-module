@@ -1162,7 +1162,7 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     nacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_notify_module);
-    if (nacf && nacf->url[NGX_RTMP_NOTIFY_PLAY]) {
+    if (!s->relay && nacf && nacf->url[NGX_RTMP_NOTIFY_PLAY]) {
         s->wait_notify_play = 1;
     }
 
@@ -1415,13 +1415,12 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
 
     c = rev->data;
     r = c->data;
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-
-    s = ctx->s;
-
     if (c->destroyed) {
         return;
     }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+    s = ctx->s;
 
     n = c->recv(c, buf, sizeof(buf));
 
