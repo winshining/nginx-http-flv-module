@@ -1347,8 +1347,9 @@ next:
 static void
 ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
 {
-    ngx_http_request_t   *r;
-    ngx_http_cleanup_t  **cln;
+    ngx_http_request_t             *r;
+    ngx_http_cleanup_t            **cln;
+    ngx_http_flv_live_ctx_t        *ctx;
 
     r = s->data;
     if (r) {
@@ -1359,6 +1360,11 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
             }
 
             cln = &(*cln)->next;
+        }
+
+        ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+        if (ctx->play.timer_set) {
+            ngx_del_timer(&ctx->play);
         }
 
         ngx_http_free_request(r, 0);
