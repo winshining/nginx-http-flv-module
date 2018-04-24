@@ -969,6 +969,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (ngx_http_flv_live_connect_init(s, &ctx->app, &ctx->stream) != NGX_OK)
     {
+        s->wait_notify_connect = 0;
         return NGX_ERROR;
     }
 
@@ -991,13 +992,12 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ctx->play.handler = ngx_http_flv_live_play_handler;
         ctx->play.log = s->connection->log;
         ctx->play.data = s->connection;
-        ctx->error = 0;
 
         r->main->count++;
 
         ngx_http_flv_live_play_handler(&ctx->play);
 
-        return ctx->error ? NGX_ERROR : NGX_OK;
+        return NGX_OK;
     }
 
     return ngx_rtmp_play(s, &v);
@@ -1098,8 +1098,8 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                 "flv live: stream not found");
+        s->wait_notify_play = 0;
 
-        /* TODO: restore the c->read/write->handler and send error info */
         return NGX_ERROR;
     }
 
@@ -1118,7 +1118,7 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
             /* check if there are some pulls */
             if (!create) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0, 
-                              "flv live: no on_play and no relay pulls, quit");
+                              "flv live: no on_play or relay pull, quit");
 
                 return NGX_ERROR;
             }
@@ -1238,6 +1238,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
         ngx_rtmp_close_stream_t *v)
 {
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
+    ngx_http_request_t         *r;
     ngx_rtmp_live_app_conf_t   *lacf;
     ngx_flag_t                  passive;
 
@@ -1328,6 +1329,13 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
      **/
 
 next:
+    if (s->wait_notify_connect || s->wait_notify_play) {
+        r = s->data;
+        if (r) {
+            ngx_http_flv_live_free_request(s);
+        }
+    }
+
     return next_close_stream(s, v);
 }
 
@@ -1413,9 +1421,7 @@ ngx_http_flv_live_play_handler(ngx_event_t *ev)
 
         r->main->count--;
 
-        if (ngx_rtmp_play(s, &v) != NGX_OK) {
-            ctx->error = 1;
-        }
+        ngx_rtmp_play(s, &v);
     } else {
         ngx_add_timer(ev, 20);
     }
