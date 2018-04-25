@@ -373,6 +373,7 @@ ngx_rtmp_finalize_session(ngx_rtmp_session_t *s)
     ngx_post_event(e, &ngx_posted_events);
 }
 
+
 static void
 ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn)
 {

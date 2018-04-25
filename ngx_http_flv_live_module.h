@@ -32,7 +32,6 @@ typedef struct ngx_http_flv_live_ctx_s {
     ngx_rtmp_session_t  *s;
     ngx_flag_t           flv_live;
     ngx_flag_t           header_sent;
-    ngx_flag_t           error;
 
     ngx_str_t            app;
     ngx_str_t            port;

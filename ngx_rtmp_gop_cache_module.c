@@ -631,6 +631,9 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
         if (meta == NULL && meta_version != cache->meta_version) {
             meta = handler->meta_message_pt(s, cache->meta);
+            if (meta == NULL) {
+                return;
+            }
         }
 
         if (meta) {
@@ -679,9 +682,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
                 if (header) {
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
+                    if (apkt == NULL) {
+                        return;
+                    }
                 }
 
-                if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_ERROR) {
+                if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_ERROR)
+                {
                     cs->timestamp = lh.timestamp;
                     cs->active = 1;
                     s->current_time = cs->timestamp;
@@ -689,7 +696,12 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
 
             pkt = handler->append_message_pt(s, &ch, &lh, gop_frame->frame);
-            if (handler->send_message_pt(s, pkt, gop_frame->prio) == NGX_ERROR) {
+            if (pkt == NULL) {
+                return;
+            }
+
+            if (handler->send_message_pt(s, pkt, gop_frame->prio) == NGX_ERROR)
+            {
                 ++pub_ctx->ndropped;
 
                 cs->dropped += delta;
