@@ -54,7 +54,7 @@ typedef struct {
     ngx_chain_t  *rpkt;
 
     ngx_int_t (*send_message_pt)(ngx_rtmp_session_t *s,
-            ngx_chain_t *out, unsigned int priority);
+            ngx_chain_t *out, ngx_uint_t priority);
     ngx_chain_t *(*meta_message_pt)(ngx_rtmp_session_t *s,
             ngx_chain_t *in);
     ngx_chain_t *(*append_message_pt)(ngx_rtmp_session_t *s,
@@ -62,7 +62,7 @@ typedef struct {
             ngx_chain_t *in);
     void (*free_message_pt)(ngx_rtmp_session_t *s,
             ngx_chain_t *in);
-} ngx_rtmp_live_process_handler_t;
+} ngx_rtmp_live_proc_handler_t;
 
 
 ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
@@ -74,6 +74,8 @@ ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
         ngx_rtmp_header_t *h,
         ngx_chain_t *in,
         ngx_flag_t chunked);
+ngx_int_t ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
+        ngx_chain_t *out, ngx_uint_t priority);
 
 
 #endif

@@ -265,148 +265,164 @@ typedef struct {
 #endif
 
 
+typedef void (*free_message_pt)(ngx_rtmp_session_t *s, ngx_chain_t *in);
+
+typedef struct {
+    free_message_pt  free;
+    ngx_flag_t       set;
+} ngx_rtmp_gop_cache_free_t;
+
+
+typedef struct {
+    ngx_rtmp_gop_cache_free_t  *out;
+    ngx_uint_t                  count;
+} ngx_rtmp_gop_cache_handler_t;
+
+
 struct ngx_rtmp_session_s {
-    uint32_t                    signature;  /* "RTMP" */ /* <-- FIXME wtf */
+    uint32_t                       signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
-    ngx_int_t                   port;
-    ngx_buf_t                  *request_line;
-    ngx_str_t                   uri;
-    ngx_str_t                   unparsed_uri;
+    ngx_int_t                      port;
+    ngx_buf_t                     *request_line;
+    ngx_str_t                      uri;
+    ngx_str_t                      unparsed_uri;
 
-    time_t                      start_sec;
-    ngx_msec_t                  start_msec;
+    time_t                         start_sec;
+    ngx_msec_t                     start_msec;
 
-    ngx_event_t                 close;
+    ngx_event_t                    close;
 
-    void                      **ctx;
-    void                      **main_conf;
-    void                      **srv_conf;
-    void                      **app_conf;
+    void                         **ctx;
+    void                         **main_conf;
+    void                         **srv_conf;
+    void                         **app_conf;
 
-    void                       *data;
-    ngx_event_t                 push_evt;
+    void                          *data;
+    ngx_event_t                    push_evt;
 
-    ngx_str_t                  *addr_text;
-    ngx_flag_t                  connected;
+    ngx_str_t                     *addr_text;
+    ngx_flag_t                     connected;
 
 #if (nginx_version >= 1007005)
-    ngx_queue_t                 posted_dry_events;
+    ngx_queue_t                    posted_dry_events;
 #else
-    ngx_event_t                *posted_dry_events;
+    ngx_event_t                   *posted_dry_events;
 #endif
 
-    ngx_rtmp_variable_value_t  *variables;
+    ngx_rtmp_variable_value_t     *variables;
 
     /* client buffer time in msec */
-    uint32_t                    buflen;
-    uint32_t                    ack_size;
+    uint32_t                       buflen;
+    uint32_t                       ack_size;
 
     /* connection parameters */
-    ngx_str_t                   app;
-    ngx_str_t                   stream;
-    ngx_str_t                   args;
-    ngx_str_t                   flashver;
-    ngx_str_t                   swf_url;
-    ngx_str_t                   tc_url;
-    uint32_t                    acodecs;
-    uint32_t                    vcodecs;
-    ngx_str_t                   page_url;
+    ngx_str_t                      app;
+    ngx_str_t                      stream;
+    ngx_str_t                      args;
+    ngx_str_t                      flashver;
+    ngx_str_t                      swf_url;
+    ngx_str_t                      tc_url;
+    uint32_t                       acodecs;
+    uint32_t                       vcodecs;
+    ngx_str_t                      page_url;
 
     /* handshake data */
-    ngx_buf_t                  *hs_buf;
-    u_char                     *hs_digest;
-    unsigned                    hs_old:1;
-    ngx_uint_t                  hs_stage;
+    ngx_buf_t                     *hs_buf;
+    u_char                        *hs_digest;
+    unsigned                       hs_old:1;
+    ngx_uint_t                     hs_stage;
 
     /* connection timestamps */
-    ngx_msec_t                  epoch;
-    ngx_msec_t                  peer_epoch;
-    ngx_msec_t                  base_time;
-    uint32_t                    current_time;
+    ngx_msec_t                     epoch;
+    ngx_msec_t                     peer_epoch;
+    ngx_msec_t                     base_time;
+    uint32_t                       current_time;
 
     /* ping */
-    ngx_event_t                 ping_evt;
-    unsigned                    ping_active:1;
-    unsigned                    ping_reset:1;
+    ngx_event_t                    ping_evt;
+    unsigned                       ping_active:1;
+    unsigned                       ping_reset:1;
 
     /* auto-pushed? */
-    unsigned                    auto_pushed:1;
-    unsigned                    relay:1;
-    unsigned                    static_relay:1;
+    unsigned                       auto_pushed:1;
+    unsigned                       relay:1;
+    unsigned                       static_relay:1;
 
     /* URI with "/." and on Win32 with "//" */
-    unsigned                    complex_uri:1;
+    unsigned                       complex_uri:1;
     /* URI with "%" */
-    unsigned                    quoted_uri:1;
+    unsigned                       quoted_uri:1;
     /* URI with "+" */
-    unsigned                    plus_in_uri:1;
+    unsigned                       plus_in_uri:1;
     /* URI with " " */
-    unsigned                    space_in_uri:1;
+    unsigned                       space_in_uri:1;
 
-    u_char                     *uri_start;
-    u_char                     *uri_end;
-    u_char                     *args_start;
-    u_char                     *schema_start;
-    u_char                     *schema_end;
-    u_char                     *host_start;
-    u_char                     *host_end;
-    u_char                     *port_start;
-    u_char                     *port_end;
+    u_char                        *uri_start;
+    u_char                        *uri_end;
+    u_char                        *args_start;
+    u_char                        *schema_start;
+    u_char                        *schema_end;
+    u_char                        *host_start;
+    u_char                        *host_end;
+    u_char                        *port_start;
+    u_char                        *port_end;
 
-    unsigned                    keepalive:1;
-    unsigned                    lingering_close:1;
+    unsigned                       keepalive:1;
+    unsigned                       lingering_close:1;
 
-    unsigned                    valid_application:1;
-    unsigned                    valid_unparsed_uri:1;
+    unsigned                       valid_application:1;
+    unsigned                       valid_unparsed_uri:1;
 
 #if (NGX_PCRE)
-    ngx_uint_t                  ncaptures;
-    int                        *captures;
-    u_char                     *captures_data;
+    ngx_uint_t                     ncaptures;
+    int                           *captures;
+    u_char                        *captures_data;
 #endif
 
-    size_t                      limit_rate;
-    size_t                      limit_rate_after;
+    size_t                         limit_rate;
+    size_t                         limit_rate_after;
 
-    ngx_rtmp_connection_t      *rtmp_connection;
+    ngx_rtmp_connection_t         *rtmp_connection;
 
-    ngx_rtmp_session_t         *publisher;
+    ngx_rtmp_session_t            *publisher;
 
-    ngx_pool_t                 *in_streams_pool;
-    ngx_pool_t                 *in_streams_temp_pool;
+    ngx_pool_t                    *in_streams_pool;
+    ngx_pool_t                    *in_streams_temp_pool;
 
-    ngx_pool_t                 *out_pool;
-    ngx_pool_t                 *out_temp_pool;
+    ngx_pool_t                    *out_pool;
+    ngx_pool_t                    *out_temp_pool;
 
-    unsigned                    server_changed:1;
-    unsigned                    wait_notify_connect:1;
-    unsigned                    wait_notify_play:1;
+    unsigned                       server_changed:1;
+    unsigned                       wait_notify_connect:1;
+    unsigned                       wait_notify_play:1;
+
+    ngx_rtmp_gop_cache_handler_t   gop_cache;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
 
-    ngx_rtmp_stream_t          *in_streams;
-    uint32_t                    in_csid;
-    ngx_uint_t                  in_chunk_size;
-    ngx_pool_t                 *in_pool;
-    uint32_t                    in_bytes;
-    uint32_t                    in_last_ack;
+    ngx_rtmp_stream_t             *in_streams;
+    uint32_t                       in_csid;
+    ngx_uint_t                     in_chunk_size;
+    ngx_pool_t                    *in_pool;
+    uint32_t                       in_bytes;
+    uint32_t                       in_last_ack;
 
-    ngx_pool_t                 *in_old_pool;
-    ngx_int_t                   in_chunk_size_changing;
+    ngx_pool_t                    *in_old_pool;
+    ngx_int_t                      in_chunk_size_changing;
 
-    ngx_connection_t           *connection;
+    ngx_connection_t              *connection;
 
     /* circular buffer of RTMP message pointers */
-    ngx_msec_t                  timeout;
-    uint32_t                    out_bytes;
-    size_t                      out_pos, out_last;
-    ngx_chain_t                *out_chain;
-    u_char                     *out_bpos;
-    unsigned                    out_buffer:1;
-    size_t                      out_queue;
-    size_t                      out_cork;
-    ngx_chain_t               **out;
+    ngx_msec_t                     timeout;
+    uint32_t                       out_bytes;
+    size_t                         out_pos, out_last;
+    ngx_chain_t                   *out_chain;
+    u_char                        *out_bpos;
+    unsigned                       out_buffer:1;
+    size_t                         out_queue;
+    size_t                         out_cork;
+    ngx_chain_t                  **out;
 };
 
 

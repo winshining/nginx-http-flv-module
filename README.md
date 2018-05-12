@@ -138,10 +138,6 @@ Then the url of play based on HTTP is:
 
 # Note
 
-HTTP-FLV live response was rewritten for some reasons, for example, somebody asked that if nginx-http-flv-module supported CORS (Cross-Origin Resource Sharing). Previous versions of HTTP-FLV response of nginx-http-flv-module was hard coded, it meant that some customized HTTP headers can not be added via config file, such as `Access-Control-Allow-Origin`. In addition, some directives supplied by HTTP modules of NGINX would not function because of hard coded codes, so the feature was rewritten.
-
-**chunked** directive is deprecated now, the feature supplied by it is replaced by standard NGINX directive **chunked_transfer_encoding**. **Note** that the directive `chunked_transfer_encoding` is open by default for HTTP version 1.1 (HTTP/1.1).
-
 Since some players don't support HTTP chunked transmission, it's better to specify `chunked_transfer_encoding off;` in location where `flv_live on;` is specified in this case, or play will fail.
 
 # Example nginx.conf
