@@ -218,6 +218,16 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
         return NULL;
     }
 
+    s->gop_cache.out = ngx_pcalloc(s->out_pool,
+                            sizeof(ngx_rtmp_gop_cache_free_t)
+                            * ((ngx_rtmp_core_srv_conf_t *)
+                                addr_conf->default_server->ctx->srv_conf
+                                [ngx_rtmp_core_module.ctx_index])->out_queue);
+    if (s->gop_cache.out == NULL) {
+        ngx_rtmp_close_connection(c);
+        return NULL;
+    }
+
     s->in_streams_pool = ngx_create_pool(4096, c->log);
     if (s->in_streams_pool == NULL) {
         ngx_rtmp_close_connection(c);
@@ -242,6 +252,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     s->epoch = ngx_current_msec;
     s->timeout = cscf->timeout;
     s->buflen = cscf->buflen;
+    s->gop_cache.count = 0;
     ngx_rtmp_set_chunk_size(s, NGX_RTMP_DEFAULT_CHUNK_SIZE);
 
 

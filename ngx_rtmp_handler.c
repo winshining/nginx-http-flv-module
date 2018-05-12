@@ -552,8 +552,15 @@ ngx_rtmp_send(ngx_event_t *wev)
         if (s->out_bpos == s->out_chain->buf->last) {
             s->out_chain = s->out_chain->next;
             if (s->out_chain == NULL) {
-                cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-                ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
+                if (s->gop_cache.out[s->out_pos].set) {
+                    s->gop_cache.out[s->out_pos].set = 0;
+                    s->gop_cache.out[s->out_pos].free(s, s->out[s->out_pos]);
+                    s->gop_cache.count--;
+                } else {
+                    cscf = ngx_rtmp_get_module_srv_conf(s,
+                                                        ngx_rtmp_core_module);
+                    ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
+                }
                 ++s->out_pos;
                 s->out_pos %= s->out_queue;
                 if (s->out_pos == s->out_last) {
