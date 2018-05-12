@@ -72,5 +72,9 @@ typedef struct {
 } ngx_rtmp_gop_cache_proc_handler_t;
 
 
+void ngx_rtmp_gop_cache_exec_handler(ngx_rtmp_session_t *s, size_t pos,
+    ngx_chain_t *in);
+
+
 #endif
 

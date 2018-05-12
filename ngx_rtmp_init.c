@@ -346,7 +346,11 @@ ngx_rtmp_close_session_handler(ngx_event_t *e)
     ngx_rtmp_free_handshake_buffers(s);
 
     while (s->out_pos != s->out_last) {
-        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
+        if (!s->gop_cache.out[s->out_pos].set) {
+            ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
+        }
+
+        s->out_pos++;
         s->out_pos %= s->out_queue;
     }
 

@@ -10,6 +10,7 @@
 #include "ngx_rtmp_relay_module.h"
 #include "ngx_rtmp_notify_module.h"
 #include "ngx_rtmp_bandwidth.h"
+#include "ngx_rtmp_gop_cache_module.h"
 
 
 static ngx_rtmp_play_pt         next_play;
@@ -947,6 +948,11 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "flv live: HTTP drop message bufs='%ui', priority='%ui'",
                 nmsg, priority);
+
+        if (s->gop_cache.out[s->out_last].set) {
+            ngx_rtmp_gop_cache_exec_handler(s, s->out_last, out);
+        }
+
         return NGX_AGAIN;
     }
 
@@ -1541,9 +1547,8 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
             s->out_chain = s->out_chain->next;
             if (s->out_chain == NULL) {
                 if (s->gop_cache.out[s->out_pos].set) {
-                    s->gop_cache.out[s->out_pos].set = 0;
-                    s->gop_cache.out[s->out_pos].free(s, s->out[s->out_pos]);
-                    s->gop_cache.count--;
+                    ngx_rtmp_gop_cache_exec_handler(s, s->out_pos,
+                                                    s->out[s->out_pos]);
                 } else {
                     cscf = ngx_rtmp_get_module_srv_conf(s,
                                                         ngx_rtmp_core_module);
@@ -2198,7 +2203,11 @@ ngx_http_flv_live_close_session_handler(ngx_rtmp_session_t *s)
     }
 
     while (s->out_pos != s->out_last) {
-        ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos++]);
+        if (!s->gop_cache.out[s->out_pos].set) {
+            ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
+        }
+
+        s->out_pos++;
         s->out_pos %= s->out_queue;
     }
 

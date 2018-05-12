@@ -1310,6 +1310,16 @@ ngx_rl_gop_cache_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 }
 
 
+void
+ngx_rtmp_gop_cache_exec_handler(ngx_rtmp_session_t *s, size_t pos,
+    ngx_chain_t *in)
+{
+    s->gop_cache.out[pos].set = 0;
+    s->gop_cache.out[pos].free(s, in);
+    s->gop_cache.count--;
+}
+
+
 static ngx_int_t
 ngx_rtmp_gop_cache_postconfiguration(ngx_conf_t *cf)
 {
