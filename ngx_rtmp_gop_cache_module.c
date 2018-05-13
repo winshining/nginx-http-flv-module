@@ -89,8 +89,8 @@ static ngx_rtmp_gop_cache_proc_handler_t  ngx_hfl_gop_cache_proc_handler = {
 };
 
 ngx_rtmp_gop_cache_proc_handler_t  *ngx_rtmp_gop_cache_proc_handlers[] = {
-     &ngx_rl_gop_cache_proc_handler,
-     &ngx_hfl_gop_cache_proc_handler
+    &ngx_rl_gop_cache_proc_handler,
+    &ngx_hfl_gop_cache_proc_handler
 };
 
 extern ngx_module_t                 ngx_http_flv_live_module;
@@ -191,7 +191,7 @@ ngx_rtmp_gop_cache_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
             prev->gop_max_audio_count, 1024);
     ngx_conf_merge_size_value(conf->gop_max_video_count,
             prev->gop_max_video_count, 1024);
-    
+
     return NGX_CONF_OK;
 }
 
@@ -382,7 +382,7 @@ ngx_rtmp_gop_cache_free_cache(ngx_rtmp_session_t *s,
     cache->audio_frame_in_this = 0;
 
     // recycle mem of gop frame
-    cache->frame_head->next = ctx->free_frame;
+    cache->frame_tail->next = ctx->free_frame;
     ctx->free_frame = cache->frame_head;
 
     ctx->gop_cache_count--;
@@ -1054,11 +1054,11 @@ ngx_rtmp_gop_cache_free_shared_chain(ngx_rtmp_gop_cache_ctx_t *ctx,
     ngx_chain_t *in)
 {
     ngx_chain_t        *cl;
-    
+
     if (ngx_rtmp_ref_put(in)) {
         return;
     }
-    
+
     for (cl = in; ; cl = cl->next) {
         if (cl->next == NULL) {
             cl->next = ctx->free;
@@ -1075,7 +1075,7 @@ ngx_hfl_gop_cache_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
     ngx_rtmp_gop_cache_ctx_t        *ctx;
     ngx_http_request_t              *r;
     ngx_rtmp_header_t                ch;
-    
+
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
         return NULL;
@@ -1086,10 +1086,10 @@ ngx_hfl_gop_cache_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
         ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
         return NULL;
     }
-    
+
     ch.timestamp = 0;
     ch.type = NGX_RTMP_MSG_AMF_META;
-    
+
     return ngx_hfl_gop_cache_append_message(s, &ch, NULL, in);
 }
 
@@ -1100,18 +1100,18 @@ ngx_hfl_gop_cache_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 {
     ngx_rtmp_gop_cache_ctx_t        *ctx;
     ngx_http_request_t              *r;
-    
+
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
         return NULL;
     }
-    
+
     r = s->data;
     if (r == NULL || (r->connection && r->connection->destroyed)) {
         ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
         return NULL;
     }
-    
+
     return ngx_hfl_gop_cache_append_shared_bufs(ctx, h, in, r->chunked);
 }
 
@@ -1245,18 +1245,18 @@ ngx_hfl_gop_cache_append_shared_bufs(ngx_rtmp_gop_cache_ctx_t *ctx,
 
     return tag;
 }
-    
+
 
 static void
 ngx_hfl_gop_cache_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_rtmp_gop_cache_ctx_t  *ctx;
-        
+
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
         return;
     }
-        
+
     ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
 }
 
@@ -1300,12 +1300,12 @@ static void
 ngx_rl_gop_cache_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_rtmp_gop_cache_ctx_t  *ctx;
-        
+
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
         return;
     }
-        
+
     ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
 }
 
