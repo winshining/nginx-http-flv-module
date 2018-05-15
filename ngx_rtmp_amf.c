@@ -331,6 +331,9 @@ ngx_rtmp_amf_read(ngx_rtmp_amf_ctx_t *ctx, ngx_rtmp_amf_elt_t *elts,
                     if (elts->type & NGX_RTMP_AMF_OPTIONAL) {
                         return NGX_OK;
                     }
+
+                    /* fall through */
+
                 case NGX_ERROR:
                     return NGX_ERROR;
             }
@@ -398,6 +401,8 @@ ngx_rtmp_amf_read(ngx_rtmp_amf_ctx_t *ctx, ngx_rtmp_amf_elt_t *elts,
                 if (ngx_rtmp_amf_get(ctx, &max_index, 4) != NGX_OK) {
                     return NGX_ERROR;
                 }
+
+                /* fall through */
 
             case NGX_RTMP_AMF_OBJECT:
                 if (ngx_rtmp_amf_read_object(ctx, data,
@@ -592,6 +597,8 @@ ngx_rtmp_amf_write(ngx_rtmp_amf_ctx_t *ctx,
                 if (ngx_rtmp_amf_put(ctx, &max_index, 4) != NGX_OK) {
                     return NGX_ERROR;
                 }
+
+                /* fall through */
 
             case NGX_RTMP_AMF_OBJECT:
                 type8 = NGX_RTMP_AMF_END;
