@@ -510,7 +510,9 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
                 break;
             case '+':
                 s->plus_in_uri = 1;
+
                 /* fall through */
+
             default:
                 *u++ = ch;
                 break;
@@ -553,6 +555,9 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
                 goto done;
             case '+':
                 s->plus_in_uri = 1;
+
+                /* fall through */
+
             default:
                 state = sw_usual;
                 *u++ = ch;
@@ -594,6 +599,9 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
                 goto done;
             case '+':
                 s->plus_in_uri = 1;
+
+                /* fall through */
+
             default:
                 state = sw_usual;
                 *u++ = ch;
@@ -641,6 +649,9 @@ ngx_rtmp_parse_complex_uri(ngx_rtmp_session_t *s, ngx_uint_t merge_slashes)
                 goto done;
             case '+':
                 s->plus_in_uri = 1;
+
+                /* fall through */
+
             default:
                 state = sw_usual;
                 *u++ = ch;
