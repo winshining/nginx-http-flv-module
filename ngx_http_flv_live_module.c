@@ -1743,9 +1743,9 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
             if (!addr_match) {
                 addr_match = 1;
                 continue;
-            } else {
-                break;
             }
+
+            break;
         }
     }
 

@@ -449,7 +449,8 @@ ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->so_keepalive, prev->so_keepalive, 0);
     ngx_conf_merge_value(conf->max_streams, prev->max_streams, 32);
-    ngx_conf_merge_value(conf->chunk_size, prev->chunk_size, 4096);
+    ngx_conf_merge_value(conf->chunk_size, prev->chunk_size,
+                         NGX_RTMP_DEFAULT_CHUNK_SIZE);
     ngx_conf_merge_uint_value(conf->ack_window, prev->ack_window, 5000000);
     ngx_conf_merge_size_value(conf->max_message, prev->max_message,
             1 * 1024 * 1024);
