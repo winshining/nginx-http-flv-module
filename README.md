@@ -6,17 +6,17 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Features
 
-* All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) supplies.
+* All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides.
 
-* HTTP-based FLV live streaming (subscribe).
+* Other features provided by nginx-http-flv-module vs [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module):
 
-* GOP cache for low latency (H.264 video and AAC audio).
-
-* `Transfer-Encoding: chunked` HTTP response supported.
-
-* Missing `listen` directive in rtmp server block will be OK.
-
-* Virtual hosts supported.
+|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     remarks                     |
+| :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
+| HTTP-FLV (subscription) |           √           |         x         |  HTTPS-FLV and chunked HTTP response supported  | 
+|        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
+|          VHOST          |           √           |         x         |                                                 |
+| omit `listen` directive |           √           |         x         |                                                 |
+|     RTMP redirection    |      experimental     |         x         |                                                 |
 
 # Systems supported
 
@@ -67,6 +67,8 @@ cd to NGINX source directory & run this:
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+or
 
 ### Compile the module as a dynamic module
 

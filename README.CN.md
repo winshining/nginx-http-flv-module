@@ -8,15 +8,15 @@
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
 
-* 基于HTTP协议的FLV直播流播放。
+* nginx-http-flv-module的其他功能与[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的对比：
 
-* GOP缓存，降低播放延迟 (H.264视频和AAC音频)。
-
-* 支持`Transfer-Encoding: chunked`方式的HTTP回复。
-
-* rtmp配置的server块中可以省略`listen`配置项。
-
-* 支持虚拟主机。
+|       功能       | nginx-http-flv-module | nginx-rtmp-module |             备注             |
+| :--------------: | :-------------------: | :---------------: | :--------------------------: |
+| HTTP-FLV (播放)  |           √           |         x         |  支持HTTPS-FLV和chunked回复  | 
+|     GOP缓存      |           √           |         x         |  仅适用于H.264视频和AAC音频  |
+|     虚拟主机     |           √           |         x         |                              |
+| 省略`listen`配置 |           √           |         x         |                              |
+|    RTMP重定向    |         实验性        |         x         |                              |
 
 # 支持的系统
 
@@ -67,6 +67,8 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
     make install
+
+或者
 
 ### 将模块编译为动态模块
 
