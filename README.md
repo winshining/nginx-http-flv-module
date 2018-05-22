@@ -46,6 +46,10 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 # Build
 
+## Note
+
+nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides, so **DON'T** compile nginx-http-flv-module along with [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
+
 ## On Windows
 
 Build steps please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
