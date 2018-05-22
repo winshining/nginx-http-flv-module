@@ -16,7 +16,6 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 |        GOP cache        |           √           |         x         |     Only for H.264 video and AAC audio     |
 |          VHOST          |           √           |         x         |                                            |
 | omit `listen` directive |           √           |         x         |                                            |
-|     RTMP redirection    |      experimental     |         x         |                                            |
 
 # Systems supported
 
