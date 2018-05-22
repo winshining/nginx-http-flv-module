@@ -10,13 +10,13 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * Other features provided by nginx-http-flv-module vs [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module):
 
-|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     remarks                     |
-| :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
-| HTTP-FLV (subscription) |           √           |         x         |  HTTPS-FLV and chunked HTTP response supported  | 
-|        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
-|          VHOST          |           √           |         x         |                                                 |
-| omit `listen` directive |           √           |         x         |                                                 |
-|     RTMP redirection    |      experimental     |         x         |                                                 |
+|         Features        | nginx-http-flv-module | nginx-rtmp-module |                   remarks                  |
+| :---------------------: | :-------------------: | :---------------: | :----------------------------------------: |
+| HTTP-FLV (subscription) |           √           |         x         |  HTTPS-FLV and chunked response supported  | 
+|        GOP cache        |           √           |         x         |     Only for H.264 video and AAC audio     |
+|          VHOST          |           √           |         x         |                                            |
+| omit `listen` directive |           √           |         x         |                                            |
+|     RTMP redirection    |      experimental     |         x         |                                            |
 
 # Systems supported
 
