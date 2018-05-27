@@ -677,12 +677,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     ngx_rtmp_gop_cache_init_handler(s);
                 }
 
-                if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_ERROR)
-                {
-                    cs->timestamp = lh.timestamp;
-                    cs->active = 1;
-                    s->current_time = cs->timestamp;
+                if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_OK) {
+                    continue;
                 }
+
+                cs->timestamp = lh.timestamp;
+                cs->active = 1;
+                s->current_time = cs->timestamp;
             }
 
             pkt = handler->append_message_pt(s, &ch, &lh, gf->frame);
@@ -692,8 +693,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
             ngx_rtmp_gop_cache_init_handler(s);
 
-            if (handler->send_message_pt(s, pkt, gf->prio) == NGX_ERROR)
-            {
+            if (handler->send_message_pt(s, pkt, gf->prio) != NGX_OK) {
                 ++pub_ctx->ndropped;
 
                 cs->dropped += delta;
