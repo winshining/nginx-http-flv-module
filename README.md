@@ -93,7 +93,9 @@ The `streamname` can be specified at will.
 
 The **default port for RTMP** is **1935**, if some other ports were used, `:port` must be specified.
 
-## Play (HTTP)
+## Play
+
+### via HTTP-FLV
 
     http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
@@ -107,7 +109,7 @@ The `app` is used to match an application block, but if the requested `app` appe
 
 The `stream` is used to match the publishing streamname.
 
-## Example
+### Example
 
 Assuming that `listen` directive specified in `http` block is:
 
@@ -141,9 +143,21 @@ Then the url of play based on HTTP is:
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
-# Note
+### Note
 
 Since some players don't support HTTP chunked transmission, it's better to specify `chunked_transfer_encoding off;` in location where `flv_live on;` is specified in this case, or play will fail.
+
+### via RTMP
+
+    rtmp://example.com[:port]/appname/streamname
+
+### via HLS
+
+    http://example.com[:port]/dir/streamname.m3u8
+
+### via DASH
+
+    http://example.com[:port]/dir/streamname.mpd
 
 # Example nginx.conf
 
@@ -198,6 +212,21 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
                 add_header 'Access-Control-Allow-Credentials' 'true'; #add additional HTTP header
             }
 
+            location /hls {
+                types {
+                    application/vnd.apple.mpegurl m3u8;
+                    video/mp2t ts;
+                }
+
+                root /tmp;
+                add_header 'Cache-Control' 'no-cache';
+            }
+
+            location /dash {
+                root /tmp;
+                add_header 'Cache-Control' 'no-cache';
+            }
+
             location /stat {
                 #configuration of push & pull status
 
@@ -207,6 +236,10 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
 
             location /stat.xsl {
                 root /var/www/rtmp; #specify in where stat.xsl located
+            }
+
+            location /control {
+                rtmp_control all; #configuration of control module of rtmp
             }
         }
     }
@@ -226,7 +259,19 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
 
             application myapp {
                 live on;
-                gop_cache on; #open GOP cache for low latency
+                gop_cache on; #open GOP cache for reducing the wating time for the first picture of video
+            }
+
+            application hls {
+                live on;
+                hls on;
+                hls_path /tmp/hls;
+            }
+
+            application dash {
+                live on;
+                dash on;
+                dash_path /tmp/dash;
             }
         }
 
@@ -236,7 +281,7 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
 
             application myapp {
                 live on;
-                gop_cache on; #open GOP cache for low latency
+                gop_cache on; #open GOP cache for reducing the wating time for the first picture of video
             }
         }
 
@@ -246,7 +291,7 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
 
             application myapp {
                 live on;
-                gop_cache on; #open GOP cache for low latency
+                gop_cache on; #open GOP cache for reducing the wating time for the first picture of video
             }
         }
     }

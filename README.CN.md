@@ -93,7 +93,9 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 **RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
-## 播放（HTTP）
+## 播放
+
+### HTTP-FLV方式
 
     http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
 
@@ -107,7 +109,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 参数`stream`用来匹配发布流的streamname。
 
-## 例子
+### 例子
 
 假设在`http`配置块中的`listen`配置项是：
 
@@ -141,9 +143,21 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
-# 注意
+### 注意
 
 由于一些播放器不支持HTTP块传输, 这种情况下最好在指定了`flv_live on;`的location中指定`chunked_transfer_encoding off`，否则播放会失败。
+
+### RTMP方式
+
+    rtmp://example.com[:port]/appname/streamname
+
+### HLS方式
+
+    http://example.com[:port]/dir/streamname.m3u8
+
+### DASH方式
+
+    http://example.com[:port]/dir/streamname.mpd
 
 # nginx.conf实例
 
@@ -197,6 +211,21 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
                 add_header 'Access-Control-Allow-Credentials' 'true'; #添加额外的HTTP头
             }
 
+            location /hls {
+                types {
+                    application/vnd.apple.mpegurl m3u8;
+                    video/mp2t ts;
+                }
+
+                root /tmp;
+                add_header 'Cache-Control' 'no-cache';
+            }
+
+            location /dash {
+                root /tmp;
+                add_header 'Cache-Control' 'no-cache';
+            }
+
             location /stat {
                 #push和pull状态的配置
 
@@ -206,6 +235,10 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
             location /stat.xsl {
                 root /var/www/rtmp; #指定stat.xsl的位置
+            }
+
+            location /control {
+                rtmp_control all; #rtmp控制模块的配置
             }
         }
     }
@@ -225,7 +258,19 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
             application myapp {
                 live on;
-                gop_cache on; #打开GOP缓存，降低播放延迟
+                gop_cache on; #打开GOP缓存，减少首屏等待时间
+            }
+
+            application hls {
+                live on;
+                hls on;
+                hls_path /tmp/hls;
+			}
+
+            application dash {
+                live on;
+                dash on;
+                dash_path /tmp/dash;
             }
         }
 
@@ -235,7 +280,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
             application myapp {
                 live on;
-                gop_cache on; #打开GOP缓存，降低播放延迟
+                gop_cache on; #打开GOP缓存，减少首屏等待时间
             }
         }
 
@@ -245,7 +290,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
             application myapp {
                 live on;
-                gop_cache on; #打开GOP缓存，降低播放延迟
+                gop_cache on; #打开GOP缓存，减少首屏等待时间
             }
         }
     }
