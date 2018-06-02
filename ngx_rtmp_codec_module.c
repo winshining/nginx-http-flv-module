@@ -12,7 +12,6 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_bitop.h"
 #include "hls/ngx_rtmp_hls_module.h"
-#include "ngx_http_flv_live_module.h"
 
 
 #define NGX_RTMP_CODEC_META_OFF     0

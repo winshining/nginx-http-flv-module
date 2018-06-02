@@ -85,6 +85,8 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 ## 发布
 
+为了简单起见，不用转码：
+
     ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
@@ -265,7 +267,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
                 live on;
                 hls on;
                 hls_path /tmp/hls;
-			}
+            }
 
             application dash {
                 live on;

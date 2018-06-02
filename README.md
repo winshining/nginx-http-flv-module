@@ -12,7 +12,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 |         Features        | nginx-http-flv-module | nginx-rtmp-module |                   remarks                  |
 | :---------------------: | :-------------------: | :---------------: | :----------------------------------------: |
-| HTTP-FLV (subscription) |           √           |         x         |  HTTPS-FLV and chunked response supported  | 
+|   HTTP-FLV (subscribe)  |           √           |         x         |  HTTPS-FLV and chunked response supported  | 
 |        GOP cache        |           √           |         x         |     Only for H.264 video and AAC audio     |
 |          VHOST          |           √           |         x         |                                            |
 | omit `listen` directive |           √           |         x         |                                            |
@@ -84,6 +84,8 @@ If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) ver
 For details about usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/vhost/README.md).
 
 ## Publish
+
+For simplicity, transcoding is not used (so **-vcodec copy -acodec copy** is used):
 
     ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
 
