@@ -1393,10 +1393,6 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
         }
 #endif
 
-#if (NGX_STAT_STUB)
-        (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
-#endif
-
         /* for later processing */
         r->connection->destroyed = 0;
     }
