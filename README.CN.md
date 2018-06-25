@@ -16,6 +16,7 @@
 |     GOP缓存      |           √           |         x         |  仅适用于H.264视频和AAC音频  |
 |     虚拟主机     |           √           |         x         |                              |
 | 省略`listen`配置 |           √           |         x         |                              |
+|  JSON风格的stat  |           √           |         x         |                              |
 
 # 支持的系统
 
@@ -238,6 +239,14 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
             location /stat.xsl {
                 root /var/www/rtmp; #指定stat.xsl的位置
             }
+
+            #如果需要JSON风格的stat, 不用指定stat.xsl
+            #但是需要指定一个新的配置项rtmp_stat_format
+
+            #location /stat {
+            #    rtmp_stat all;
+            #    rtmp_stat_format json;
+            #}
 
             location /control {
                 rtmp_control all; #rtmp控制模块的配置
