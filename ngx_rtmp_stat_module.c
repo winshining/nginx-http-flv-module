@@ -1097,14 +1097,16 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
             NGX_RTMP_STAT_L("\" ?>\r\n");
         }
 
-        NGX_RTMP_STAT_L("<rtmp>\r\n");
+        NGX_RTMP_STAT_L("<http-flv>\r\n");
 
     #ifdef NGINX_VERSION
         NGX_RTMP_STAT_L("<nginx_version>" NGINX_VERSION "</nginx_version>\r\n");
     #endif
 
     #ifdef NGINX_RTMP_VERSION
-        NGX_RTMP_STAT_L("<nginx_rtmp_version>" NGINX_RTMP_VERSION "</nginx_rtmp_version>\r\n");
+        NGX_RTMP_STAT_L("<nginx_http_flv_version>"
+                        NGINX_RTMP_VERSION
+                        "</nginx_http_flv_version>\r\n");
     #endif
 
     #ifdef NGX_COMPILER
@@ -1127,14 +1129,16 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
                       "%ui", ngx_rtmp_naccepted) - nbuf);
         NGX_RTMP_STAT_L("</naccepted>\r\n");
     } else {
-        NGX_RTMP_STAT_L("{\"rtmp\":{");
+        NGX_RTMP_STAT_L("{\"http-flv\":{");
 
     #ifdef NGINX_VERSION
         NGX_RTMP_STAT_L("\"nginx_version\":\"" NGINX_VERSION "\",");
     #endif
 
     #ifdef NGINX_RTMP_VERSION
-        NGX_RTMP_STAT_L("\"nginx_rtmp_version\":\"" NGINX_RTMP_VERSION "\",");
+        NGX_RTMP_STAT_L("\"nginx_http_flv_version\":\""
+                        NGINX_RTMP_VERSION
+                        "\",");
     #endif
 
     #ifdef NGX_COMPILER
@@ -1174,7 +1178,7 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     }
     
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
-        NGX_RTMP_STAT_L("</rtmp>\r\n");
+        NGX_RTMP_STAT_L("</http-flv>\r\n");
     } else {
         NGX_RTMP_STAT_L("]}}"); 
     }
