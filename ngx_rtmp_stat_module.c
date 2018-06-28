@@ -1310,8 +1310,6 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<server>\r\n");
-    } else {
-        NGX_RTMP_STAT_L("[");
     }
 
 #ifdef NGX_RTMP_POOL_DEBUG
@@ -1329,8 +1327,6 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("</server>\r\n");
-    } else {
-        NGX_RTMP_STAT_L("]");
     }
 }
 
