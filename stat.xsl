@@ -4,6 +4,7 @@
 <!--
    Copyright (C) Roman Arutyunyan
    Copyright (C) Winshining
+   Copyright (C) PlainHeart
 -->
 
 
@@ -50,7 +51,7 @@
             <th bgcolor="#999999">codec</th>
             <th bgcolor="#999999">bits/s</th>
             <th bgcolor="#999999">freq</th>
-            <th bgcolor="#999999">chan</th>
+            <th bgcolor="#999999">channels</th>
             <td>
                 <xsl:call-template name="showsize">
                     <xsl:with-param name="size" select="bytes_in"/>
@@ -138,7 +139,7 @@
             </a>
         </td>
         <td align="middle">
-            <xsl:value-of select="nclients"/>
+            <xsl:value-of select="count"/>
         </td>
     </tr>
     <tr style="display:none">

@@ -349,17 +349,27 @@ static void
 ngx_rtmp_stat_dump_pool(ngx_http_request_t *r, ngx_chain_t ***lll,
         ngx_pool_t *pool)
 {
-    ngx_uint_t  nlarge, size;
-    u_char      buf[NGX_INT_T_LEN];
+    ngx_uint_t                      nlarge, size;
+    u_char                          buf[NGX_INT_T_LEN];
+    ngx_rtmp_stat_loc_conf_t       *slcf;
 
     size = 0;
     nlarge = 0;
+    slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
     ngx_rtmp_stat_get_pool_size(pool, &nlarge, &size);
-    NGX_RTMP_STAT_L("<pool><nlarge>");
-    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
-    NGX_RTMP_STAT_L("</nlarge><size>");
-    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
-    NGX_RTMP_STAT_L("</size></pool>\r\n");
+    if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
+        NGX_RTMP_STAT_L("<pool><nlarge>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
+        NGX_RTMP_STAT_L("</nlarge><size>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
+        NGX_RTMP_STAT_L("</size></pool>\r\n");
+    } else {
+        NGX_RTMP_STAT_L("\"pool\":{\"nlarge\":");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
+        NGX_RTMP_STAT_L(",\"size\":");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
+        NGX_RTMP_STAT_L("},");
+    }
 }
 #endif
 
@@ -505,7 +515,7 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<records>\r\n");
     } else {
-        NGX_RTMP_STAT_L("\"records\":[");
+        NGX_RTMP_STAT_L(",\"records\":[");
     }
 
     for(i = 0; i < rctx->rec.nelts; ++i, ++rrctx) {
@@ -550,14 +560,14 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
             } else {
                 NGX_RTMP_STAT_L("\"recorder\":\"\"");
             }
-            NGX_RTMP_STAT_L(",\"epoch\":\"");
+            NGX_RTMP_STAT_L(",\"epoch\":");
             NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                         "%ui", rrctx->epoch) - buf);
-            NGX_RTMP_STAT_L("\",\"time_shift\":\"");
+            NGX_RTMP_STAT_L(",\"time_shift\":");
             NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                         "%ui", rrctx->time_shift) - buf);
             if(rrctx->file.fd != NGX_INVALID_FILE) {
-                NGX_RTMP_STAT_L("\"recording\":true");
+                NGX_RTMP_STAT_L(",\"recording\":true");
                 NGX_RTMP_STAT_L(",\"file\":\"");
                 ngx_rtmp_record_get_path(s, rrctx, &filename);
                 NGX_RTMP_STAT_S(&filename);
@@ -574,7 +584,7 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("</records>\r\n");
     } else {
-        NGX_RTMP_STAT_L("],");
+        NGX_RTMP_STAT_L("]");
     }
 }
 
@@ -729,7 +739,6 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                         }
                     }
                 
-
                     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
                        NGX_RTMP_STAT_L("</client>\r\n");
                     } else {
@@ -741,15 +750,16 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                 }
                 if (ctx->publishing) {
                     codec = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
-                    if (slcf->stat & NGX_RTMP_STAT_RECORD) {
-                        ngx_rtmp_stat_live_records(r, lll, s);
-                    }
                 }
             }
             total_nclients += nclients;
             
             if (slcf->stat & NGX_RTMP_STAT_CLIENTS && slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
-                NGX_RTMP_STAT_L("],");
+                NGX_RTMP_STAT_L("]");
+            }
+            
+            if (slcf->stat & NGX_RTMP_STAT_RECORD) {
+                ngx_rtmp_stat_live_records(r, lll, s);
             }
             
             if (codec) {
@@ -830,7 +840,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
 
                     NGX_RTMP_STAT_L("</meta>\r\n");
                 } else {
-                    NGX_RTMP_STAT_L("\"meta\":{");
+                    NGX_RTMP_STAT_L(",\"meta\":{");
 
                     NGX_RTMP_STAT_L("\"video\":{");
                     NGX_RTMP_STAT_L("\"width\":");
@@ -926,10 +936,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
 
                 NGX_RTMP_STAT_L("</stream>\r\n");
             } else {
-                if(codec) {
-                    NGX_RTMP_STAT_L(",");
-                }
-                NGX_RTMP_STAT_L("\"nclients\":");
+                NGX_RTMP_STAT_L(",\"nclients\":");
                 NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                               "%ui", nclients) - buf);
 
@@ -1089,19 +1096,24 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_record_app_conf_t  *lracf;
     ngx_rtmp_stat_loc_conf_t    *slcf;
     size_t                       n;
+    char                         flag[NGX_INT_T_LEN];
+    char                         temp[NGX_INT_T_LEN];
     u_char                       buf[NGX_INT_T_LEN];
     
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
     
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<recorders>\r\n");
-
-        NGX_RTMP_STAT_L("<nclients>");
+        NGX_RTMP_STAT_L("<count>");
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", racf->rec.nelts) - buf);
-        NGX_RTMP_STAT_L("</nclients>\r\n");
+        NGX_RTMP_STAT_L("</count>\r\n");
     } else {
-        NGX_RTMP_STAT_L(",\"recorders\":[");
+        NGX_RTMP_STAT_L(",\"recorder\":{");
+        NGX_RTMP_STAT_L("\"count\":");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", racf->rec.nelts) - buf);
+        NGX_RTMP_STAT_L(",\"list\":[");           
     }
     
     rracf = racf->rec.elts;
@@ -1122,15 +1134,15 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
 
             NGX_RTMP_STAT_L("<flags>");
             if(lracf->flags & NGX_RTMP_RECORD_OFF)
-                NGX_RTMP_STAT_L("<off/>\r\n");
+                NGX_RTMP_STAT_L("<off/>");
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO)
-                NGX_RTMP_STAT_L("<video/>\r\n");
+                NGX_RTMP_STAT_L("<video/>");
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO)
-                NGX_RTMP_STAT_L("<audio/>\r\n");
+                NGX_RTMP_STAT_L("<audio/>");
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES)
-                NGX_RTMP_STAT_L("<keyframes/>\r\n");
+                NGX_RTMP_STAT_L("<keyframes/>");
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL)
-                NGX_RTMP_STAT_L("<manual/>\r\n");
+                NGX_RTMP_STAT_L("<manual/>");
             NGX_RTMP_STAT_L("</flags>\r\n");
 
             if(lracf->unique)
@@ -1171,18 +1183,23 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
             NGX_RTMP_STAT_S(&lracf->id);
             NGX_RTMP_STAT_L("\",\"flags\":[");
 
-            if(lracf->flags & NGX_RTMP_RECORD_OFF){
-                NGX_RTMP_STAT_L("\"off\",");
-            }
+            memset(flag, 0, sizeof(flag));
+            memset(temp, 0, sizeof(temp));
+
+            if(lracf->flags & NGX_RTMP_RECORD_OFF)
+                strcat(temp, "\"off\",");
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO)
-                NGX_RTMP_STAT_L("\"video\",");
+                strcat(temp, "\"video\",");
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO)
-                NGX_RTMP_STAT_L("\"audio\",");
+                strcat(temp, "\"audio\",");
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES)
-                
-                NGX_RTMP_STAT_L("\"keyframes\",");
+                strcat(temp, "\"keyframes\",");
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL)
-                NGX_RTMP_STAT_L("\"manual\"");
+                strcat(temp, "\"manual\",");
+            
+            strncat(flag, temp, strlen(temp) - 1);
+
+            NGX_RTMP_STAT_CS(flag);
             
             NGX_RTMP_STAT_L("]");
             
@@ -1228,7 +1245,7 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("</recorders>\r\n");
     } else {
-        NGX_RTMP_STAT_L("]");
+        NGX_RTMP_STAT_L("]}");
     }
 }
 
@@ -1326,6 +1343,7 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     ngx_rtmp_core_srv_conf_t      **cscf;
     ngx_chain_t                    *cl, *l, **ll, ***lll;
     size_t                          n;
+    time_t                          t;
     off_t                           len;
     static u_char                   tbuf[NGX_TIME_T_LEN];
     static u_char                   nbuf[NGX_INT_T_LEN];
@@ -1348,6 +1366,8 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     cl = NULL;
     ll = &cl;
     lll = &ll;
+    
+    t = time(NULL);
     
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<?xml version=\"1.0\" encoding=\"utf-8\" ?>\r\n");
@@ -1401,9 +1421,13 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     #ifdef NGX_COMPILER
         NGX_RTMP_STAT_L("\"compiler\":\"" NGX_COMPILER "\",");
     #endif
-        NGX_RTMP_STAT_L("\"built\":\"" __DATE__ " " __TIME__ "\",");
 
-        NGX_RTMP_STAT_L("\"pid\":");
+        NGX_RTMP_STAT_L("\"built\":");
+
+        NGX_RTMP_STAT(tbuf, ngx_snprintf(tbuf, sizeof(tbuf),
+                      "%T", t) - tbuf);
+
+        NGX_RTMP_STAT_L(",\"pid\":");
         NGX_RTMP_STAT(nbuf, ngx_snprintf(nbuf, sizeof(nbuf),
                       "%ui", (ngx_uint_t) ngx_getpid()) - nbuf);
         NGX_RTMP_STAT_L(",");
