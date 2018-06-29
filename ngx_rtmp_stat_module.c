@@ -1097,8 +1097,6 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_record_app_conf_t  *lracf;
     ngx_rtmp_stat_loc_conf_t    *slcf;
     size_t                       n;
-    //char                         flag[NGX_INT_T_LEN];
-    //char                         temp[NGX_INT_T_LEN];
     char                         flag[NGX_INT_T_LEN];
     u_char                       buf[NGX_INT_T_LEN];
     
