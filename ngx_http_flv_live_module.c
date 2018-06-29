@@ -935,8 +935,10 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
         ngx_chain_t *out, ngx_uint_t priority)
 {
     ngx_uint_t                      nmsg;
-
-    nmsg = (s->out_last - s->out_pos) % s->out_queue + 1;
+    ssize_t                         delta;
+    
+    delta = s->out_last - s->out_pos;
+    nmsg = (delta >= 0 ? delta : -delta) % s->out_queue + 1;
 
     if (priority > 3) {
         priority = 3;

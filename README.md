@@ -16,6 +16,7 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 |        GOP cache        |           √           |         x         |     Only for H.264 video and AAC audio     |
 |          VHOST          |           √           |         x         |                                            |
 | omit `listen` directive |           √           |         x         |                                            |
+|     JSON style stat     |           √           |         x         |                                            |
 
 # Systems supported
 
@@ -239,6 +240,14 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
             location /stat.xsl {
                 root /var/www/rtmp; #specify in where stat.xsl located
             }
+
+            #if JSON style stat needed, no need to specify
+            #stat.xsl but a new directive rtmp_stat_format
+
+            #location /stat {
+            #    rtmp_stat all;
+            #    rtmp_stat_format json;
+            #}
 
             location /control {
                 rtmp_control all; #configuration of control module of rtmp
