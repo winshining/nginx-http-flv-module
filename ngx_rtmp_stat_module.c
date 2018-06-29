@@ -1382,8 +1382,8 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
 
     #ifdef NGINX_RTMP_VERSION
         NGX_RTMP_STAT_L("<nginx_http_flv_version>" 
-						NGINX_RTMP_VERSION 
-						"</nginx_http_flv_version>\r\n");
+                        NGINX_RTMP_VERSION 
+                        "</nginx_http_flv_version>\r\n");
     #endif
 
     #ifdef NGX_COMPILER
@@ -1415,8 +1415,8 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
 
     #ifdef NGINX_RTMP_VERSION
         NGX_RTMP_STAT_L("\"nginx_http_flv_version\":\"" 
-						NGINX_RTMP_VERSION 
-						"\",");
+                        NGINX_RTMP_VERSION 
+                        "\",");
     #endif
 
     #ifdef NGX_COMPILER
