@@ -1099,7 +1099,7 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     size_t                       n;
     //char                         flag[NGX_INT_T_LEN];
     //char                         temp[NGX_INT_T_LEN];
-	char					 	 flag[NGX_INT_T_LEN];
+    char                         flag[NGX_INT_T_LEN];
     u_char                       buf[NGX_INT_T_LEN];
     
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
@@ -1184,23 +1184,23 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
             NGX_RTMP_STAT_L("{\"id\":\"");
             NGX_RTMP_STAT_S(&lracf->id);
             NGX_RTMP_STAT_L("\",\"flags\":[");
-			
-			ngx_memzero(flag, sizeof(flag));
-			
+            
+            ngx_memzero(flag, sizeof(flag));
+            
             if(lracf->flags & NGX_RTMP_RECORD_OFF)
-				strcat(flag, "\"off\",");
+                strcat(flag, "\"off\",");
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO)
-				strcat(flag, "\"video\",");
+                strcat(flag, "\"video\",");
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO)
-				strcat(flag, "\"audio\",");
+                strcat(flag, "\"audio\",");
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES)
-				strcat(flag, "\"keyframes\",");
+                strcat(flag, "\"keyframes\",");
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL)
-				strcat(flag, "\"manual\",");
-			
-			ngx_cpystrn((u_char *) flag, (u_char *) flag, ngx_strlen(flag));
-			
-			NGX_RTMP_STAT_CS(flag);
+                strcat(flag, "\"manual\",");
+            
+            ngx_cpystrn((u_char *) flag, (u_char *) flag, ngx_strlen(flag));
+            
+            NGX_RTMP_STAT_CS(flag);
             
             NGX_RTMP_STAT_L("]");
             
