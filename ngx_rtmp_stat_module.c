@@ -1097,12 +1097,13 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_record_app_conf_t  *lracf;
     ngx_rtmp_stat_loc_conf_t    *slcf;
     size_t                       n;
-    char                         flag[NGX_INT_T_LEN];
-    char                         temp[NGX_INT_T_LEN];
+    //char                         flag[NGX_INT_T_LEN];
+    //char                         temp[NGX_INT_T_LEN];
+	char					 	 flag[NGX_INT_T_LEN];
     u_char                       buf[NGX_INT_T_LEN];
     
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
-    
+
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<recorders>\r\n");
         NGX_RTMP_STAT_L("<count>");
@@ -1183,24 +1184,23 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
             NGX_RTMP_STAT_L("{\"id\":\"");
             NGX_RTMP_STAT_S(&lracf->id);
             NGX_RTMP_STAT_L("\",\"flags\":[");
-
-            memset(flag, 0, sizeof(flag));
-            memset(temp, 0, sizeof(temp));
-
+			
+			ngx_memzero(flag, sizeof(flag));
+			
             if(lracf->flags & NGX_RTMP_RECORD_OFF)
-                strcat(temp, "\"off\",");
+				strcat(flag, "\"off\",");
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO)
-                strcat(temp, "\"video\",");
+				strcat(flag, "\"video\",");
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO)
-                strcat(temp, "\"audio\",");
+				strcat(flag, "\"audio\",");
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES)
-                strcat(temp, "\"keyframes\",");
+				strcat(flag, "\"keyframes\",");
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL)
-                strcat(temp, "\"manual\",");
-            
-            strncat(flag, temp, strlen(temp) - 1);
-
-            NGX_RTMP_STAT_CS(flag);
+				strcat(flag, "\"manual\",");
+			
+			ngx_cpystrn((u_char *) flag, (u_char *) flag, ngx_strlen(flag));
+			
+			NGX_RTMP_STAT_CS(flag);
             
             NGX_RTMP_STAT_L("]");
             
