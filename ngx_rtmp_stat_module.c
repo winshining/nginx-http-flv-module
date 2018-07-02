@@ -504,6 +504,7 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_uint_t                      i;
     u_char                          buf[NGX_INT_T_LEN];
     ngx_str_t                       filename;
+    struct stat                     filebuf;
 
     rctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_record_module);
     if(rctx == NULL)
@@ -542,10 +543,15 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
                 ngx_rtmp_record_get_path(s, rrctx, &filename);
                 NGX_RTMP_STAT_S(&filename);
                 NGX_RTMP_STAT_L("</file>\r\n");
-                NGX_RTMP_STAT_L("<length>");
+                NGX_RTMP_STAT_L("<time>");
                 NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                         "%ui", ngx_cached_time->sec - rrctx->timestamp) - buf);
-                NGX_RTMP_STAT_L("</length>\r\n");
+                NGX_RTMP_STAT_L("</time>\r\n");
+                NGX_RTMP_STAT_L("<size>");
+                ngx_file_info((const char *)filename.data, &filebuf);
+                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                            "%ui", ngx_file_size(&filebuf)) - buf);
+                NGX_RTMP_STAT_L("</size>\r\n");
                 NGX_RTMP_STAT_L("<nframes>");
                 NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                             "%ui", rrctx->nframes) - buf);
@@ -572,9 +578,13 @@ ngx_rtmp_stat_live_records(ngx_http_request_t *r, ngx_chain_t ***lll,
                 NGX_RTMP_STAT_L(",\"file\":\"");
                 ngx_rtmp_record_get_path(s, rrctx, &filename);
                 NGX_RTMP_STAT_S(&filename);
-                NGX_RTMP_STAT_L("\",\"length\":");
+                NGX_RTMP_STAT_L("\",\"time\":");
                 NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                         "%ui", ngx_cached_time->sec - rrctx->timestamp) - buf);
+                NGX_RTMP_STAT_L(",\"size\":");
+                ngx_file_info((const char *)filename.data, &filebuf);
+                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                            "%ui", ngx_file_size(&filebuf)) - buf);
                 NGX_RTMP_STAT_L(",\"nframes\":");
                 NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                             "%ui", rrctx->nframes) - buf);

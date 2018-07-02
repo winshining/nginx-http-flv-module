@@ -180,7 +180,11 @@
             <xsl:if test="flags/audio">audio </xsl:if>
             <xsl:if test="flags/manual">manual </xsl:if>
         </td>
-        <td><xsl:value-of select="max_size"/></td>
+        <td>
+            <xsl:call-template name="showsize">
+               <xsl:with-param name="size" select="max_size"/>
+            </xsl:call-template>
+        </td>
         <td><xsl:value-of select="max_frames"/></td>
         <td>
             <xsl:call-template name="showinterval">
@@ -276,7 +280,7 @@
         <td>
             <xsl:call-template name="showsize">
                <xsl:with-param name="size" select="bytes_in"/>
-           </xsl:call-template>
+            </xsl:call-template>
         </td>
         <td>
             <xsl:call-template name="showsize">
@@ -337,7 +341,8 @@
             <th>Epoch</th>
             <th>Time Shift</th>
             <th>File Name</th>
-            <th>Length</th>
+            <th>Time</th>
+            <th>Size</th>
             <th>Frames</th>
         </tr>
         <xsl:apply-templates select="record"/>
@@ -369,7 +374,12 @@
         <td><xsl:value-of select="file"/></td>
         <td>
             <xsl:call-template name="showtime">
-               <xsl:with-param name="time" select="length * 1000"/>
+               <xsl:with-param name="time" select="time * 1000"/>
+            </xsl:call-template>
+        </td>
+        <td>
+            <xsl:call-template name="showsize">
+               <xsl:with-param name="size" select="size"/>
             </xsl:call-template>
         </td>
         <td><xsl:value-of select="nframes"/></td>
