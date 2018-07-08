@@ -2243,6 +2243,11 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     ngx_rtmp_session_t              *s;
     ngx_rtmp_connection_t           *rconn;
 
+    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
+    if (!hfcf->flv_live) {
+        return NGX_DECLINED;
+    }
+
     if (!(r->method & (NGX_HTTP_GET))) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "flv live: HTTP method was not \"GET\"");
@@ -2258,11 +2263,6 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     }
 
     if (r->uri.data[r->uri.len - 1] == '/') {
-        return NGX_DECLINED;
-    }
-
-    hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
-    if (!hfcf->flv_live) {
         return NGX_DECLINED;
     }
 
