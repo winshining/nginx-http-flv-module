@@ -11,7 +11,6 @@
 #include "ngx_rtmp_live_module.h"
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_codec_module.h"
-#include "ngx_rtmp_gop_cache_module.h"
 #include "ngx_http_flv_live_module.h"
 
 
@@ -32,7 +31,8 @@ static char *ngx_rtmp_live_set_msec_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 static void ngx_rtmp_live_start(ngx_rtmp_session_t *s);
 static void ngx_rtmp_live_stop(ngx_rtmp_session_t *s);
 
-
+static ngx_int_t ngx_rtmp_live_send_message(ngx_rtmp_session_t *s,
+       ngx_chain_t *in, ngx_uint_t priority);
 static ngx_chain_t *ngx_rtmp_live_meta_message(ngx_rtmp_session_t *s,
        ngx_chain_t *in);
 static ngx_chain_t *ngx_rtmp_live_append_message(ngx_rtmp_session_t *s,
@@ -59,7 +59,6 @@ ngx_rtmp_live_proc_handler_t  ngx_rtmp_live_proc_handler = {
 extern ngx_rtmp_live_proc_handler_t  *ngx_rtmp_live_proc_handlers
                                       [NGX_RTMP_PROTOCOL_HTTP + 1];
 extern ngx_module_t                   ngx_http_flv_live_module;
-extern ngx_module_t                   ngx_rtmp_gop_cache_module;
 
 static ngx_command_t  ngx_rtmp_live_commands[] = {
 
@@ -804,7 +803,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_live_proc_handler_t     *handler;
     ngx_rtmp_live_ctx_t              *ctx, *pctx;
     ngx_rtmp_codec_ctx_t             *codec_ctx;
-    ngx_rtmp_gop_cache_ctx_t         *gctx;
     ngx_chain_t                      *header, *coheader;
     ngx_rtmp_live_app_conf_t         *lacf;
     ngx_rtmp_session_t               *ss;
@@ -961,14 +959,6 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ss = pctx->session;
         cs = &pctx->cs[csidx];
  
-        if (ss->gop_cache.count == 0) {
-            gctx = ngx_rtmp_get_module_ctx(ss, ngx_rtmp_gop_cache_module);
-            if (gctx && gctx->pool) {
-                ngx_destroy_pool(gctx->pool);
-                gctx->pool = NULL;
-            }
-        }
-
         handler = ngx_rtmp_live_proc_handlers[pctx->protocol];
 
         /* send metadata */

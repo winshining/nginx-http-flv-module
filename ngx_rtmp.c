@@ -1321,12 +1321,6 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
                         cscf->ctx->srv_conf[ngx_rtmp_core_module
                             .ctx_index])->out_queue);
 
-        s->gop_cache.out = ngx_pcalloc(s->out_pool,
-                    sizeof(ngx_rtmp_gop_cache_free_t)
-                    * ((ngx_rtmp_core_srv_conf_t *)
-                        cscf->ctx->srv_conf[ngx_rtmp_core_module
-                            .ctx_index])->out_queue);
-
         s->out_queue = cscf->out_queue;
     }
 

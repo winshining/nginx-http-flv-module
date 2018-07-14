@@ -31,7 +31,6 @@ static void ngx_rtmp_gop_cache_update(ngx_rtmp_session_t *s);
 static void ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     ngx_rtmp_header_t *ch, ngx_chain_t *frame);
 static void ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s);
-static void ngx_rtmp_gop_cache_init_handler(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_gop_cache_av(ngx_rtmp_session_t *s,
     ngx_rtmp_header_t *h, ngx_chain_t *in);
 static ngx_int_t ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s,
@@ -42,58 +41,15 @@ static ngx_int_t ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
     ngx_rtmp_close_stream_t *v);
 
 
-static ngx_chain_t *ngx_rtmp_gop_cache_append_shared_bufs(
-    ngx_rtmp_gop_cache_ctx_t *ctx, ngx_chain_t *head, ngx_chain_t *in);
-static ngx_chain_t *ngx_rtmp_gop_cache_alloc_shared_buf(
-    ngx_rtmp_gop_cache_ctx_t *ctx);
-static void ngx_rtmp_gop_cache_free_shared_chain(ngx_rtmp_gop_cache_ctx_t *ctx,
-    ngx_chain_t *in);
-
-static ngx_chain_t *ngx_hfl_gop_cache_meta_message(ngx_rtmp_session_t *s,
-    ngx_chain_t *in);
-static ngx_chain_t *ngx_hfl_gop_cache_append_message(ngx_rtmp_session_t *s,
-    ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh, ngx_chain_t *in);
-static ngx_chain_t *ngx_hfl_gop_cache_append_shared_bufs(
-    ngx_rtmp_gop_cache_ctx_t *ctx, ngx_rtmp_header_t *h, ngx_chain_t *in,
-    ngx_flag_t chunked);
-static void ngx_hfl_gop_cache_free_message(ngx_rtmp_session_t *s,
-    ngx_chain_t *in);
-
-
-static ngx_chain_t *ngx_rl_gop_cache_meta_message(ngx_rtmp_session_t *s,
-    ngx_chain_t *in);
-static ngx_chain_t *ngx_rl_gop_cache_append_message(ngx_rtmp_session_t *s,
-    ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh, ngx_chain_t *in);
-static void ngx_rl_gop_cache_free_message(ngx_rtmp_session_t *s,
-    ngx_chain_t *in);
-
-
 static ngx_int_t ngx_rtmp_gop_cache_postconfiguration(ngx_conf_t *cf);
 static void *ngx_rtmp_gop_cache_create_app_conf(ngx_conf_t *cf);
 static char *ngx_rtmp_gop_cache_merge_app_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
 
-static ngx_rtmp_gop_cache_proc_handler_t  ngx_rl_gop_cache_proc_handler = {
-    ngx_rtmp_live_send_message,
-    ngx_rl_gop_cache_meta_message,
-    ngx_rl_gop_cache_append_message,
-    ngx_rl_gop_cache_free_message
-};
-
-static ngx_rtmp_gop_cache_proc_handler_t  ngx_hfl_gop_cache_proc_handler = {
-    ngx_http_flv_live_send_message,
-    ngx_hfl_gop_cache_meta_message,
-    ngx_hfl_gop_cache_append_message,
-    ngx_hfl_gop_cache_free_message
-};
-
-ngx_rtmp_gop_cache_proc_handler_t  *ngx_rtmp_gop_cache_proc_handlers[] = {
-    &ngx_rl_gop_cache_proc_handler,
-    &ngx_hfl_gop_cache_proc_handler
-};
-
-extern ngx_module_t                 ngx_http_flv_live_module;
+extern ngx_rtmp_live_proc_handler_t  *ngx_rtmp_live_proc_handlers
+                                      [NGX_RTMP_PROTOCOL_HTTP + 1];
+extern ngx_module_t                   ngx_http_flv_live_module;
 
 
 static ngx_command_t ngx_rtmp_gop_cache_commands[] = {
@@ -224,7 +180,13 @@ static ngx_rtmp_gop_frame_t *
 ngx_rtmp_gop_cache_free_frame(ngx_rtmp_session_t *s,
     ngx_rtmp_gop_frame_t *frame)
 {
+    ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_gop_cache_ctx_t       *ctx;
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (cscf == NULL) {
+        return NULL;
+    }
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
@@ -232,7 +194,7 @@ ngx_rtmp_gop_cache_free_frame(ngx_rtmp_session_t *s,
     }
 
     if (frame->frame) {
-        ngx_rtmp_gop_cache_free_shared_chain(ctx, frame->frame);
+        ngx_rtmp_free_shared_chain(cscf, frame->frame);
         frame->frame = NULL;
     }
 
@@ -304,6 +266,7 @@ static ngx_int_t
 ngx_rtmp_gop_cache_alloc_cache(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_codec_ctx_t           *codec_ctx;
+    ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_gop_cache_ctx_t       *ctx;
     ngx_rtmp_gop_cache_t           *cache, **iter;
 
@@ -314,6 +277,11 @@ ngx_rtmp_gop_cache_alloc_cache(ngx_rtmp_session_t *s)
 
     codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (codec_ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (cscf == NULL) {
         return NGX_ERROR;
     }
 
@@ -464,11 +432,17 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
 {
     ngx_rtmp_gop_cache_ctx_t       *ctx;
     ngx_rtmp_codec_ctx_t           *codec_ctx;
+    ngx_rtmp_core_srv_conf_t       *cscf;
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
     ngx_rtmp_gop_frame_t           *gf;
 
     gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
     if (gacf == NULL || !gacf->gop_cache) {
+        return;
+    }
+
+    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+    if (cscf == NULL) {
         return;
     }
 
@@ -525,10 +499,10 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     gf->h = *ch;
     gf->prio = prio;
     gf->next = NULL;
-    gf->frame = ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, frame);
+    gf->frame = ngx_rtmp_append_shared_bufs(cscf, NULL, frame);
 
     if (ngx_rtmp_gop_cache_link_frame(s, gf) != NGX_OK) {
-        ngx_rtmp_gop_cache_free_shared_chain(ctx, gf->frame);
+        ngx_rtmp_free_shared_chain(cscf, gf->frame);
         return;
     }
 
@@ -574,7 +548,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     uint32_t                            delta;
     ngx_int_t                           csidx;
     ngx_rtmp_live_chunk_stream_t       *cs;
-    ngx_rtmp_gop_cache_proc_handler_t  *handler;
+    ngx_rtmp_live_proc_handler_t       *handler;
     ngx_http_request_t                 *r;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -598,7 +572,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
     s->publisher = rs;
-    handler = ngx_rtmp_gop_cache_proc_handlers[ctx->protocol];
+    handler = ngx_rtmp_live_proc_handlers[ctx->protocol];
 
     gctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_gop_cache_module);
     if (gctx == NULL) {
@@ -634,8 +608,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         if (meta && meta_version != ctx->meta_version) {
             ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                     "gop cache send: meta");
-
-            ngx_rtmp_gop_cache_init_handler(s);
 
             if (handler->send_message_pt(s, meta, 0) == NGX_ERROR) {
                 ngx_rtmp_finalize_session(s);
@@ -673,8 +645,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     if (apkt == NULL) {
                         return;
                     }
-
-                    ngx_rtmp_gop_cache_init_handler(s);
                 }
 
                 if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_OK) {
@@ -690,8 +660,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             if (pkt == NULL) {
                 return;
             }
-
-            ngx_rtmp_gop_cache_init_handler(s);
 
             if (handler->send_message_pt(s, pkt, gf->prio) != NGX_OK) {
                 ++pub_ctx->ndropped;
@@ -721,24 +689,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 apkt = NULL;
             }
         }
-    }
-}
-
-
-static void
-ngx_rtmp_gop_cache_init_handler(ngx_rtmp_session_t *s)
-{
-    ngx_rtmp_live_ctx_t  *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
-
-    s->gop_cache.out[s->out_last].set = 1;
-    s->gop_cache.count++;
-
-    if (ctx->protocol == NGX_RTMP_PROTOCOL_RTMP) {
-        s->gop_cache.out[s->out_last].free = ngx_rl_gop_cache_free_message;
-    } else {
-        s->gop_cache.out[s->out_last].free = ngx_hfl_gop_cache_free_message;
     }
 }
 
@@ -803,15 +753,9 @@ ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
     ngx_rtmp_gop_cache_ctx_t       *ctx;
-    ngx_rtmp_core_srv_conf_t       *cscf;
 
     gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
     if (gacf == NULL || !gacf->gop_cache) {
-        goto next;
-    }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-    if (cscf == NULL) {
         goto next;
     }
 
@@ -837,8 +781,6 @@ ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         }
     }
 
-    ctx->chunk_size = cscf->chunk_size;
-
 next:
     return next_publish(s, v);
 }
@@ -848,8 +790,6 @@ static ngx_int_t
 ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
-    ngx_rtmp_gop_cache_ctx_t       *ctx;
-    ngx_rtmp_core_srv_conf_t       *cscf;
 #ifdef NGX_DEBUG
     ngx_msec_t                      start, end;
 #endif
@@ -858,30 +798,6 @@ ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     if (gacf == NULL || !gacf->gop_cache) {
         goto next;
     }
-
-    cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
-    if (cscf == NULL) {
-        goto next;
-    }
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        ctx = ngx_palloc(s->connection->pool,
-                         sizeof(ngx_rtmp_gop_cache_ctx_t));
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_gop_cache_module);
-    }
-
-    ngx_memzero(ctx, sizeof(*ctx));
-
-    if (ctx->pool == NULL) {
-        ctx->pool = ngx_create_pool(NGX_GOP_CACHE_POOL_CREATE_SIZE,
-                                    s->connection->log);
-        if (ctx->pool == NULL) {
-            return NGX_ERROR;
-        }
-    }
-
-    ctx->chunk_size = cscf->chunk_size;
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "gop cache play: name='%s' start='%i' duration='%i' reset='%d'",
@@ -915,7 +831,6 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
     ngx_rtmp_close_stream_t *v)
 {
     ngx_rtmp_live_ctx_t            *ctx;
-    ngx_rtmp_gop_cache_ctx_t       *gctx;
     ngx_rtmp_live_app_conf_t       *lacf;
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
 
@@ -925,12 +840,6 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
     }
 
     if (ctx->publishing == 0) {
-        gctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-        if (gctx && gctx->pool) {
-            ngx_destroy_pool(gctx->pool);
-            gctx->pool = NULL;
-        }
-
         goto next;
     }
 
@@ -948,375 +857,6 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
 
 next:
     return next_close_stream(s, v);
-}
-
-
-static ngx_chain_t *
-ngx_rtmp_gop_cache_append_shared_bufs(ngx_rtmp_gop_cache_ctx_t *ctx,
-    ngx_chain_t *head, ngx_chain_t *in)
-{
-    ngx_chain_t                    *l, **ll;
-    u_char                         *p;
-    size_t                          size;
-
-    ll = &head;
-    p = in->buf->pos;
-    l = head;
-
-    if (l) {
-        for(; l->next; l = l->next);
-        ll = &l->next;
-    }
-
-    for ( ;; ) {
-
-        if (l == NULL || l->buf->last == l->buf->end) {
-            l = ngx_rtmp_gop_cache_alloc_shared_buf(ctx);
-            if (l == NULL || l->buf == NULL) {
-                break;
-            }
-
-            *ll = l;
-            ll = &l->next;
-        }
-
-        while (l->buf->end - l->buf->last >= in->buf->last - p) {
-            l->buf->last = ngx_cpymem(l->buf->last, p,
-                                      in->buf->last - p);
-            in = in->next;
-            if (in == NULL) {
-                goto done;
-            }
-            p = in->buf->pos;
-        }
-
-        size = l->buf->end - l->buf->last;
-        l->buf->last = ngx_cpymem(l->buf->last, p, size);
-        p += size;
-    }
-
-done:
-    *ll = NULL;
-
-    return head;
-}
-
-
-static ngx_chain_t *
-ngx_rtmp_gop_cache_alloc_shared_buf(ngx_rtmp_gop_cache_ctx_t *ctx)
-{
-    u_char                     *p;
-    ngx_chain_t                *out;
-    ngx_buf_t                  *b;
-    size_t                      size;
-
-    if (ctx->free) {
-        out = ctx->free;
-        ctx->free = out->next;
-
-    } else {
-
-        size = ctx->chunk_size + NGX_RTMP_MAX_CHUNK_HEADER;
-
-        p = ngx_pcalloc(ctx->pool, NGX_RTMP_REFCOUNT_BYTES
-                        + sizeof(ngx_chain_t)
-                        + sizeof(ngx_buf_t)
-                        + size);
-        if (p == NULL) {
-            return NULL;
-        }
-
-        p += NGX_RTMP_REFCOUNT_BYTES;
-        out = (ngx_chain_t *)p;
-
-        p += sizeof(ngx_chain_t);
-        out->buf = (ngx_buf_t *)p;
-
-        p += sizeof(ngx_buf_t);
-        out->buf->start = p;
-        out->buf->end = p + size;
-    }
-
-    out->next = NULL;
-    b = out->buf;
-    b->pos = b->last = b->start + NGX_RTMP_MAX_CHUNK_HEADER;
-    b->memory = 1;
-
-    /* buffer has refcount =1 when created! */
-    ngx_rtmp_ref_set(out, 1);
-
-    return out;
-}
-
-
-static void
-ngx_rtmp_gop_cache_free_shared_chain(ngx_rtmp_gop_cache_ctx_t *ctx,
-    ngx_chain_t *in)
-{
-    ngx_chain_t        *cl;
-
-    if (ngx_rtmp_ref_put(in)) {
-        return;
-    }
-
-    for (cl = in; ; cl = cl->next) {
-        if (cl->next == NULL) {
-            cl->next = ctx->free;
-            ctx->free = in;
-            return;
-        }
-    }
-}
-
-
-static ngx_chain_t *
-ngx_hfl_gop_cache_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t        *ctx;
-    ngx_http_request_t              *r;
-    ngx_rtmp_header_t                ch;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    r = s->data;
-    if (r == NULL || (r->connection && r->connection->destroyed)) {
-        ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
-        return NULL;
-    }
-
-    ch.timestamp = 0;
-    ch.type = NGX_RTMP_MSG_AMF_META;
-
-    return ngx_hfl_gop_cache_append_message(s, &ch, NULL, in);
-}
-
-
-static ngx_chain_t *
-ngx_hfl_gop_cache_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-    ngx_rtmp_header_t *lh, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t        *ctx;
-    ngx_http_request_t              *r;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    r = s->data;
-    if (r == NULL || (r->connection && r->connection->destroyed)) {
-        ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
-        return NULL;
-    }
-
-    return ngx_hfl_gop_cache_append_shared_bufs(ctx, h, in, r->chunked);
-}
-
-
-static ngx_chain_t *
-ngx_hfl_gop_cache_append_shared_bufs(ngx_rtmp_gop_cache_ctx_t *ctx,
-    ngx_rtmp_header_t *h, ngx_chain_t *in, ngx_flag_t chunked)
-{
-    ngx_chain_t        *tag, *ch, *ct, chunk, *iter, *last_in, **tail,
-                        prev_tag_size;
-    u_char             *pos, *p,
-#if !(NGX_WIN32)
-    chunk_item[ngx_strlen("0000000000000000" CRLF) + 1];
-#else
-    chunk_item[19];
-#endif
-    uint32_t            data_size, size;
-    off_t               tag_size;
-    ngx_buf_t           prev_tag_size_buf, chunk_buf;
-
-    for (data_size = 0, iter = in, last_in = iter; iter; iter = iter->next) {
-        last_in = iter;
-        data_size += (iter->buf->last - iter->buf->pos);
-    }
-
-    tail = &last_in->next;
-    *tail = &prev_tag_size;
-
-    tag_size = data_size + NGX_FLV_TAG_HEADER_SIZE;
-
-    prev_tag_size.buf = &prev_tag_size_buf;
-    prev_tag_size.next = NULL;
-
-    prev_tag_size_buf.start = (u_char *) &size;
-    prev_tag_size_buf.end = prev_tag_size_buf.start + sizeof(uint32_t);
-    prev_tag_size_buf.pos = prev_tag_size_buf.start;
-    prev_tag_size_buf.last = prev_tag_size_buf.end;
-
-    pos = prev_tag_size_buf.pos;
-    p = (u_char *) &tag_size;
-    *pos++ = p[3];
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
-
-    tag = ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, in);
-    if (tag == NULL) {
-        return NULL;
-    }
-
-    /* it links to the local variable, unlink it */
-    *tail = NULL;
-
-    tag->buf->pos -= NGX_FLV_TAG_HEADER_SIZE;
-    pos = tag->buf->pos;
-
-    /* type, 5bits */
-    *pos++ = (u_char) (h->type & 0x1f);
-
-    /* data length, 3B */
-    p = (u_char *) &data_size;
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
-
-    /* timestamp, 3B + ext, 1B */
-    p = (u_char *) &h->timestamp;
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
-    *pos++ = p[3];
-
-    /* streamId, 3B, always be 0 */
-    *pos++ = 0;
-    *pos++ = 0;
-    *pos++ = 0;
-
-    /* add chunk header and tail */
-    if (chunked) {
-        /* 4 is the size of previous tag size itself */
-        *ngx_sprintf(chunk_item, "%xO" CRLF, tag_size + 4) = 0;
-
-        chunk_buf.start = chunk_item;
-        chunk_buf.pos = chunk_buf.start;
-        chunk_buf.end = chunk_buf.start + ngx_strlen(chunk_item);
-        chunk_buf.last = chunk_buf.end;
-
-        chunk.buf = &chunk_buf;
-        chunk.next = NULL;
-
-        ch = ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, &chunk);
-        if (ch == NULL) {
-            return NULL;
-        }
-
-        for (iter = tag, last_in = iter; iter; iter = iter->next) {
-            last_in = iter;
-        }
-
-        /* save the memory, very likely */
-#if !(NGX_WIN32)
-        if (__builtin_expect(last_in->buf->last + 2 <= last_in->buf->end, 1)) {
-#else
-        if (last_in->buf->last + 2 <= last_in->buf->end) {
-#endif
-            *last_in->buf->last++ = CR;
-            *last_in->buf->last++ = LF;
-        } else {
-            *ngx_sprintf(chunk_item, CRLF) = 0;
-            chunk_buf.start = chunk_item;
-            chunk_buf.pos = chunk_buf.start;
-            chunk_buf.end = chunk_buf.start + ngx_strlen(chunk_item);
-            chunk_buf.last = chunk_buf.end;
-
-            chunk.buf = &chunk_buf;
-            chunk.next = NULL;
-
-            ct = ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, &chunk);
-            if (ct == NULL) {
-                return NULL;
-            }
-
-            tail = &last_in->next;
-            *tail = ct;
-        }
-
-        ch->next = tag;
-
-        return ch;
-    }
-
-    return tag;
-}
-
-
-static void
-ngx_hfl_gop_cache_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t  *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return;
-    }
-
-    ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
-}
-
-
-static ngx_chain_t *
-ngx_rl_gop_cache_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t       *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    return ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, in);
-}
-
-
-static ngx_chain_t *
-ngx_rl_gop_cache_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-    ngx_rtmp_header_t *lh, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t       *ctx;
-    ngx_chain_t                    *pkt;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    pkt = ngx_rtmp_gop_cache_append_shared_bufs(ctx, NULL, in);
-    if (pkt != NULL) {
-        ngx_rtmp_prepare_message(s, h, lh, pkt);
-    }
-
-    return pkt;
-}
-
-
-static void
-ngx_rl_gop_cache_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
-{
-    ngx_rtmp_gop_cache_ctx_t  *ctx;
-
-    ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
-    if (ctx == NULL) {
-        return;
-    }
-
-    ngx_rtmp_gop_cache_free_shared_chain(ctx, in);
-}
-
-
-void
-ngx_rtmp_gop_cache_exec_handler(ngx_rtmp_session_t *s, size_t pos,
-    ngx_chain_t *in)
-{
-    s->gop_cache.out[pos].set = 0;
-    s->gop_cache.out[pos].free(s, in);
-    s->gop_cache.count--;
 }
 
 
