@@ -1,6 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Roman Arutyunyan 
+ * Copyright (C) Winshining 
  */
 
 
@@ -337,6 +338,9 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     ngx_int_t                       rc;
     ngx_str_t                       v, *uri;
     u_char                         *first, *last, *p;
+#if (NGX_HAVE_UNIX_DOMAIN)
+    u_char                         *client;
+#endif
 
     racf = ngx_rtmp_get_module_app_conf(cctx, ngx_rtmp_relay_module);
 
@@ -461,7 +465,25 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     }
     c = pc->connection;
     c->pool = pool;
-    c->addr_text = rctx->url;
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    if (addr->sockaddr->sa_family == AF_UNIX) {
+        client = ngx_pcalloc(pool, rctx->url.len + 8);
+        if (client == NULL) {
+            return NULL;
+        }
+
+        *ngx_cpymem(client, rctx->url.data,
+                    ngx_strlen(rctx->url.data)) = 0;
+
+        p = (u_char *) ngx_strchr(client, '.');
+        *ngx_snprintf(p + 1, client + rctx->url.len + 8 - (p + 1), "%i",
+                      ngx_process_slot) = 0;
+
+        c->addr_text.data = client;
+        c->addr_text.len = ngx_strlen(client);
+    }
+#endif
 
     addr_conf = ngx_pcalloc(pool, sizeof(ngx_rtmp_addr_conf_t));
     if (addr_conf == NULL) {
