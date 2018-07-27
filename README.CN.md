@@ -168,12 +168,12 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`在多进程模式下每次只能获取一个进程的统计数据。如果统计数据不重要，那么可以将它设置为大于1的数字，最好与CPU的核心数保持一致。
+最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下还有问题。
 
-    worker_processes  4; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
+    worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
 
-    worker_cpu_affinity  0001 0010 0100 1000; #只能用于FreeBSD和Linux
+    #worker_cpu_affinity  0001 0010 0100 1000; #只能用于FreeBSD和Linux
     #worker_cpu_affinity  auto; #1.9.10以及之后的版本
 
     error_log logs/error.log error;
@@ -306,3 +306,6 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
+# Red Har Enterprise Linux 6（CentOS 6）和7（CentOS 7）上的rpm安装包已可用
+
+详情见[nginx-http-flv-module-package](https://github.com/winshining/nginx-http-flv-module-package)。

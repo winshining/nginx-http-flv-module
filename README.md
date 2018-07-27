@@ -168,12 +168,12 @@ Since some players don't support HTTP chunked transmission, it's better to speci
 
 The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
 
-The directive `worker_processes` of value 1 is preferable to other values, because `ngx_rtmp_stat_module` can only get the statistics of one process at a time in multi-processes mode. If the statistics is unimportant, it can be set as number greater than 1, it is better to set it as the number of CPU cores.
+The directive `worker_processes` of value 1 is preferable to other values, because there are something wrong with `ngx_rtmp_stat_module` and `ngx_rtmp_control_module` in multi-processes mode, in addtion, `vhost` feature is not perfect in multi-processes mode yet.
 
-    worker_processes  4; #should be 1 for Windows, for it doesn't support Unix domain socket
+    worker_processes  1; #should be 1 for Windows, for it doesn't support Unix domain socket
     #worker_processes  auto; #from versions 1.3.8 and 1.2.5
 
-    worker_cpu_affinity  0001 0010 0100 1000; #only available on FreeBSD and Linux
+    #worker_cpu_affinity  0001 0010 0100 1000; #only available on FreeBSD and Linux
     #worker_cpu_affinity  auto; #from version 1.9.10
 
     error_log logs/error.log error;
@@ -307,3 +307,6 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
         }
     }
 
+# rpm packages on Red Hat Enterprise Linux 6 (CentOS 6) and 7 (CentOS 7) are available
+
+Please refer to [nginx-http-flv-module-package](https://github.com/winshining/nginx-http-flv-module-package).

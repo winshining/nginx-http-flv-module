@@ -470,7 +470,7 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     if (addr->sockaddr->sa_family == AF_UNIX) {
         client = ngx_pcalloc(pool, rctx->url.len + 8);
         if (client == NULL) {
-            return NULL;
+            goto clear;
         }
 
         *ngx_cpymem(client, rctx->url.data,
