@@ -307,6 +307,6 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
         }
     }
 
-# rpm packages on Red Hat Enterprise Linux 6 (CentOS 6) and 7 (CentOS 7) are available
+# rpm packages on RHEL 6 (CentOS 6) and 7 (CentOS 7)
 
 Please refer to [nginx-http-flv-module-package](https://github.com/winshining/nginx-http-flv-module-package).
