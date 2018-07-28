@@ -306,6 +306,6 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
-# RHEL 6（CentOS 6）和7（CentOS 7）上的rpm安装包
+# RHEL/CentOS 6和7上的RPM安装包
 
 详情见[nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages)。
