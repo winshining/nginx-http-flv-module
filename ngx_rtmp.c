@@ -777,7 +777,7 @@ ngx_rtmp_init_listening(ngx_conf_t *cf, ngx_rtmp_conf_port_t *port)
                 break;
         }
 
-#if (NGX_HAVE_REUSEPORT)
+#if (nginx_version <= 1015001)
         if (ngx_clone_listening(cf, ls) != NGX_OK) {
             return NGX_ERROR;
         }
