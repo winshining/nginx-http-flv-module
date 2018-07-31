@@ -887,7 +887,7 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s)
 
         { NGX_RTMP_AMF_STRING,
           ngx_string("Server"),
-          "NGINX RTMP (https://github.com/winshining/nginx-http-flv-module)", 0 },
+          "NGINX HTTP-FLV (https://github.com/winshining/nginx-http-flv-module)", 0 },
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("width"),

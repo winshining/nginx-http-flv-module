@@ -162,6 +162,10 @@ Since some players don't support HTTP chunked transmission, it's better to speci
 
     http://example.com[:port]/dir/streamname.mpd
 
+# Packages for nginx-http-flv-module
+
+Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages).
+
 # Example nginx.conf
 
 ## Note
@@ -306,7 +310,3 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
             }
         }
     }
-
-# RPM packages on RHEL/CentOS 6 and 7
-
-Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages).

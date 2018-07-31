@@ -162,6 +162,10 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
     http://example.com[:port]/dir/streamname.mpd
 
+# nginx-http-flv-module的安装包
+
+详情见[nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages)。
+
 # nginx.conf实例
 
 ## 注意
@@ -305,7 +309,3 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
             }
         }
     }
-
-# RHEL/CentOS 6和7上的RPM安装包
-
-详情见[nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages)。
