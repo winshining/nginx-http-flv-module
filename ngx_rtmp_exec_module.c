@@ -9,6 +9,7 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_record_module.h"
 #include "ngx_rtmp_eval.h"
+#include "ngx_rtmp_exec_module.h"
 #include <stdlib.h>
 
 #ifdef NGX_LINUX
@@ -47,22 +48,6 @@ static char *ngx_rtmp_exec_kill_signal(ngx_conf_t *cf, ngx_command_t *cmd,
 #define NGX_RTMP_EXEC_PLAYING           0x02
 
 
-enum {
-    NGX_RTMP_EXEC_PUSH,
-    NGX_RTMP_EXEC_PULL,
-
-    NGX_RTMP_EXEC_PUBLISH,
-    NGX_RTMP_EXEC_PUBLISH_DONE,
-    NGX_RTMP_EXEC_PLAY,
-    NGX_RTMP_EXEC_PLAY_DONE,
-    NGX_RTMP_EXEC_RECORD_DONE,
-
-    NGX_RTMP_EXEC_MAX,
-
-    NGX_RTMP_EXEC_STATIC
-};
-
-
 typedef struct {
     ngx_str_t                           id;
     ngx_uint_t                          type;
@@ -97,29 +82,6 @@ typedef struct {
     ngx_int_t                           kill_signal;
     ngx_log_t                          *log;
 } ngx_rtmp_exec_main_conf_t;
-
-
-typedef struct ngx_rtmp_exec_pull_ctx_s  ngx_rtmp_exec_pull_ctx_t;
-
-struct ngx_rtmp_exec_pull_ctx_s {
-    ngx_pool_t                         *pool;
-    ngx_uint_t                          counter;
-    ngx_str_t                           name;
-    ngx_str_t                           app;
-    ngx_array_t                         pull_exec;   /* ngx_rtmp_exec_t */
-    ngx_rtmp_exec_pull_ctx_t           *next;
-};
-
-
-typedef struct {
-    ngx_int_t                           active;
-    ngx_array_t                         conf[NGX_RTMP_EXEC_MAX];
-                                                     /* ngx_rtmp_exec_conf_t */
-    ngx_flag_t                          respawn;
-    ngx_flag_t                          options;
-    ngx_uint_t                          nbuckets;
-    ngx_rtmp_exec_pull_ctx_t          **pull;
-} ngx_rtmp_exec_app_conf_t;
 
 
 typedef struct {
