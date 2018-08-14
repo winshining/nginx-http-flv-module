@@ -266,7 +266,8 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     rtmp {
         out_queue   4096;
         out_cork    8;
-        max_streams 64;
+        max_streams 128;
+        timeout     15s;
 
         server {
             listen 1935;

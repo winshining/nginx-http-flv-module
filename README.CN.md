@@ -172,7 +172,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下也有问题。
+最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下也不能完全正确运行。
 
     worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
@@ -265,7 +265,8 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     rtmp {
         out_queue   4096;
         out_cork    8;
-        max_streams 64;
+        max_streams 128;
+        timeout     15s;
 
         server {
             listen 1935;

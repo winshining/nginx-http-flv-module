@@ -1354,6 +1354,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 ctx->stream = NULL;
 
                 ngx_http_flv_live_free_request(s);
+                s->connection->destroyed = 1;
 
                 break;
             } else {
@@ -1372,6 +1373,7 @@ next:
         r = s->data;
         if (r) {
             ngx_http_flv_live_free_request(s);
+            s->connection->destroyed = 1;
         }
     }
 
@@ -2010,7 +2012,6 @@ ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 
     r = s->data;
     if (r == NULL || (r->connection && r->connection->destroyed)) {
-        ngx_rtmp_free_shared_chain(cscf, in);
         return NULL;
     }
 
@@ -2035,7 +2036,6 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     r = s->data;
     if (r == NULL || (r->connection && r->connection->destroyed)) {
-        ngx_rtmp_free_shared_chain(cscf, in);
         return NULL;
     }
 

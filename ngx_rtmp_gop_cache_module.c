@@ -580,9 +580,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     }
 
     for (cache = gctx->cache_head; cache; cache = cache->next) {
+        if (s->connection == NULL || s->connection->destroyed) {
+            return;
+        }
+
         if (ctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
             r = s->data;
-            if (r == NULL || (r->connection && r->connection->destroyed)) {
+            if (r == NULL) {
                 return;
             }
 
@@ -619,6 +623,10 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         }
 
         for (gf = cache->frame_head; gf; gf = gf->next) {
+            if (s->connection == NULL || s->connection->destroyed) {
+                return;
+            }
+
             csidx = !(lacf->interleave || gf->h.type == NGX_RTMP_MSG_VIDEO);
 
             cs = &ctx->cs[csidx];
@@ -678,6 +686,11 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
+
+            if (meta) {
+                handler->free_message_pt(s, meta);
+                meta = NULL;
+            }
 
             if (pkt) {
                 handler->free_message_pt(s, pkt);
