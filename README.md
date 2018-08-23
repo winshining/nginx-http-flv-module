@@ -26,6 +26,10 @@ Media streaming server based on [nginx-rtmp-module](https://github.com/arut/ngin
 
 * [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
+## Note
+
+[flv.js](https://github.com/Bilibili/flv.js) can only run with browsers that support [Media Source Extensions](https://www.w3.org/TR/media-source).
+
 # Prerequisites
 
 * GNU make for activating compiler on Unix-like systems to compile software.
@@ -161,6 +165,16 @@ Since some players don't support HTTP chunked transmission, it's better to speci
 ### via DASH
 
     http://example.com[:port]/dir/streamname.mpd
+
+# Sample Pictures
+
+## RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
+
+![RTMP & HTTP-FLV](samples/jwplayer_vlc.png)
+
+## HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
+
+![HTTP-FLV](samples/flv.js.png)
 
 # Packages for nginx-http-flv-module
 

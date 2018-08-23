@@ -687,11 +687,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
 
-            if (meta) {
-                handler->free_message_pt(s, meta);
-                meta = NULL;
-            }
-
             if (pkt) {
                 handler->free_message_pt(s, pkt);
                 pkt = NULL;

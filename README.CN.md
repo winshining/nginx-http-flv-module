@@ -26,6 +26,10 @@
 
 * [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
+## 注意
+
+[flv.js](https://github/com/Bilibili/flv.js)只能运行在支持[Media Source Extensions](https://www.w3.org/TR/media-source)的浏览器上。
+
 # 依赖
 
 * 在类Unix系统上，需要GNU make，用于调用编译器来编译软件。
@@ -161,6 +165,16 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 ### DASH方式
 
     http://example.com[:port]/dir/streamname.mpd
+
+# 示例图片
+
+## RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
+
+![RTMP & HTTP-FLV](samples/jwplayer_vlc.png)
+
+## HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
+
+![HTTP-FLV](samples/flv.js.png)
 
 # nginx-http-flv-module的安装包
 
