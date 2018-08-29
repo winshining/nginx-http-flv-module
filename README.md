@@ -200,7 +200,7 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     #to RTMP are needed, the command below MUST be specified and MUST be
     #located before events directive, otherwise the module won't be loaded
     #or will be loaded unsuccessfully when NGINX is started
-    #load_module modules/ngx_rtmp_module.so;
+    #load_module modules/ngx_http_flv_live_module.so;
 
     events {
         worker_connections  1024;

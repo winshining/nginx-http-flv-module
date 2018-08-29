@@ -199,7 +199,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #如果此模块被编译为动态模块并且要使用与RTMP相关的功
     #能时，必须指定下面的配置项并且它必须位于events配置
     #项之前，否则NGINX启动时不会加载此模块或者加载失败
-    #load_module modules/ngx_rtmp_module.so;
+    #load_module modules/ngx_http_flv_live_module.so;
 
     events {
         worker_connections  1024;

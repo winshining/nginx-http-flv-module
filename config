@@ -1,4 +1,4 @@
-ngx_addon_name="ngx_http_flv_module"
+ngx_addon_name="ngx_http_flv_live_module"
 
 RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_module                             \
@@ -47,6 +47,7 @@ RTMP_DEPS="                                                     \
                 $ngx_addon_dir/ngx_rtmp_notify_module.h         \
                 $ngx_addon_dir/ngx_rtmp_gop_cache_module.h      \
                 $ngx_addon_dir/ngx_rtmp_relay_module.h          \
+                $ngx_addon_dir/ngx_rtmp_exec_module.h           \
                 $ngx_addon_dir/ngx_rtmp_streams.h               \
                 $ngx_addon_dir/ngx_rtmp_bitop.h                 \
                 $ngx_addon_dir/ngx_rtmp_proxy_protocol.h        \
@@ -108,11 +109,21 @@ if [ -f auto/module ] ; then
     ngx_module_deps=$RTMP_DEPS
 
     if [ $ngx_module_link = DYNAMIC ] ; then
-        ngx_module_name="$RTMP_CORE_MODULES $RTMP_HTTP_MODULES"
+        ngx_module_name="$ngx_addon_name $RTMP_CORE_MODULES $RTMP_HTTP_MODULES"
         ngx_module_srcs="$RTMP_CORE_SRCS $RTMP_HTTP_SRCS"
 
         . auto/module
 
+        dynamic_modules=`eval echo '$'"${ngx_module}_MODULES" | sed -e "s/\s\{0,\}$ngx_addon_name//"`
+        eval ${ngx_module}_MODULES=\"$dynamic_modules\"
+        unset dynamic_modules
+
+        order_modules=`eval echo '$'"${ngx_module}_ORDER"`
+        if [ -n "$order_modules" ]
+        then
+            eval ${ngx_module}_ORDER=\"`echo "$order_modules" | sed -e "s/ \{0,\}$ngx_addon_name//"`\"
+            unset order_modules
+        fi
     else
         ngx_module_type=CORE
         ngx_module_name=$RTMP_CORE_MODULES
