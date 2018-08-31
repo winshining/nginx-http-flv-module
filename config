@@ -114,7 +114,7 @@ if [ -f auto/module ] ; then
 
         . auto/module
 
-        dynamic_modules=`eval echo '$'"${ngx_module}_MODULES" | sed -e "s/\s\{0,\}$ngx_addon_name//"`
+        dynamic_modules=`eval echo '$'"${ngx_module}_MODULES" | sed -e "s/ \{0,\}$ngx_addon_name//"`
         eval ${ngx_module}_MODULES=\"$dynamic_modules\"
         unset dynamic_modules
 
