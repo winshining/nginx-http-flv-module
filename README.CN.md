@@ -4,6 +4,12 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
+[English README](https://github.com/winshining/nginx-http-flv-module/blob/master/README.md)。
+
+如果您喜欢这个模块，可以通过赞赏来支持我的工作，非常感谢！
+
+![reward_qrcode_winshining](https://raw.githubusercontent.com/wiki/winshining/nginx-http-flv-module/reward_qrcode_winshining.png)
+
 # 功能
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
