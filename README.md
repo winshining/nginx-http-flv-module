@@ -4,6 +4,12 @@
 
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
+[中文说明](https://github.com/winshining/nginx-http-flv-module/blob/master/README.CN.md).
+
+Donate if you like this module. Many thanks to you!
+
+<a href="https://www.buymeacoffee.com/winshining" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
 # Features
 
 * All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides.
@@ -146,7 +152,7 @@ And `listen` directive specified in `rtmp` block is:
         }
     }
 
-Then the url of play based on HTTP is:
+Then the url of playback based on HTTP is:
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
