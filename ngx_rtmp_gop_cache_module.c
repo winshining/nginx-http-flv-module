@@ -2,6 +2,7 @@
 /*
  * Copyright (C) Gnolizuh
  * Copyright (C) Winshining
+ * Copyright (C) HeyJupiter
  */
 
 
@@ -550,6 +551,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     ngx_rtmp_live_chunk_stream_t       *cs;
     ngx_rtmp_live_proc_handler_t       *handler;
     ngx_http_request_t                 *r;
+    ngx_flag_t                          error;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
@@ -600,6 +602,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         if (meta == NULL && meta_version != gctx->meta_version) {
             meta = handler->meta_message_pt(s, gctx->meta);
             if (meta == NULL) {
+                ngx_rtmp_finalize_session(s);
                 return;
             }
         }
@@ -638,6 +641,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
 
             delta = ch.timestamp - lh.timestamp;
+            error = 0;
 
             if (!cs->active) {
                 switch (gf->h.type) {
@@ -651,12 +655,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 if (header) {
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
                     if (apkt == NULL) {
-                        return;
+                        error = 1;
+                        goto next;
                     }
                 }
 
                 if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_OK) {
-                    continue;
+                    goto next;
                 }
 
                 cs->timestamp = lh.timestamp;
@@ -666,7 +671,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
             pkt = handler->append_message_pt(s, &ch, &lh, gf->frame);
             if (pkt == NULL) {
-                return;
+                error = 1;
+                goto next;
             }
 
             if (handler->send_message_pt(s, pkt, gf->prio) != NGX_OK) {
@@ -674,8 +680,7 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
                 cs->dropped += delta;
 
-                ngx_rtmp_finalize_session(s);
-                return;
+                goto next;
             }
 
             ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
@@ -687,6 +692,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             cs->timestamp += delta;
             s->current_time = cs->timestamp;
 
+        next:
+
             if (pkt) {
                 handler->free_message_pt(s, pkt);
                 pkt = NULL;
@@ -695,6 +702,11 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             if (apkt) {
                 handler->free_message_pt(s, apkt);
                 apkt = NULL;
+            }
+
+            if (error) {
+                ngx_rtmp_finalize_session(s);
+                return;
             }
         }
     }
