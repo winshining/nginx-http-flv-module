@@ -1178,6 +1178,7 @@ static ngx_int_t
 ngx_rtmp_live_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_chain_t *in, ngx_rtmp_amf_elt_t *out_elts, ngx_uint_t out_elts_size)
 {
+    ngx_rtmp_live_proc_handler_t   *handler;
     ngx_rtmp_live_ctx_t            *ctx, *pctx;
     ngx_chain_t                    *data, *rpkt;
     ngx_rtmp_core_srv_conf_t       *cscf;
@@ -1190,6 +1191,7 @@ ngx_rtmp_live_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_uint_t                      peers;
     uint32_t                        delta;
     ngx_rtmp_live_chunk_stream_t   *cs;
+    ngx_http_request_t             *http_request;
 #ifdef NGX_DEBUG
     u_char                         *msg_type;
 
@@ -1254,7 +1256,6 @@ ngx_rtmp_live_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     delta = ch.timestamp - cs->timestamp;
 
     rpkt = ngx_rtmp_append_shared_bufs(cscf, data, in);
-    ngx_rtmp_prepare_message(s, &ch, NULL, rpkt);
 
     for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
         if (pctx == ctx || pctx->paused) {
@@ -1262,11 +1263,34 @@ ngx_rtmp_live_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         }
 
         ss = pctx->session;
-
-        if (ngx_rtmp_send_message(ss, rpkt, prio) != NGX_OK) {
-            ++pctx->ndropped;
-            cs->dropped += delta;
-            continue;
+        handler = ngx_rtmp_live_proc_handlers[pctx->protocol];
+        if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+            http_request = ss->data;
+            if (http_request == NULL || (http_request->connection && http_request->connection->destroyed)) {
+                continue;
+            }
+            handler->meta = handler->append_message_pt(ss,&ch,NULL,rpkt);
+            if (handler->meta == NULL) {
+                continue;
+            }
+            if (handler->meta) {
+                if (handler->send_message_pt(ss,handler->meta,0) != NGX_OK) {
+                    ++pctx->ndropped;
+                    cs->dropped += delta;
+                    handler->free_message_pt(ss, handler->meta);
+                    handler->meta = NULL;
+                    continue;
+                }
+                handler->free_message_pt(ss, handler->meta);
+                handler->meta = NULL;
+            }
+        } else {
+            ngx_rtmp_prepare_message(s, &ch, NULL, rpkt);
+            if (ngx_rtmp_send_message(ss, rpkt, prio) != NGX_OK) {
+                ++pctx->ndropped;
+                cs->dropped += delta;
+                continue;
+            }
         }
 
         cs->timestamp += delta;
