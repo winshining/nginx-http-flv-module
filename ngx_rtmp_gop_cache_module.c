@@ -867,6 +867,8 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
         goto next;
     }
 
+    ngx_rtmp_gop_cache_cleanup(s);
+
     gctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (gctx == NULL) {
         goto next;
@@ -876,8 +878,6 @@ ngx_rtmp_gop_cache_close_stream(ngx_rtmp_session_t *s,
         ngx_destroy_pool(gctx->pool);
         gctx->pool = NULL;
     }
-
-    ngx_rtmp_gop_cache_cleanup(s);
 
 next:
     return next_close_stream(s, v);
