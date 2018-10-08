@@ -1851,6 +1851,12 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r,
     c->write->handler = ngx_http_flv_live_write_handler;
     c->read->handler = ngx_http_flv_live_read_handler;
 
+    if (c->write->active) {
+        if (ngx_del_event(c->write, NGX_WRITE_EVENT, 0) != NGX_OK) {
+            return NULL;
+        }
+    }
+
     return s;
 }
 
