@@ -167,8 +167,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s = ngx_pcalloc(c->pool, sizeof(ngx_rtmp_session_t));
     if (s == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     s->rtmp_connection = c->data;
@@ -183,8 +182,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     ctx = ngx_palloc(c->pool, sizeof(ngx_rtmp_error_log_ctx_t));
     if (ctx == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     ctx->client = &c->addr_text;
@@ -199,14 +197,12 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
 
     s->ctx = ngx_pcalloc(c->pool, sizeof(void *) * ngx_rtmp_max_module);
     if (s->ctx == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     s->out_pool = ngx_create_pool(4096, c->log);
     if (s->out_pool == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     s->out = ngx_pcalloc(s->out_pool, sizeof(ngx_chain_t *)
@@ -214,14 +210,12 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
                             addr_conf->default_server->ctx->srv_conf
                             [ngx_rtmp_core_module.ctx_index])->out_queue);
     if (s->out == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     s->in_streams_pool = ngx_create_pool(4096, c->log);
     if (s->in_streams_pool == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
@@ -231,8 +225,7 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     s->in_streams = ngx_pcalloc(s->in_streams_pool, sizeof(ngx_rtmp_stream_t)
             * cscf->max_streams);
     if (s->in_streams == NULL) {
-        ngx_rtmp_close_connection(c);
-        return NULL;
+        goto failed;
     }
 
 #if (nginx_version >= 1007005)
@@ -251,6 +244,20 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     }
 
     return s;
+
+failed:
+    if (s->out_pool) {
+        ngx_destroy_pool(s->out_pool);
+        s->out_pool = NULL;
+    }
+
+    if (s->in_streams_pool) {
+        ngx_destroy_pool(s->in_streams_pool);
+        s->in_streams_pool = NULL;
+    }
+
+    ngx_rtmp_close_connection(c);
+    return NULL;
 }
 
 

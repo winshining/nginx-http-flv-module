@@ -40,13 +40,13 @@ Donate if you like this module. Many thanks to you!
 
 * GNU make for activating compiler on Unix-like systems to compile software.
 
-* GCC for compiling on Unix-like systems/MSVC for compiling on Windows.
+* GCC for compiling on Unix-like systems or MSVC for compiling on Windows.
 
 * GDB for debuging on Unix-like systems.
 
-* FFmpeg for publishing media streams.
+* [FFmpeg](http://ffmpeg.org) or [OBS](https://obsproject.com) for publishing media streams.
 
-* VLC player (recommended) for playing media streams.
+* [VLC](http://www.videolan.org) (recommended) for playing media streams.
 
 * PCRE for NGINX if regular expressions needed.
 

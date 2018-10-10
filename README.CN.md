@@ -40,13 +40,13 @@
 
 * 在类Unix系统上，需要GNU make，用于调用编译器来编译软件。
 
-* 在类Unix系统上，需要GCC/在Windows上，需要MSVC，用于编译软件。
+* 在类Unix系统上，需要GCC。或者在Windows上，需要MSVC，用于编译软件。
 
 * 在类Unix系统上，需要GDB，用于调试软件（可选）。
 
-* FFmpeg，用于发布媒体流。
+* [FFmpeg](http://ffmpeg.org)或者[OBS](https://obsproject.com)，用于发布媒体流。
 
-* VLC播放器（推荐），用于播放媒体流。
+* [VLC](http://www.videolan.org)（推荐），用于播放媒体流。
 
 * 如果NGINX要支持正则表达式，需要PCRE库。
 
