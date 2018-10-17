@@ -493,7 +493,6 @@ struct ngx_rtmp_core_srv_conf_s {
     size_t                  connection_pool_size;
 
     ngx_flag_t              merge_slashes;
-    ngx_flag_t              listen_parsed;
 
     unsigned                listen:1;
 #if (NGX_PCRE)

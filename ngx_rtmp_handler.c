@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan 
- * Copyright (C) Winshining 
+ * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 

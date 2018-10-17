@@ -12,10 +12,7 @@
 
 
 static void ngx_rtmp_close_connection(ngx_connection_t *c);
-
 static void ngx_rtmp_process_unix_socket(ngx_rtmp_connection_t *rconn);
-
-extern ngx_module_t        ngx_rtmp_auto_push_module;
 
 
 void

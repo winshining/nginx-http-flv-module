@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan 
- * Copyright (C) Winshining 
+ * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -1463,7 +1463,7 @@ static void
 ngx_rtmp_relay_close(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_relay_app_conf_t          *racf;
-    ngx_rtmp_relay_ctx_t               *ctx, **cctx;
+    ngx_rtmp_relay_ctx_t               *ctx, **cctx, **next;
     ngx_uint_t                          hash;
 
     racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
@@ -1533,12 +1533,17 @@ ngx_rtmp_relay_close(ngx_rtmp_session_t *s)
         ngx_del_timer(&ctx->push_evt);
     }
 
-    for (cctx = &ctx->play; *cctx; cctx = &(*cctx)->next) {
+    for (cctx = &ctx->play; *cctx; /* cctx = &(*cctx)->next */) {
         (*cctx)->publish = NULL;
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, (*cctx)->session->connection->log,
             0, "relay: play disconnect orphan app='%V' name='%V'",
             &(*cctx)->app, &(*cctx)->name);
+
+        next = &(*cctx)->next;
+
         ngx_rtmp_finalize_session((*cctx)->session);
+
+        cctx = next;
     }
     ctx->publish = NULL;
 
