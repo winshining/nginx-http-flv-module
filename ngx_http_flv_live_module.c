@@ -1505,24 +1505,36 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
     u_char                      buf[NGX_BUFF_MAX_SIZE];
 
     c = rev->data;
-    r = c->data;
     if (c->destroyed) {
         return;
     }
 
+    r = c->data;
     ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
     s = ctx->s;
 
-    n = c->recv(c, buf, sizeof(buf));
+    for ( ;; ) {
+        n = c->recv(c, buf, sizeof(buf));
 
-    if (n == NGX_AGAIN) {
-        ngx_add_timer(c->read, s->timeout);
+        if (n == NGX_AGAIN) {
+            ngx_add_timer(c->read, s->timeout);
 
-        if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
-            ngx_rtmp_finalize_session(s);
+            if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+                ngx_rtmp_finalize_session(s);
+            }
+
+            break;
+        } else if (n == 0) {
+            if (c->read->timer_set) {
+                ngx_del_timer(c->read);
+            }
+
+            if (c->read->active) {
+                ngx_del_event(c->read, NGX_READ_EVENT, NGX_DISABLE_EVENT);
+            }
+
+            break;
         }
-    } else {
-        ngx_rtmp_finalize_session(s);
     }
 }
 
@@ -1538,14 +1550,13 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
     ngx_http_flv_live_ctx_t    *ctx;
 
     c = wev->data;
-    r = c->data;
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    s = ctx->s;
-
     if (c->destroyed) {
         return;
     }
+
+    r = c->data;
+    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+    s = ctx->s;
 
     if (wev->timedout) {
         ngx_log_error(NGX_LOG_ERR, c->log, NGX_ETIMEDOUT,
