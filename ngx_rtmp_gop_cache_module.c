@@ -206,8 +206,8 @@ ngx_rtmp_gop_cache_free_frame(ngx_rtmp_session_t *s,
     }
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop free frame: type='%s' video_frame_in_cache='%uD' "
-           "audio_frame_in_cache='%uD'",
+           "gop free frame: type='%s' video_frame_in_cache=%uD "
+           "audio_frame_in_cache=%uD",
            frame->h.type == NGX_RTMP_MSG_VIDEO ? "video" : "audio",
            ctx->video_frame_in_all, ctx->audio_frame_in_all);
 
@@ -251,10 +251,10 @@ ngx_rtmp_gop_cache_link_frame(ngx_rtmp_session_t *s,
 
     ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "gop link frame: type='%s' "
-            "ctx->video_frame_in_all='%uD' "
-            "ctx->audio_frame_in_all='%uD' "
-            "cache->video_frame_in_this='%uD' "
-            "cache->audio_frame_in_this='%uD'",
+            "ctx->video_frame_in_all=%uD "
+            "ctx->audio_frame_in_all=%uD "
+            "cache->video_frame_in_this=%uD "
+            "cache->audio_frame_in_this=%uD",
             frame->h.type == NGX_RTMP_MSG_VIDEO ? "video" : "audio",
             ctx->video_frame_in_all, ctx->audio_frame_in_all,
             cache->video_frame_in_this, cache->audio_frame_in_this);
@@ -319,7 +319,7 @@ ngx_rtmp_gop_cache_alloc_cache(ngx_rtmp_session_t *s)
     ctx->gop_cache_count++;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop alloc cache: gop_cache_count='%uD'", ctx->gop_cache_count);
+           "gop alloc cache: gop_cache_count=%uD", ctx->gop_cache_count);
 
     return NGX_OK;
 }
@@ -351,7 +351,7 @@ ngx_rtmp_gop_cache_free_cache(ngx_rtmp_session_t *s,
     ctx->gop_cache_count--;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop free cache: gop_cache_count='%uD'", ctx->gop_cache_count);
+           "gop free cache: gop_cache_count=%uD", ctx->gop_cache_count);
 
     return cache->next;
 }
@@ -454,7 +454,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         // drop video when not H.264
         if (codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop video non-H.264 encode type timestamp='%uD'",
+                    "drop video non-H.264 encode type timestamp=%uD",
                     ch->timestamp);
 
             return;
@@ -463,7 +463,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         // drop non-IDR
         if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache_head == NULL) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop video non-keyframe timestamp='%uD'",
+                    "drop video non-keyframe timestamp=%uD",
                     ch->timestamp);
 
             return;
@@ -473,7 +473,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     // pure audio
     if (ctx->video_frame_in_all == 0 && ch->type == NGX_RTMP_MSG_AUDIO) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop audio frame timestamp='%uD'",
+                    "drop audio frame timestamp=%uD",
                     ch->timestamp);
 
         return;
@@ -506,9 +506,9 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         > gacf->gop_max_frame_count)
     {
         ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
-               "gop cache: video_frame_in_cache='%uD' "
-               "audio_frame_in_cache='%uD' max_video_count='%uD' "
-               "max_audio_count='%uD' gop_max_frame_count='%uD'",
+               "gop cache: video_frame_in_cache=%uD "
+               "audio_frame_in_cache=%uD max_video_count=%uD "
+               "max_audio_count=%uD gop_max_frame_count=%uD",
                ctx->video_frame_in_all, ctx->audio_frame_in_all,
                gacf->gop_max_video_count, gacf->gop_max_audio_count,
                gacf->gop_max_frame_count);
@@ -520,7 +520,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     ngx_rtmp_gop_cache_update(s);
 
     ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-           "gop cache: cache packet type='%s' timestamp='%uD'",
+           "gop cache: cache packet type='%s' timestamp=%uD",
            gf->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
            gf->h.timestamp);
 }
@@ -677,8 +677,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
 
             ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "gop cache send: tag type='%s' prio='%d' ctimestamp='%uD' "
-                    "ltimestamp='%uD'",
+                    "gop cache send: tag type='%s' prio=%d ctimestamp=%uD "
+                    "ltimestamp=%uD",
                     gf->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video",
                     gf->prio, ch.timestamp, lh.timestamp);
 
@@ -813,14 +813,14 @@ ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     }
 
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "gop cache play: name='%s' start='%i' duration='%i' reset='%d'",
+            "gop cache play: name='%s' start=%i duration=%i reset=%d",
             v->name, (ngx_int_t) v->start,
             (ngx_int_t) v->duration, (ngx_uint_t) v->reset);
 
 #ifdef NGX_DEBUG
     start = ngx_current_msec;
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "gop cache send: start_time='%uD'", start);
+            "gop cache send: start_time=%uD", start);
 #endif
 
     ngx_rtmp_gop_cache_send(s);
@@ -828,10 +828,10 @@ ngx_rtmp_gop_cache_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 #ifdef NGX_DEBUG
     end = ngx_current_msec;
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "gop cache send: end_time='%uD'", end);
+            "gop cache send: end_time=%uD", end);
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "gop cache send: delta_time='%uD'", end - start);
+            "gop cache send: delta_time=%uD", end - start);
 #endif
 
 next:
