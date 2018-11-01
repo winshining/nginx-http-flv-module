@@ -16,13 +16,14 @@
 
 * nginx-http-flv-module的其他功能与[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的对比：
 
-|       功能       | nginx-http-flv-module | nginx-rtmp-module |             备注             |
-| :--------------: | :-------------------: | :---------------: | :--------------------------: |
-| HTTP-FLV (播放)  |           √           |         x         |  支持HTTPS-FLV和chunked回复  | 
-|     GOP缓存      |           √           |         x         |  仅适用于H.264视频和AAC音频  |
-|     虚拟主机     |           √           |         x         |                              |
-| 省略`listen`配置 |           √           |         x         |                              |
-|  JSON风格的stat  |           √           |         x         |                              |
+|       功能       | nginx-http-flv-module | nginx-rtmp-module |                  备注                  |
+| :--------------: | :-------------------: | :---------------: | :------------------------------------: |
+| HTTP-FLV (播放)  |           √           |         x         |        支持HTTPS-FLV和chunked回复      | 
+|     GOP缓存      |           √           |         x         |        仅适用于H.264视频和AAC音频      |
+|     虚拟主机     |           √           |         x         |                                        |
+| 省略`listen`配置 |           √           |       见备注      |        配置中必须有一个`listen`        |
+|    纯音频支持    |           √           |       见备注      | `wait_video`或`wait_key`开启后无法工作 |
+|  JSON风格的stat  |           √           |         x         |                                        |
 
 # 支持的系统
 
@@ -192,7 +193,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下也不能完全正确运行。
+最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。
 
     worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本

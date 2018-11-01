@@ -1016,20 +1016,22 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 continue;
             }
 
-            if (lacf->wait_video && h->type == NGX_RTMP_MSG_AUDIO &&
-                !pctx->cs[0].active)
-            {
-                ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
-                               "live: waiting for video");
-                continue;
-            }
+            if (codec_ctx->video_codec_id) {
+                if (lacf->wait_video && h->type == NGX_RTMP_MSG_AUDIO &&
+                    !pctx->cs[0].active)
+                {
+                    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
+                                   "live: waiting for video");
+                    continue;
+                }
 
-            if (lacf->wait_key && prio != NGX_RTMP_VIDEO_KEY_FRAME &&
-               (lacf->interleave || h->type == NGX_RTMP_MSG_VIDEO))
-            {
-                ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
-                               "live: skip non-key");
-                continue;
+                if (lacf->wait_key && prio != NGX_RTMP_VIDEO_KEY_FRAME &&
+                   (lacf->interleave || h->type == NGX_RTMP_MSG_VIDEO))
+                {
+                    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
+                                   "live: skip non-key");
+                    continue;
+                }
             }
 
             if (header || coheader) {

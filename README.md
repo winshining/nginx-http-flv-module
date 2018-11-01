@@ -16,13 +16,14 @@ Donate if you like this module. Many thanks to you!
 
 * Other features provided by nginx-http-flv-module vs [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module):
 
-|         Features        | nginx-http-flv-module | nginx-rtmp-module |                   remarks                  |
-| :---------------------: | :-------------------: | :---------------: | :----------------------------------------: |
-|   HTTP-FLV (subscribe)  |           √           |         x         |  HTTPS-FLV and chunked response supported  | 
-|        GOP cache        |           √           |         x         |     Only for H.264 video and AAC audio     |
-|          VHOST          |           √           |         x         |                                            |
-| omit `listen` directive |           √           |         x         |                                            |
-|     JSON style stat     |           √           |         x         |                                            |
+|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     remarks                     |
+| :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
+|   HTTP-FLV (subscribe)  |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
+|        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
+|          VHOST          |           √           |         x         |                                                 |
+| Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
+|   Pure audio support    |           √           |    See remarks    | Won't work if `wait_video` or `wait_key ` is on |
+|     JSON style stat     |           √           |         x         |                                                 |
 
 # Systems supported
 
@@ -40,9 +41,9 @@ Donate if you like this module. Many thanks to you!
 
 * GNU make for activating compiler on Unix-like systems to compile software.
 
-* GCC for compiling on Unix-like systems or MSVC for compiling on Windows.
+* GCC for compilation on Unix-like systems or MSVC for compilation on Windows.
 
-* GDB for debuging on Unix-like systems.
+* GDB for debug on Unix-like systems.
 
 * [FFmpeg](http://ffmpeg.org) or [OBS](https://obsproject.com) for publishing media streams.
 
@@ -192,7 +193,7 @@ Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/n
 
 The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
 
-The directive `worker_processes` of value 1 is preferable to other values, because there are something wrong with `ngx_rtmp_stat_module` and `ngx_rtmp_control_module` in multi-processes mode, in addtion, `vhost` feature is not perfect in multi-processes mode yet.
+The directive `worker_processes` of value 1 is preferable to other values, because there are something wrong with `ngx_rtmp_stat_module` and `ngx_rtmp_control_module` in multi-processes mode, in addtion, `vhost` feature is not perfect in multi-processes mode yet, wating to be fixed.
 
     worker_processes  1; #should be 1 for Windows, for it doesn't support Unix domain socket
     #worker_processes  auto; #from versions 1.3.8 and 1.2.5
