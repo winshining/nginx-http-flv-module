@@ -22,7 +22,8 @@ Donate if you like this module. Many thanks to you!
 |        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
-|   Pure audio support    |           √           |    See remarks    | Won't work if `wait_video` or `wait_key ` is on |
+|   Audio-only support    |           √           |    See remarks    | Won't work if `wait_video` or `wait_key ` is on |
+|  Timing log for access  |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 
 # Systems supported
@@ -285,10 +286,13 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue   4096;
-        out_cork    8;
-        max_streams 128;
-        timeout     15s;
+        out_queue    4096;
+        out_cork     8;
+        max_streams  128;
+        timeout      15s;
+
+        log_interval 5s; #interval used by log module to log in access.log, it is very useful for debug
+        log_size     1m; #buffer size used by log module to log in access.log
 
         server {
             listen 1935;

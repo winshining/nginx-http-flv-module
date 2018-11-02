@@ -23,6 +23,7 @@
 |     虚拟主机     |           √           |         x         |                                        |
 | 省略`listen`配置 |           √           |       见备注      |        配置中必须有一个`listen`        |
 |    纯音频支持    |           √           |       见备注      | `wait_video`或`wait_key`开启后无法工作 |
+| 定时打印访问记录 |           √           |         x         |                                        |
 |  JSON风格的stat  |           √           |         x         |                                        |
 
 # 支持的系统
@@ -284,10 +285,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue   4096;
-        out_cork    8;
-        max_streams 128;
-        timeout     15s;
+        out_queue    4096;
+        out_cork     8;
+        max_streams  128;
+        timeout      15s;
+
+        log_interval 5s; #log模块在access.log中记录日志的间隔时间，对调试非常有用
+        log_size     1m; #log模块用来记录日志的缓冲区大小
 
         server {
             listen 1935;
