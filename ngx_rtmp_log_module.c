@@ -933,14 +933,14 @@ ngx_rtmp_log_set_names(ngx_rtmp_session_t *s, u_char *name, u_char *args)
             return NULL;
         }
 
-        if (lacf->interval) {
-            ctx->line = ngx_pcalloc(s->connection->pool, lacf->size);
-            if (ctx->line == NULL) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                              "failed to allocate buffer for log line");
-                return NULL;
-            }
+        ctx->line = ngx_pcalloc(s->connection->pool, lacf->size);
+        if (ctx->line == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "failed to allocate buffer for log line");
+            return NULL;
+        }
 
+        if (lacf->interval) {
             ctx->ev.handler = ngx_rtmp_log_split_output_handler;
             ctx->ev.log = s->connection->log;
             ctx->ev.data = s;
