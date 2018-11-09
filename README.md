@@ -22,7 +22,7 @@ Donate if you like this module. Many thanks to you!
 |        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
-|   Audio-only support    |           √           |    See remarks    | Won't work if `wait_video` or `wait_key ` is on |
+|   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
 |  Timing log for access  |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 

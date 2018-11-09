@@ -40,6 +40,11 @@ static void ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s);
 
+#if (nginx_version <= 1003014)
+static void ngx_http_do_free_request(ngx_http_request_t *r, ngx_int_t rc);
+static void ngx_http_do_log_request(ngx_http_request_t *r);
+#endif
+
 
 typedef struct ngx_http_header_val_s  ngx_http_header_val_t;
 
@@ -59,7 +64,9 @@ struct ngx_http_header_val_s {
     ngx_str_t                  key;
     ngx_http_set_header_pt     handler;
     ngx_uint_t                 offset;
+#if (nginx_version >= 1007005)
     ngx_uint_t                 always;  /* unsigned  always:1 */
+#endif
 };
 
 
@@ -71,7 +78,9 @@ typedef enum {
 typedef struct {
     ngx_http_expires_t         expires;
     time_t                     expires_time;
+#if (nginx_version >= 1007009)
     ngx_http_complex_value_t  *expires_value;
+#endif
     ngx_array_t               *headers;
 } ngx_http_headers_conf_t;
 
@@ -557,9 +566,11 @@ ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
         h = conf->headers->elts;
         for (i = 0; i < conf->headers->nelts; i++) {
 
+#if (nginx_version >= 1007005)
             if (!safe_status && !h[i].always) {
                 continue;
             }
+#endif
 
             if (ngx_http_complex_value(r, &h[i].value, &value) != NGX_OK) {
                 return NGX_ERROR;
@@ -1404,7 +1415,11 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
             ngx_del_timer(&ctx->play);
         }
 
+#if (nginx_version <= 1003014)
+        ngx_http_do_free_request(r, 0);
+#else
         ngx_http_free_request(r, 0);
+#endif
 
 #if (NGX_HTTP_SSL)
         if (r->connection->ssl) {
@@ -1416,6 +1431,114 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
         r->connection->destroyed = 0;
     }
 }
+
+
+#if (nginx_version <= 1003014)
+static void
+ngx_http_do_free_request(ngx_http_request_t *r, ngx_int_t rc)
+{
+    ngx_log_t                 *log;
+    ngx_pool_t                *pool;
+    struct linger              linger;
+    ngx_http_cleanup_t        *cln;
+    ngx_http_log_ctx_t        *ctx;
+    ngx_http_core_loc_conf_t  *clcf;
+
+    log = r->connection->log;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, log, 0, "http close request");
+
+    if (r->pool == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0, "http request already closed");
+        return;
+    }
+
+    cln = r->cleanup;
+    r->cleanup = NULL;
+
+    while (cln) {
+        if (cln->handler) {
+            cln->handler(cln->data);
+        }
+
+        cln = cln->next;
+    }
+
+#if (NGX_STAT_STUB)
+
+    if (r->stat_reading) {
+        (void) ngx_atomic_fetch_add(ngx_stat_reading, -1);
+    }
+
+    if (r->stat_writing) {
+        (void) ngx_atomic_fetch_add(ngx_stat_writing, -1);
+    }
+
+#endif
+
+    if (rc > 0 && (r->headers_out.status == 0 || r->connection->sent == 0)) {
+        r->headers_out.status = rc;
+    }
+
+    log->action = "logging request";
+
+    ngx_http_do_log_request(r);
+
+    log->action = "closing request";
+
+    if (r->connection->timedout) {
+        clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+        if (clcf->reset_timedout_connection) {
+            linger.l_onoff = 1;
+            linger.l_linger = 0;
+ 
+            if (setsockopt(r->connection->fd, SOL_SOCKET, SO_LINGER,
+                           (const void *) &linger, sizeof(struct linger)) == -1)
+            {
+                ngx_log_error(NGX_LOG_ALERT, log, ngx_socket_errno,
+                              "setsockopt(SO_LINGER) failed");
+            }
+        }
+    }
+
+    /* the various request strings were allocated from r->pool */
+    ctx = log->data;
+    ctx->request = NULL;
+
+    r->request_line.len = 0;
+
+    r->connection->destroyed = 1;
+
+    /*
+     * Setting r->pool to NULL will increase probability to catch double close
+     * of request since the request object is allocated from its own pool.
+     */
+
+    pool = r->pool;
+    r->pool = NULL;
+
+    ngx_destroy_pool(pool);
+}
+
+
+static void
+ngx_http_do_log_request(ngx_http_request_t *r)
+{
+    ngx_uint_t                  i, n;
+    ngx_http_handler_pt        *log_handler;
+    ngx_http_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
+
+    log_handler = cmcf->phases[NGX_HTTP_LOG_PHASE].handlers.elts;
+    n = cmcf->phases[NGX_HTTP_LOG_PHASE].handlers.nelts;
+
+    for (i = 0; i < n; i++) {
+        log_handler[i](r);
+    }
+}
+#endif
 
 
 void
