@@ -766,15 +766,15 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
 
                     NGX_RTMP_STAT_L("}, \"audio\": {");
                     cname = ngx_rtmp_get_audio_codec_name(codec->audio_codec_id);
-                    f = 1;
+                    f = 0;
                     if (*cname) {
-                        f = 0;
+                        f = 1;
                         NGX_RTMP_STAT_L("\"codec\":\"");
                         NGX_RTMP_STAT_ECS(cname);
                     }
                     if (codec->aac_profile) {
-                        if(!f) NGX_RTMP_STAT_L("\",");
-                        f = 0;
+                        if(f == 1) NGX_RTMP_STAT_L("\",");
+                        f = 2;
                         NGX_RTMP_STAT_L("\"profile\":\"");
                         NGX_RTMP_STAT_CS(
                                 ngx_rtmp_stat_get_aac_profile(codec->aac_profile,
@@ -782,24 +782,27 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                                                               codec->aac_ps));
                     }
                     if (codec->aac_chan_conf) {
-                        if(!f) NGX_RTMP_STAT_L("\",");
-                        f = 0;
+                        if(f >= 1) NGX_RTMP_STAT_L("\",");
+                        f = 3;
                         NGX_RTMP_STAT_L("\"channels\":\"");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->aac_chan_conf) - buf);
                     } else if (codec->audio_channels) {
-                        if(!f) NGX_RTMP_STAT_L("\",");
-                        f = 0;
+                        if(f >= 1) NGX_RTMP_STAT_L("\",");
+                        f = 3;
                         NGX_RTMP_STAT_L("\"channels\":\"");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->audio_channels) - buf);
                     }
                     if (codec->sample_rate) {
-                        if(!f) NGX_RTMP_STAT_L("\",");
-                        f = 0;
+                        if(f >= 1) NGX_RTMP_STAT_L("\",");
+                        f = 4;
                         NGX_RTMP_STAT_L("\"sample_rate\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->sample_rate) - buf);
+                    }
+                    if (f == 1) {
+                        NGX_RTMP_STAT_L("\"");
                     }
                     NGX_RTMP_STAT_L("}");
 
