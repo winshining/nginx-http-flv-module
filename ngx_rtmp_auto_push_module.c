@@ -121,7 +121,7 @@ ngx_module_t  ngx_rtmp_auto_push_index_module = {
 };
 
 
-#define NGX_RTMP_AUTO_PUSH_SOCKNAME         "nginx-rtmp"
+#define NGX_RTMP_AUTO_PUSH_SOCKNAME         "nginx-http-flv"
 
 
 static ngx_int_t

@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) Roman Arutyunyan 
- * Copyright (C) Winshining 
+ * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -10,7 +10,6 @@
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_amf.h"
 #include "ngx_rtmp_cmd_module.h"
-#include "ngx_rtmp_gop_cache_module.h"
 
 
 static void ngx_rtmp_recv(ngx_event_t *rev);
@@ -553,14 +552,8 @@ ngx_rtmp_send(ngx_event_t *wev)
         if (s->out_bpos == s->out_chain->buf->last) {
             s->out_chain = s->out_chain->next;
             if (s->out_chain == NULL) {
-                if (s->gop_cache.out[s->out_pos].set) {
-                    ngx_rtmp_gop_cache_exec_handler(s, s->out_pos,
-                                                    s->out[s->out_pos]);
-                } else {
-                    cscf = ngx_rtmp_get_module_srv_conf(s,
-                                                        ngx_rtmp_core_module);
-                    ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
-                }
+                cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
+                ngx_rtmp_free_shared_chain(cscf, s->out[s->out_pos]);
                 ++s->out_pos;
                 s->out_pos %= s->out_queue;
                 if (s->out_pos == s->out_last) {
@@ -730,7 +723,7 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
 {
     ngx_uint_t                      nmsg;
 
-    nmsg = (s->out_last - s->out_pos) % s->out_queue + 1;
+    nmsg = (s->out_last + s->out_queue - s->out_pos) % s->out_queue + 1;
 
     if (priority > 3) {
         priority = 3;
@@ -742,10 +735,6 @@ ngx_rtmp_send_message(ngx_rtmp_session_t *s, ngx_chain_t *out,
         ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                 "RTMP drop message bufs=%ui, priority=%ui",
                 nmsg, priority);
-
-        if (s->gop_cache.out[s->out_last].set) {
-            ngx_rtmp_gop_cache_exec_handler(s, s->out_last, out);
-        }
 
         return NGX_AGAIN;
     }

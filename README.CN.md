@@ -4,18 +4,27 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
+[English README](https://github.com/winshining/nginx-http-flv-module/blob/master/README.md)。
+
+如果您喜欢这个模块，可以通过赞赏来支持我的工作，非常感谢！
+
+![reward_qrcode_winshining](https://raw.githubusercontent.com/wiki/winshining/nginx-http-flv-module/reward_qrcode_winshining.png)
+
 # 功能
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
 
 * nginx-http-flv-module的其他功能与[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的对比：
 
-|       功能       | nginx-http-flv-module | nginx-rtmp-module |             备注             |
-| :--------------: | :-------------------: | :---------------: | :--------------------------: |
-| HTTP-FLV (播放)  |           √           |         x         |  支持HTTPS-FLV和chunked回复  | 
-|     GOP缓存      |           √           |         x         |  仅适用于H.264视频和AAC音频  |
-|     虚拟主机     |           √           |         x         |                              |
-| 省略`listen`配置 |           √           |         x         |                              |
+|       功能       | nginx-http-flv-module | nginx-rtmp-module |                  备注                  |
+| :--------------: | :-------------------: | :---------------: | :------------------------------------: |
+| HTTP-FLV (播放)  |           √           |         x         |        支持HTTPS-FLV和chunked回复      | 
+|     GOP缓存      |           √           |         x         |        仅适用于H.264视频和AAC音频      |
+|     虚拟主机     |           √           |         x         |                                        |
+| 省略`listen`配置 |           √           |       见备注      |        配置中必须有一个`listen`        |
+|    纯音频支持    |           √           |       见备注      | `wait_video`或`wait_key`开启后无法工作 |
+| 定时打印访问记录 |           √           |         x         |                                        |
+|  JSON风格的stat  |           √           |         x         |                                        |
 
 # 支持的系统
 
@@ -25,17 +34,21 @@
 
 * [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
+## 注意
+
+[flv.js](https://github/com/Bilibili/flv.js)只能运行在支持[Media Source Extensions](https://www.w3.org/TR/media-source)的浏览器上。
+
 # 依赖
 
 * 在类Unix系统上，需要GNU make，用于调用编译器来编译软件。
 
-* 在类Unix系统上，需要GCC/在Windows上，需要MSVC，用于编译软件。
+* 在类Unix系统上，需要GCC。或者在Windows上，需要MSVC，用于编译软件。
 
 * 在类Unix系统上，需要GDB，用于调试软件（可选）。
 
-* FFmpeg，用于发布媒体流。
+* [FFmpeg](http://ffmpeg.org)或者[OBS](https://obsproject.com)，用于发布媒体流。
 
-* VLC播放器（推荐），用于播放媒体流。
+* [VLC](http://www.videolan.org)（推荐），用于播放媒体流。
 
 * 如果NGINX要支持正则表达式，需要PCRE库。
 
@@ -161,18 +174,32 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
     http://example.com[:port]/dir/streamname.mpd
 
+# 示例图片
+
+## RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
+
+![RTMP & HTTP-FLV](samples/jwplayer_vlc.png)
+
+## HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
+
+![HTTP-FLV](samples/flv.js.png)
+
+# nginx-http-flv-module的安装包
+
+详情见[nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages)。
+
 # nginx.conf实例
 
 ## 注意
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`在多进程模式下每次只能获取一个进程的统计数据。如果统计数据不重要，那么可以将它设置为大于1的数字，最好与CPU的核心数保持一致。
+最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。
 
-    worker_processes  4; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
+    worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
 
-    worker_cpu_affinity  0001 0010 0100 1000; #只能用于FreeBSD和Linux
+    #worker_cpu_affinity  0001 0010 0100 1000; #只能用于FreeBSD和Linux
     #worker_cpu_affinity  auto; #1.9.10以及之后的版本
 
     error_log logs/error.log error;
@@ -180,7 +207,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #如果此模块被编译为动态模块并且要使用与RTMP相关的功
     #能时，必须指定下面的配置项并且它必须位于events配置
     #项之前，否则NGINX启动时不会加载此模块或者加载失败
-    #load_module modules/ngx_rtmp_module.so;
+    #load_module modules/ngx_http_flv_live_module.so;
 
     events {
         worker_connections  1024;
@@ -239,6 +266,14 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
                 root /var/www/rtmp; #指定stat.xsl的位置
             }
 
+            #如果需要JSON风格的stat, 不用指定stat.xsl
+            #但是需要指定一个新的配置项rtmp_stat_format
+
+            #location /stat {
+            #    rtmp_stat all;
+            #    rtmp_stat_format json;
+            #}
+
             location /control {
                 rtmp_control all; #rtmp控制模块的配置
             }
@@ -250,9 +285,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue   4096;
-        out_cork    8;
-        max_streams 64;
+        out_queue    4096;
+        out_cork     8;
+        max_streams  128;
+        timeout      15s;
+
+        log_interval 5s; #log模块在access.log中记录日志的间隔时间，对调试非常有用
+        log_size     1m; #log模块用来记录日志的缓冲区大小
 
         server {
             listen 1935;
@@ -296,4 +335,3 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
             }
         }
     }
-

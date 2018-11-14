@@ -1,8 +1,8 @@
 
 /*
  * Copyright (C) Igor Sysoev
- * Copyright (C) Nginx, Inc. 
- * Copyright (C) Winshining 
+ * Copyright (C) Nginx, Inc.
+ * Copyright (C) Winshining
  */
 
 

@@ -265,20 +265,6 @@ typedef struct {
 #endif
 
 
-typedef void (*free_message_pt)(ngx_rtmp_session_t *s, ngx_chain_t *in);
-
-typedef struct {
-    free_message_pt  free;
-    ngx_flag_t       set;
-} ngx_rtmp_gop_cache_free_t;
-
-
-typedef struct {
-    ngx_rtmp_gop_cache_free_t  *out;
-    ngx_uint_t                  count;
-} ngx_rtmp_gop_cache_handler_t;
-
-
 struct ngx_rtmp_session_s {
     uint32_t                       signature;  /* "RTMP" */ /* <-- FIXME wtf */
 
@@ -396,8 +382,6 @@ struct ngx_rtmp_session_s {
     unsigned                       wait_notify_connect:1;
     unsigned                       wait_notify_play:1;
 
-    ngx_rtmp_gop_cache_handler_t   gop_cache;
-
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
 
@@ -509,7 +493,6 @@ struct ngx_rtmp_core_srv_conf_s {
     size_t                  connection_pool_size;
 
     ngx_flag_t              merge_slashes;
-    ngx_flag_t              listen_parsed;
 
     unsigned                listen:1;
 #if (NGX_PCRE)

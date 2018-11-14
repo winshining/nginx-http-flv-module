@@ -157,6 +157,13 @@ static ngx_command_t  ngx_rtmp_notify_commands[] = {
       offsetof(ngx_rtmp_notify_app_conf_t, relay_redirect),
       NULL },
 
+    { ngx_string("notify_no_resolve"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_notify_app_conf_t, no_resolve),
+      NULL },
+
       ngx_null_command
 };
 
@@ -208,6 +215,7 @@ ngx_rtmp_notify_create_app_conf(ngx_conf_t *cf)
     nacf->update_timeout = NGX_CONF_UNSET_MSEC;
     nacf->update_strict = NGX_CONF_UNSET;
     nacf->relay_redirect = NGX_CONF_UNSET;
+    nacf->no_resolve = NGX_CONF_UNSET;
 
     return nacf;
 }
@@ -237,6 +245,7 @@ ngx_rtmp_notify_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
                               30000);
     ngx_conf_merge_value(conf->update_strict, prev->update_strict, 0);
     ngx_conf_merge_value(conf->relay_redirect, prev->relay_redirect, 0);
+    ngx_conf_merge_value(conf->no_resolve, prev->no_resolve, 1);
 
     return NGX_CONF_OK;
 }
@@ -1033,7 +1042,7 @@ ngx_rtmp_notify_publish_handle(ngx_rtmp_session_t *s,
     u->url.len = rc - 7;
     u->default_port = 1935;
     u->uri_part = 1;
-    u->no_resolve = 1; /* want ip here */
+    u->no_resolve = nacf->no_resolve; /* want ip here */
 
     if (ngx_parse_url(s->connection->pool, u) != NGX_OK) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
@@ -1112,7 +1121,7 @@ ngx_rtmp_notify_play_handle(ngx_rtmp_session_t *s,
     u->url.len = rc - 7;
     u->default_port = 1935;
     u->uri_part = 1;
-    u->no_resolve = (s->wait_notify_play ? 0 : 1); /* want ip here */
+    u->no_resolve = nacf->no_resolve; /* want ip here */
 
     if (ngx_parse_url(s->connection->pool, u) != NGX_OK) {
         ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,

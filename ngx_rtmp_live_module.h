@@ -86,8 +86,6 @@ extern ngx_module_t  ngx_rtmp_live_module;
 
 ngx_rtmp_live_stream_t **ngx_rtmp_live_get_stream(ngx_rtmp_session_t *s,
     u_char *name, int create);
-ngx_int_t ngx_rtmp_live_send_message(ngx_rtmp_session_t *s, ngx_chain_t *in,
-    ngx_uint_t priority);
 
 
 #endif /* _NGX_RTMP_LIVE_H_INCLUDED_ */

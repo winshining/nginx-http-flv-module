@@ -25,7 +25,7 @@ typedef struct {
     double                          trans;
     u_char                          app[NGX_RTMP_MAX_NAME];
     u_char                          args[NGX_RTMP_MAX_ARGS];
-    u_char                          flashver[32];
+    u_char                          flashver[64];
     u_char                          swf_url[NGX_RTMP_MAX_URL];
     u_char                          tc_url[NGX_RTMP_MAX_URL];
     double                          acodecs;

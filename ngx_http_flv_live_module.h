@@ -74,8 +74,6 @@ ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
         ngx_rtmp_header_t *h,
         ngx_chain_t *in,
         ngx_flag_t chunked);
-ngx_int_t ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
-        ngx_chain_t *out, ngx_uint_t priority);
 
 
 #endif
