@@ -10,6 +10,14 @@
 
 ![reward_qrcode_winshining](https://raw.githubusercontent.com/wiki/winshining/nginx-http-flv-module/reward_qrcode_winshining.png)
 
+### 感谢
+
+* Igor Sysoev，[NGINX](http://nginx.org)的作者。
+
+* Roman Arutyunyan，[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的作者。
+
+* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS)。
+
 # 功能
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
