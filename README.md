@@ -56,7 +56,7 @@ Donate if you like this module. Many thanks to you!
 
 * [FFmpeg](http://ffmpeg.org) or [OBS](https://obsproject.com) for publishing media streams.
 
-* [VLC](http://www.videolan.org) (recommended) for playing media streams.
+* [VLC](http://www.videolan.org) (recommended) or [flv.js](https://github.com/Bilibili/flv.js) (recommended) for playing media streams.
 
 * PCRE for NGINX if regular expressions needed.
 
@@ -121,6 +121,10 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 ### via HTTP-FLV
 
     http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+
+### Note
+
+If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some terminals not so smart will interpret "&" as "run in background").
 
 The `dir` is used to match location blocks in http block (see below for details).
 
