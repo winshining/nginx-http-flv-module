@@ -124,7 +124,7 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 
 ### Note
 
-If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some terminals not so smart will interpret "&" as "run in background").
+If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
 
 The `dir` is used to match location blocks in http block (see below for details).
 
