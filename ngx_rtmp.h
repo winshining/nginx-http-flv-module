@@ -25,7 +25,6 @@ typedef struct ngx_rtmp_virtual_names_s  ngx_rtmp_virtual_names_t;
 
 
 #include "ngx_rtmp_variables.h"
-#include "ngx_rtmp_script.h"
 
 
 #if (NGX_WIN32)
