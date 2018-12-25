@@ -353,9 +353,7 @@ struct ngx_rtmp_session_s {
     u_char                        *port_end;
 
     unsigned                       keepalive:1;
-    unsigned                       lingering_close:1;
 
-    unsigned                       valid_application:1;
     unsigned                       valid_unparsed_uri:1;
 
 #if (NGX_PCRE)
@@ -363,9 +361,6 @@ struct ngx_rtmp_session_s {
     int                           *captures;
     u_char                        *captures_data;
 #endif
-
-    size_t                         limit_rate;
-    size_t                         limit_rate_after;
 
     ngx_rtmp_connection_t         *rtmp_connection;
 
@@ -521,15 +516,9 @@ typedef struct {
     unsigned                named:1;
 
     size_t                  send_lowat;
-    size_t                  postpone_output;
-    size_t                  limit_rate;
-    size_t                  limit_rate_after;
     size_t                  sendfile_max_chunk;
 
     ngx_msec_t              send_timeout;
-    ngx_msec_t              keepalive_timeout;
-    ngx_msec_t              lingering_time;
-    ngx_msec_t              lingering_timeout;
     ngx_msec_t              resolver_timeout;
 
     ngx_resolver_t         *resolver;

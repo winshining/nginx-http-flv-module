@@ -339,7 +339,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
         {
             /* found app! */
             s->app_conf = (*cacfp)->app_conf;
-            s->valid_application = 1;
             break;
         }
     }
