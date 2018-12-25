@@ -512,19 +512,12 @@ typedef struct {
     ngx_rtmp_regex_t       *regex;
 #endif
 
-    unsigned                noname:1; /* "if () {}" block or limit_except */
-    unsigned                named:1;
-
     size_t                  send_lowat;
-    size_t                  sendfile_max_chunk;
 
     ngx_msec_t              send_timeout;
     ngx_msec_t              resolver_timeout;
 
     ngx_resolver_t         *resolver;
-
-    ngx_flag_t              tcp_nopush;
-    ngx_flag_t              tcp_nodelay;
 } ngx_rtmp_core_app_conf_t;
 
 
