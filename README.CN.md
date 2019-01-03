@@ -10,6 +10,14 @@
 
 ![reward_qrcode_winshining](https://raw.githubusercontent.com/wiki/winshining/nginx-http-flv-module/reward_qrcode_winshining.png)
 
+### 感谢
+
+* Igor Sysoev，[NGINX](http://nginx.org)的作者。
+
+* Roman Arutyunyan，[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的作者。
+
+* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS)。
+
 # 功能
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
@@ -36,7 +44,7 @@
 
 ## 注意
 
-[flv.js](https://github/com/Bilibili/flv.js)只能运行在支持[Media Source Extensions](https://www.w3.org/TR/media-source)的浏览器上。
+[flv.js](https://github.com/Bilibili/flv.js)只能运行在支持[Media Source Extensions](https://www.w3.org/TR/media-source)的浏览器上。
 
 # 依赖
 
@@ -48,7 +56,7 @@
 
 * [FFmpeg](http://ffmpeg.org)或者[OBS](https://obsproject.com)，用于发布媒体流。
 
-* [VLC](http://www.videolan.org)（推荐），用于播放媒体流。
+* [VLC](http://www.videolan.org)（推荐）或者[flv.js](https://github.com/Bilibili/flv.js)（推荐），用于播放媒体流。
 
 * 如果NGINX要支持正则表达式，需要PCRE库。
 
@@ -113,6 +121,10 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 ### HTTP-FLV方式
 
     http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+
+### 注意
+
+如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
 
 参数`dir`用于匹配http配置块中的location块（更多详情见下文）。
 

@@ -1647,15 +1647,8 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
             }
 
             break;
-        } else if (n == 0) {
-            if (c->read->timer_set) {
-                ngx_del_timer(c->read);
-            }
-
-            if (c->read->active) {
-                ngx_del_event(c->read, NGX_READ_EVENT, NGX_DISABLE_EVENT);
-            }
-
+        } else if (n == 0 || n == -1) {
+            ngx_rtmp_finalize_session(s);
             break;
         }
     }

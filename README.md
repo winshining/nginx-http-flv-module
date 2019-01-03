@@ -10,13 +10,21 @@ Donate if you like this module. Many thanks to you!
 
 <a href="https://www.buymeacoffee.com/winshining" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
+### Appreciation
+
+* Igor Sysoev, the creator of [NGINX](http://nginx.org).
+
+* Roman Arutyunyan, who created [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
+
+* Contributors, refer to [AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS) for details.
+
 # Features
 
 * All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides.
 
 * Other features provided by nginx-http-flv-module vs [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module):
 
-|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     remarks                     |
+|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     Remarks                     |
 | :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
 |   HTTP-FLV (subscribe)  |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
 |        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
@@ -48,7 +56,7 @@ Donate if you like this module. Many thanks to you!
 
 * [FFmpeg](http://ffmpeg.org) or [OBS](https://obsproject.com) for publishing media streams.
 
-* [VLC](http://www.videolan.org) (recommended) for playing media streams.
+* [VLC](http://www.videolan.org) (recommended) or [flv.js](https://github.com/Bilibili/flv.js) (recommended) for playing media streams.
 
 * PCRE for NGINX if regular expressions needed.
 
@@ -64,7 +72,7 @@ nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.c
 
 ## On Windows
 
-Build steps please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
+For details of build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
 ## On Unix-like systems
 
@@ -94,7 +102,7 @@ If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) ver
 
 # Usage
 
-For details about usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/vhost/README.md).
+For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/vhost/README.md).
 
 ## Publish
 
@@ -113,6 +121,10 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 ### via HTTP-FLV
 
     http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+
+### Note
+
+If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
 
 The `dir` is used to match location blocks in http block (see below for details).
 
