@@ -2409,6 +2409,10 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
     ngx_rtmp_session_t              *s;
     ngx_rtmp_connection_t           *rconn;
 
+    if (ngx_exiting || ngx_terminate) {
+        return NGX_HTTP_CLOSE;
+    }
+
     hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
     if (!hfcf->flv_live) {
         return NGX_DECLINED;
