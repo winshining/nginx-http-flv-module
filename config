@@ -9,6 +9,7 @@ RTMP_CORE_MODULES="                                         \
                 ngx_rtmp_record_module                      \
                 ngx_rtmp_gop_cache_module                   \
                 ngx_rtmp_live_module                        \
+                ngx_rtmp_flv_live_index_module              \
                 ngx_rtmp_play_module                        \
                 ngx_rtmp_flv_module                         \
                 ngx_rtmp_mp4_module                         \
@@ -74,6 +75,7 @@ RTMP_CORE_SRCS="                                                \
                 $ngx_addon_dir/ngx_rtmp_record_module.c         \
                 $ngx_addon_dir/ngx_rtmp_gop_cache_module.c      \
                 $ngx_addon_dir/ngx_rtmp_live_module.c           \
+                $ngx_addon_dir/ngx_rtmp_flv_live_index_module.c \
                 $ngx_addon_dir/ngx_rtmp_play_module.c           \
                 $ngx_addon_dir/ngx_rtmp_flv_module.c            \
                 $ngx_addon_dir/ngx_rtmp_mp4_module.c            \

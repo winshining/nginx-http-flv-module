@@ -21,6 +21,10 @@
 extern ngx_module_t ngx_rtmp_module;
 
 
+ngx_rtmp_play_pt         http_flv_live_next_play;
+ngx_rtmp_close_stream_pt http_flv_live_next_close_stream;
+
+
 #define ngx_rtmp_cycle_get_module_main_conf(cycle, module)                \
     (cycle->conf_ctx[ngx_rtmp_module.index] ?                             \
         ((ngx_rtmp_conf_ctx_t *) cycle->conf_ctx[ngx_rtmp_module.index])  \
@@ -64,6 +68,11 @@ typedef struct {
             ngx_chain_t *in);
 } ngx_rtmp_live_proc_handler_t;
 
+
+ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
+        ngx_rtmp_play_t *v);
+ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
+        ngx_rtmp_close_stream_t *v);
 
 ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
         unsigned int publisher);
