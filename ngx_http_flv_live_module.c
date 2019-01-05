@@ -8,7 +8,6 @@
 #include <ngx_http.h>
 #include "ngx_http_flv_live_module.h"
 #include "ngx_rtmp_relay_module.h"
-#include "ngx_rtmp_notify_module.h"
 #include "ngx_rtmp_exec_module.h"
 #include "ngx_rtmp_bandwidth.h"
 
@@ -1201,21 +1200,15 @@ ngx_int_t
 ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
 {
     ngx_rtmp_live_app_conf_t        *lacf;
-    ngx_rtmp_notify_app_conf_t      *nacf;
     ngx_http_request_t              *r;
-
-    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
-    if (lacf == NULL || !lacf->live) {
-        goto next;
-    }
-
-    nacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_notify_module);
-    if (!s->relay && nacf && nacf->url[NGX_RTMP_NOTIFY_PLAY]) {
-        s->wait_notify_play = 1;
-    }
 
     r = s->data;
     if (r == NULL) {
+        goto next;
+    }
+
+    lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
+    if (lacf == NULL || !lacf->live) {
         goto next;
     }
 
@@ -2096,7 +2089,6 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 {
     ngx_rtmp_connect_t           v;
     ngx_http_request_t          *r;
-    ngx_rtmp_notify_srv_conf_t  *nscf;
 
     r = s->data;
 
@@ -2126,11 +2118,6 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
                       "flv live: failed to process virtual host");
 
         return NGX_ERROR;
-    }
-
-    nscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_notify_module);
-    if (nscf && nscf->url[NGX_RTMP_NOTIFY_CONNECT]) {
-        s->wait_notify_connect = 1;
     }
 
     s->stream.len = stream->len;
