@@ -7,8 +7,6 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include "ngx_http_flv_live_module.h"
-#include "ngx_rtmp_relay_module.h"
-#include "ngx_rtmp_exec_module.h"
 #include "ngx_rtmp_bandwidth.h"
 
 
@@ -198,7 +196,6 @@ static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
 
 static void ngx_http_flv_live_play_handler(ngx_event_t *ev);
-static void ngx_http_flv_live_exec_pull_handler(ngx_event_t *ev);
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
 
@@ -1074,13 +1071,9 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
         unsigned int publisher)
 {
     ngx_rtmp_live_ctx_t            *ctx;
-    ngx_http_flv_live_ctx_t        *hctx;
-    ngx_http_request_t             *r;
     ngx_rtmp_live_stream_t        **stream;
     ngx_rtmp_live_app_conf_t       *lacf;
 
-    ngx_rtmp_relay_app_conf_t      *racf;
-    ngx_rtmp_exec_app_conf_t       *eacf;
     ngx_flag_t                      create;
 
     /* only for subscribers */
@@ -1113,26 +1106,6 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live: join '%s'", name);
-
-    racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_relay_module);
-    eacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_exec_module);
-    if (racf && racf->pulls.nelts) {
-        create = 1;
-    }
-
-    if (!create && eacf && eacf->conf[NGX_RTMP_EXEC_PULL].nelts > 0) {
-        create = 1;
-
-        r = s->data;
-        hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-
-        ngx_memzero(&hctx->play, sizeof(ngx_event_t));
-        hctx->play.handler = ngx_http_flv_live_exec_pull_handler;
-        hctx->play.log = s->connection->log;
-        hctx->play.data = s->connection;
-
-        ngx_add_timer(&hctx->play, s->timeout);
-    }
 
     stream = ngx_rtmp_live_get_stream(s, name,
                         lacf->idle_streams || s->wait_notify_play || create);
@@ -1575,33 +1548,6 @@ ngx_http_flv_live_play_handler(ngx_event_t *ev)
     } else {
         hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
         ngx_add_timer(ev, hfcf->poll_interval);
-    }
-}
-
-
-void
-ngx_http_flv_live_exec_pull_handler(ngx_event_t *ev)
-{
-    ngx_connection_t           *c;
-    ngx_http_request_t         *r;
-    ngx_rtmp_session_t         *s;
-    ngx_http_flv_live_ctx_t    *ctx;
-
-    c = ev->data;
-    if (c->destroyed) {
-        return;
-    }
-
-    r = c->data;
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    s = ctx->s;
-
-    if (ev->timer_set) {
-        ngx_del_timer(ev);
-    }
-
-    if (!ctx->header_sent) {
-        ngx_rtmp_finalize_session(s);
     }
 }
 
