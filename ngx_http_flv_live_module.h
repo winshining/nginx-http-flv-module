@@ -40,14 +40,11 @@ typedef struct ngx_http_flv_live_ctx_s {
     ngx_str_t            app;
     ngx_str_t            port;
     ngx_str_t            stream;
-
-    ngx_event_t          play;
 } ngx_http_flv_live_ctx_t;
 
 
 typedef struct ngx_http_flv_live_conf_s {
     ngx_flag_t    flv_live;
-    ngx_msec_t    poll_interval;
 } ngx_http_flv_live_conf_t;
 
 

@@ -195,7 +195,6 @@ static ngx_int_t ngx_http_flv_live_request(ngx_rtmp_session_t *s,
 static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
 
-static void ngx_http_flv_live_play_handler(ngx_event_t *ev);
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
 
@@ -228,13 +227,6 @@ static ngx_command_t ngx_http_flv_live_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_flv_live_conf_t, flv_live),
-      NULL },
-
-    { ngx_string("poll_interval"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_msec_slot,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_flv_live_conf_t, poll_interval),
       NULL },
 
     ngx_null_command
@@ -288,7 +280,6 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
     }
 
     conf->flv_live = NGX_CONF_UNSET;
-    conf->poll_interval = NGX_CONF_UNSET_MSEC;
 
     return (void *) conf;
 }
@@ -302,16 +293,6 @@ ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
     ngx_http_flv_live_conf_t *conf = child;
 
     ngx_conf_merge_value(conf->flv_live, prev->flv_live, 0);
-    ngx_conf_merge_msec_value(conf->poll_interval, prev->poll_interval, 20);
-
-    if (conf->poll_interval == 0) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                     "invalid value \"%ui\" in \"poll_interval\" directive, "
-                     "it must be greater than 0",
-                     conf->poll_interval);
-
-        return NGX_CONF_ERROR;
-    }
 
     return NGX_CONF_OK;
 }
@@ -1011,19 +992,6 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
            (ngx_int_t) v.silent);
 
-    if (s->wait_notify_connect) {
-        ngx_memzero(&ctx->play, sizeof(ngx_event_t));
-        ctx->play.handler = ngx_http_flv_live_play_handler;
-        ctx->play.log = s->connection->log;
-        ctx->play.data = s->connection;
-
-        r->main->count++;
-
-        ngx_http_flv_live_play_handler(&ctx->play);
-
-        return NGX_OK;
-    }
-
     return ngx_rtmp_play(s, &v);
 }
 
@@ -1359,7 +1327,6 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
 {
     ngx_http_request_t             *r;
     ngx_http_cleanup_t            **cln;
-    ngx_http_flv_live_ctx_t        *ctx;
 
     r = s->data;
     if (r) {
@@ -1370,11 +1337,6 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
             }
 
             cln = &(*cln)->next;
-        }
-
-        ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-        if (ctx && ctx->play.timer_set) {
-            ngx_del_timer(&ctx->play);
         }
 
 #if (nginx_version <= 1003014)
@@ -1501,55 +1463,6 @@ ngx_http_do_log_request(ngx_http_request_t *r)
     }
 }
 #endif
-
-
-void
-ngx_http_flv_live_play_handler(ngx_event_t *ev)
-{
-    static ngx_rtmp_play_t      v;
-
-    ngx_connection_t           *c;
-    ngx_http_request_t         *r;
-    ngx_rtmp_session_t         *s;
-    ngx_http_flv_live_ctx_t    *ctx;
-    ngx_http_flv_live_conf_t   *hfcf;
-
-    c = ev->data;
-    if (c->destroyed) {
-        return;
-    }
-
-    r = c->data;
-    ctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
-    s = ctx->s;
-
-    if (ev->timer_set) {
-        ngx_del_timer(ev);
-    }
-
-    if (!s->wait_notify_connect) {
-        ngx_memzero(&v, sizeof(ngx_rtmp_play_t));
-
-        ngx_memcpy(v.name, ctx->stream.data, ngx_min(ctx->stream.len,
-                sizeof(v.name) - 1));
-        ngx_memcpy(v.args, s->args.data, ngx_min(s->args.len,
-                sizeof(v.args) - 1));
-
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-               "flv live: name='%s' args='%s' start=%i duration=%i "
-               "reset=%i silent=%i",
-               v.name, v.args, (ngx_int_t) v.start,
-               (ngx_int_t) v.duration, (ngx_int_t) v.reset,
-               (ngx_int_t) v.silent);
-
-        r->main->count--;
-
-        ngx_rtmp_play(s, &v);
-    } else {
-        hfcf = ngx_http_get_module_loc_conf(r, ngx_http_flv_live_module);
-        ngx_add_timer(ev, hfcf->poll_interval);
-    }
-}
 
 
 void
