@@ -17,7 +17,7 @@ static ngx_rtmp_close_stream_pt next_close_stream;
 static ngx_int_t ngx_http_flv_live_init(ngx_conf_t *cf);
 static void *ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
-        void *parent, void *child);
+    void *parent, void *child);
 
 
 static ngx_int_t ngx_http_flv_live_handler(ngx_http_request_t *r);
@@ -26,13 +26,19 @@ static ngx_int_t ngx_http_flv_live_init_process(ngx_cycle_t *cycle);
 
 static void ngx_http_flv_live_send_tail(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
-        ngx_chain_t *out, ngx_uint_t priority);
+    ngx_chain_t *out, ngx_uint_t priority);
 static ngx_chain_t *ngx_http_flv_live_meta_message(ngx_rtmp_session_t *,
-        ngx_chain_t *in);
+    ngx_chain_t *in);
 static ngx_chain_t *ngx_http_flv_live_append_message(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh, ngx_chain_t *in);
+    ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh, ngx_chain_t *in);
 static void ngx_http_flv_live_free_message(ngx_rtmp_session_t *s,
-        ngx_chain_t *in);
+    ngx_chain_t *in);
+static ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
+    unsigned int publisher);
+static ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
+    ngx_rtmp_core_srv_conf_t *cscf, ngx_rtmp_header_t *h, ngx_chain_t *in,
+    ngx_flag_t chunked);
+
 static void ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s);
@@ -190,7 +196,7 @@ static ngx_int_t ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle);
 
 
 static ngx_int_t ngx_http_flv_live_request(ngx_rtmp_session_t *s,
-        ngx_rtmp_header_t *h, ngx_chain_t *in);
+    ngx_rtmp_header_t *h, ngx_chain_t *in);
 
 static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
@@ -199,14 +205,14 @@ static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
 
 static ngx_int_t ngx_http_flv_live_preprocess(ngx_http_request_t *r,
-        ngx_rtmp_connection_t *rconn);
+    ngx_rtmp_connection_t *rconn);
 
 static ngx_rtmp_session_t *ngx_http_flv_live_init_connection(
-        ngx_http_request_t *r, ngx_rtmp_connection_t *rconn);
+    ngx_http_request_t *r, ngx_rtmp_connection_t *rconn);
 static ngx_rtmp_session_t *ngx_http_flv_live_init_session(
-        ngx_http_request_t *r, ngx_rtmp_addr_conf_t *add_conf);
+    ngx_http_request_t *r, ngx_rtmp_addr_conf_t *add_conf);
 static ngx_int_t ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s,
-        ngx_str_t *app, ngx_str_t *stream);
+    ngx_str_t *app, ngx_str_t *stream);
 
 
 static ngx_http_module_t ngx_http_flv_live_module_ctx = {
@@ -249,7 +255,7 @@ ngx_module_t ngx_http_flv_live_module = {
 };
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_init(ngx_conf_t *cf)
 {
     ngx_http_handler_pt       *h;
@@ -269,7 +275,7 @@ ngx_http_flv_live_init(ngx_conf_t *cf)
 }
 
 
-void *
+static void *
 ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 {
     ngx_http_flv_live_conf_t  *conf;
@@ -285,7 +291,7 @@ ngx_http_flv_live_create_loc_conf(ngx_conf_t *cf)
 }
 
 
-char *
+static char *
 ngx_http_flv_live_merge_loc_conf(ngx_conf_t *cf,
     void *parent, void *child)
 {
@@ -323,7 +329,7 @@ ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_init_process(ngx_cycle_t *cycle)
 {
     return ngx_http_flv_live_init_handlers(cycle);
@@ -497,7 +503,7 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
 /**
  * for adding non-standard HTTP headers 
  **/
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
 {
     ngx_str_t                 value;
@@ -559,7 +565,7 @@ ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
 {
     u_char                    *p;
@@ -892,7 +898,7 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
 }
 
 
-void
+static void
 ngx_http_flv_live_send_tail(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_core_srv_conf_t *cscf;
@@ -917,9 +923,9 @@ ngx_http_flv_live_send_tail(ngx_rtmp_session_t *s)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
-        ngx_chain_t *out, ngx_uint_t priority)
+    ngx_chain_t *out, ngx_uint_t priority)
 {
     ngx_uint_t                      nmsg;
 
@@ -960,9 +966,9 @@ ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_chain_t *in)
+    ngx_chain_t *in)
 {
     static ngx_rtmp_play_t       v;
 
@@ -1034,9 +1040,9 @@ ngx_http_flv_live_set_status(ngx_rtmp_session_t *s, unsigned active)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
-        unsigned int publisher)
+    unsigned int publisher)
 {
     ngx_rtmp_live_ctx_t            *ctx;
     ngx_rtmp_live_stream_t        **stream;
@@ -1167,10 +1173,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         r->keepalive = 0;
 #endif
 
-    if (s->wait_notify_play) {
-        goto next;
-    }
-
     /* join stream as a subscriber */
 
     if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
@@ -1215,7 +1217,7 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 
 ngx_int_t
 ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
-        ngx_rtmp_close_stream_t *v)
+    ngx_rtmp_close_stream_t *v)
 {
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_http_request_t         *r;
@@ -1465,7 +1467,7 @@ ngx_http_do_log_request(ngx_http_request_t *r)
 #endif
 
 
-void
+static void
 ngx_http_flv_live_read_handler(ngx_event_t *rev)
 {
     ngx_connection_t           *c;
@@ -1503,7 +1505,7 @@ ngx_http_flv_live_read_handler(ngx_event_t *rev)
 }
 
 
-void
+static void
 ngx_http_flv_live_write_handler(ngx_event_t *wev)
 {
     ngx_connection_t           *c;
@@ -1585,7 +1587,7 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     ngx_rtmp_connection_t *rconn)
 {
@@ -1836,9 +1838,9 @@ ngx_http_flv_live_init_connection(ngx_http_request_t *r,
 }
 
 
-ngx_rtmp_session_t *
+static ngx_rtmp_session_t *
 ngx_http_flv_live_init_session(ngx_http_request_t *r,
-        ngx_rtmp_addr_conf_t *addr_conf)
+    ngx_rtmp_addr_conf_t *addr_conf)
 {
     ngx_rtmp_session_t             *s;
     ngx_rtmp_core_srv_conf_t       *cscf;
@@ -1942,9 +1944,9 @@ failed:
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
-        ngx_str_t *stream)
+    ngx_str_t *stream)
 {
     ngx_rtmp_connect_t           v;
     ngx_http_request_t          *r;
@@ -1986,7 +1988,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 }
 
 
-ngx_chain_t *
+static ngx_chain_t *
 ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t        *cscf;
@@ -2010,9 +2012,9 @@ ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 }
 
 
-ngx_chain_t *
+static ngx_chain_t *
 ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
-        ngx_rtmp_header_t *lh, ngx_chain_t *in)
+    ngx_rtmp_header_t *lh, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t        *cscf;
     ngx_http_request_t              *r;
@@ -2038,9 +2040,9 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
  * |Reserved(2b)+Filter(1b)+TagType(5b)|DataLength(3B)|TimeStamp(3B)|
  * TimeStampExt(1B)|StreamID(3B)|Data(DataLengthB)|PreviousTagSize|
  */
-ngx_chain_t *
+static ngx_chain_t *
 ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
-        ngx_rtmp_header_t *h, ngx_chain_t *in, ngx_flag_t chunked)
+    ngx_rtmp_header_t *h, ngx_chain_t *in, ngx_flag_t chunked)
 {
     ngx_chain_t        *tag, *chunk_head, *chunk_tail, chunk,
                        *iter, *last_in, **tail, prev_tag_size;
@@ -2174,7 +2176,7 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
 }
 
 
-void
+static void
 ngx_http_flv_live_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t *cscf;
@@ -2245,7 +2247,7 @@ ngx_http_flv_live_cleanup(void *data)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_http_flv_live_handler(ngx_http_request_t *r)
 {
     ngx_int_t                        rc;
@@ -2335,4 +2337,3 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 
     return NGX_OK;
 }
-
