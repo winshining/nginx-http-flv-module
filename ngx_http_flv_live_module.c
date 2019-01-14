@@ -1078,34 +1078,15 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live: join '%s'", name);
 
-    stream = ngx_rtmp_live_get_stream(s, name, lacf->idle_streams ||
-                                      s->notify_play);
+    stream = ngx_rtmp_live_get_stream(s, name, lacf->idle_streams);
 
     if (stream == NULL ||
-        !(publisher || (*stream)->publishing || lacf->idle_streams ||
-           s->notify_play))
+        !(publisher || (*stream)->publishing || lacf->idle_streams))
     {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                 "flv live: stream not found");
-        s->notify_play = 0;
 
         return NGX_ERROR;
-    }
-
-    if ((*stream)->pub_ctx == NULL || !(*stream)->pub_ctx->publishing) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                "flv live: stream not publishing, check relay pulls");
-
-        do {
-            if (s->notify_play) {
-                break;
-            }
-
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                          "flv live: no on_play or relay pull, quit");
-
-            return NGX_ERROR;
-        } while (0);
     }
 
     ctx->stream = *stream;
