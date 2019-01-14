@@ -980,7 +980,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     if (ngx_http_flv_live_connect_init(s, &ctx->app, &ctx->stream) != NGX_OK)
     {
-        s->wait_notify_connect = 0;
+        s->notify_connect = 0;
         return NGX_ERROR;
     }
 
@@ -1048,8 +1048,6 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_rtmp_live_stream_t        **stream;
     ngx_rtmp_live_app_conf_t       *lacf;
 
-    ngx_flag_t                      create;
-
     /* only for subscribers */
     if (publisher) {
         return NGX_DECLINED;
@@ -1076,21 +1074,20 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
     ngx_memzero(ctx, sizeof(*ctx));
 
     ctx->session = s;
-    create = 0;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live: join '%s'", name);
 
-    stream = ngx_rtmp_live_get_stream(s, name,
-                        lacf->idle_streams || s->wait_notify_play || create);
+    stream = ngx_rtmp_live_get_stream(s, name, lacf->idle_streams ||
+                                      s->notify_play);
 
     if (stream == NULL ||
         !(publisher || (*stream)->publishing || lacf->idle_streams ||
-           s->wait_notify_play || create))
+           s->notify_play))
     {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                 "flv live: stream not found");
-        s->wait_notify_play = 0;
+        s->notify_play = 0;
 
         return NGX_ERROR;
     }
@@ -1100,20 +1097,14 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
                 "flv live: stream not publishing, check relay pulls");
 
         do {
-            if (s->wait_notify_play) {
+            if (s->notify_play) {
                 break;
             }
 
-            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
-                          "flv live: no on_play, check relay pulls");
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "flv live: no on_play or relay pull, quit");
 
-            /* check if there are some pulls */
-            if (!create) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                              "flv live: no on_play or relay pull, quit");
-
-                return NGX_ERROR;
-            }
+            return NGX_ERROR;
         } while (0);
     }
 
@@ -1312,7 +1303,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
      **/
 
 next:
-    if (s->wait_notify_connect || s->wait_notify_play) {
+    if (s->notify_connect || s->notify_play) {
         r = s->data;
         if (r) {
             ngx_http_flv_live_free_request(s);

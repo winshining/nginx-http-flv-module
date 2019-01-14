@@ -373,8 +373,8 @@ struct ngx_rtmp_session_s {
     ngx_pool_t                    *out_temp_pool;
 
     unsigned                       server_changed:1;
-    unsigned                       wait_notify_connect:1;
-    unsigned                       wait_notify_play:1;
+    unsigned                       notify_connect:1;
+    unsigned                       notify_play:1;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */

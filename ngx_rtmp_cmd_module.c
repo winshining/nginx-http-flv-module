@@ -351,10 +351,6 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 
     object_encoding = v->object_encoding;
 
-    if (s->wait_notify_connect) {
-        s->wait_notify_connect = 0;
-    }
-
     return ngx_rtmp_send_ack_size(s, cscf->ack_window) != NGX_OK ||
            ngx_rtmp_send_bandwidth(s, cscf->ack_window,
                                    NGX_RTMP_LIMIT_DYNAMIC) != NGX_OK ||
