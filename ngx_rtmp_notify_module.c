@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_md5.h>
+#include <ngx_http.h>
 #include "ngx_rtmp.h"
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_netcall_module.h"
@@ -971,11 +972,13 @@ static ngx_int_t
 ngx_rtmp_notify_connect_handle(ngx_rtmp_session_t *s,
         void *arg, ngx_chain_t *in)
 {
-    ngx_rtmp_connect_t *v = arg;
-    ngx_int_t           rc;
-    u_char              app[NGX_RTMP_MAX_NAME];
+    ngx_rtmp_connect_t     *v = arg;
+    ngx_http_request_t     *r;
+    ngx_int_t               rc;
+    u_char                  app[NGX_RTMP_MAX_NAME];
 
-    static ngx_str_t    location = ngx_string("location");
+    static ngx_rtmp_play_t  p;
+    static ngx_str_t        location = ngx_string("location");
 
     rc = ngx_rtmp_notify_parse_http_retcode(s, in);
     if (rc == NGX_ERROR) {
@@ -995,7 +998,22 @@ ngx_rtmp_notify_connect_handle(ngx_rtmp_session_t *s,
         }
     }
 
-    return next_connect(s, v);
+    rc = next_connect(s, v);
+    if (rc == NGX_OK && s->notify_connect) {
+        r = s->data;
+        if (r) {
+            ngx_memzero(&p, sizeof(ngx_rtmp_play_t));
+            ngx_memcpy(p.name, s->stream.data, s->stream.len);
+            ngx_memcpy(p.args, s->args.data, s->args.len);
+            r->main->count--;
+
+            rc = ngx_rtmp_play(s, &p);
+        }
+    }
+
+    s->notify_connect = 0;
+
+    return rc;
 }
 
 
@@ -1104,9 +1122,19 @@ ngx_rtmp_notify_play_handle(ngx_rtmp_session_t *s,
     ngx_rtmp_relay_target_t     target;
     ngx_url_t                  *u;
     ngx_rtmp_notify_app_conf_t *nacf;
+    ngx_http_request_t         *r;
     u_char                      name[NGX_RTMP_MAX_NAME];
 
     static ngx_str_t            location = ngx_string("location");
+
+    if (s->notify_play) {
+        s->notify_play = 0;
+
+        r = s->data;
+        if (r) {
+            r->main->count--;
+        }
+    }
 
     rc = ngx_rtmp_notify_parse_http_retcode(s, in);
     if (rc == NGX_ERROR) {
@@ -1326,6 +1354,8 @@ ngx_rtmp_notify_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     ci.arg = v;
     ci.argsize = sizeof(*v);
 
+    s->notify_connect = 1;
+
     return ngx_rtmp_netcall_create(s, &ci);
 
 next:
@@ -1442,6 +1472,8 @@ ngx_rtmp_notify_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     ci.handle = ngx_rtmp_notify_play_handle;
     ci.arg = v;
     ci.argsize = sizeof(*v);
+
+    s->notify_play = 1;
 
     return ngx_rtmp_netcall_create(s, &ci);
 
