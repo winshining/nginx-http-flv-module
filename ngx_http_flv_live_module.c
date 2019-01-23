@@ -1165,14 +1165,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         return NGX_ERROR;
     }
 
-    if (ngx_rtmp_process_request_line(s, v->name, v->args,
-            (const u_char *) "flv live play") != NGX_OK)
-    {
-        r->main->count--;
-
-        return NGX_ERROR;
-    }
-
     ngx_log_debug4(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "flv live play: name='%s' start=%uD duration=%uD reset=%d",
             v->name, (uint32_t) v->start,
@@ -1934,6 +1926,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 {
     ngx_rtmp_connect_t           v;
     ngx_http_request_t          *r;
+    u_char                       name[NGX_RTMP_MAX_NAME];
 
     r = s->data;
 
@@ -1957,6 +1950,15 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     NGX_RTMP_SET_STRPAR(tc_url);
 
 #undef NGX_RTMP_SET_STRPAR
+
+    ngx_memzero(name, NGX_RTMP_MAX_NAME);
+    ngx_memcpy(name, stream->data, stream->len);
+
+    if (ngx_rtmp_process_request_line(s, name, v.args,
+            (const u_char *) "flv live connect") != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
 
     if (ngx_rtmp_process_virtual_host(s) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,

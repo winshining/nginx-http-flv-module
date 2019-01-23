@@ -102,7 +102,7 @@ If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) ver
 
 # Usage
 
-For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/vhost/README.md).
+For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md).
 
 ## Publish
 
