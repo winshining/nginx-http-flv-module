@@ -319,8 +319,8 @@ ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle)
     h = ngx_array_push(&cmcf->events[NGX_HTTP_FLV_LIVE_REQUEST]);
     *h = ngx_http_flv_live_request;
 
-    next_play = ngx_http_flv_live_play;
-    next_close_stream = ngx_http_flv_live_close_stream;
+    next_play = http_flv_live_next_play;
+    next_close_stream = http_flv_live_next_close_stream;
 
     http_flv_live_next_play = NULL;
     http_flv_live_next_close_stream = NULL;
