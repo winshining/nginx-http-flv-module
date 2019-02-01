@@ -47,6 +47,7 @@ typedef struct ngx_rtmp_netcall_session_s {
 
 
 typedef struct {
+    ngx_uint_t                                  nb_cs;
     ngx_rtmp_netcall_session_t                 *cs;
 } ngx_rtmp_netcall_ctx_t;
 
@@ -198,6 +199,11 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
             return NGX_ERROR;
         }
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_netcall_module);
+    } else {
+        /* I don't know why? But it works! */
+        if (ctx->nb_cs == 0) {
+            ctx->cs = NULL;
+        }
     }
 
     /* Create netcall pool, connection, session.
@@ -271,6 +277,7 @@ ngx_rtmp_netcall_create(ngx_rtmp_session_t *s, ngx_rtmp_netcall_init_t *ci)
     if (!cs->detached) {
         cs->next = ctx->cs;
         ctx->cs = cs;
+        ctx->nb_cs++;
     }
 
     ngx_rtmp_netcall_send(cc->write);
@@ -318,6 +325,7 @@ ngx_rtmp_netcall_close(ngx_connection_t *cc)
         for(css = &ctx->cs; *css; css = &((*css)->next)) {
             if (*css == cs) {
                 *css = cs->next;
+                ctx->nb_cs--;
                 break;
             }
         }
