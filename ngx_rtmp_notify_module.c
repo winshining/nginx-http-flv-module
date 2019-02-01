@@ -1237,14 +1237,12 @@ ngx_rtmp_notify_update_handle(ngx_rtmp_session_t *s,
 static void
 ngx_rtmp_notify_update(ngx_event_t *e)
 {
-    ngx_connection_t           *c;
     ngx_rtmp_session_t         *s;
     ngx_rtmp_notify_app_conf_t *nacf;
     ngx_rtmp_netcall_init_t     ci;
     ngx_url_t                  *url;
 
-    c = e->data;
-    s = c->data;
+    s = e->data;
 
     nacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_notify_module);
 
@@ -1313,7 +1311,7 @@ ngx_rtmp_notify_init(ngx_rtmp_session_t *s,
 
     e = &ctx->update_evt;
 
-    e->data = s->connection;
+    e->data = s;
     e->log = s->connection->log;
     e->handler = ngx_rtmp_notify_update;
 
