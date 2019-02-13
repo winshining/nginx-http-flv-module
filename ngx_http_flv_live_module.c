@@ -1625,10 +1625,24 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     for (n = 0; n < ngx_cycle->listening.nelts; ++n, ++ls) {
         if (ls->handler == ngx_rtmp_init_connection) {
             local_sockaddr = r->connection->local_sockaddr;
-            sa_family = ls->sockaddr->sa_family;
+            sa_family = local_sockaddr->sa_family;
 
-            if (local_sockaddr->sa_family != sa_family) {
-                continue;
+            if (sa_family != ls->sockaddr->sa_family) {
+#if (NGX_HAVE_INET6)
+                if (ls->sockaddr->sa_family == AF_INET6) {
+                    if (ls->ipv6only) {
+#endif
+                        continue;
+#if (NGX_HAVE_INET6)
+                    } else {
+                        if (local_sockaddr->sa_family != AF_INET) {
+                            continue;
+                        }
+
+                        sa_family = AF_INET6;
+                    }
+                }
+#endif
             }
 
             switch (sa_family) {
