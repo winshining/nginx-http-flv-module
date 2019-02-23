@@ -4,7 +4,7 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
-[English README](https://github.com/winshining/nginx-http-flv-module/blob/master/README.md)。
+[English README](https://github.com/winshining/nginx-http-flv-module/blob/vhost/README.md)。
 
 如果您喜欢这个模块，可以通过赞赏来支持我的工作，非常感谢！
 
@@ -16,7 +16,7 @@
 
 * Roman Arutyunyan，[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的作者。
 
-* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS)。
+* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/vhost/AUTHORS)。
 
 # 功能
 
@@ -102,7 +102,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 # 使用方法
 
-关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/vhost/README.md)。
+关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md)。
 
 ## 发布
 
@@ -219,6 +219,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #如果此模块被编译为动态模块并且要使用与RTMP相关的功
     #能时，必须指定下面的配置项并且它必须位于events配置
     #项之前，否则NGINX启动时不会加载此模块或者加载失败
+
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
