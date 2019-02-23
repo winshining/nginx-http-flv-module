@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=vhost)](https://travis-ci.org/winshining/nginx-http-flv-module)
+[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
 
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
@@ -220,6 +220,7 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     #to RTMP are needed, the command below MUST be specified and MUST be
     #located before events directive, otherwise the module won't be loaded
     #or will be loaded unsuccessfully when NGINX is started
+
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
