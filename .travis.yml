@@ -7,5 +7,5 @@ install:
   - cd nginx-1.12.2
 
 script:
-  - ./configure --add-module=../nginx-http-flv-module && make
-  - ./configure --add-dynamic-module=../nginx-http-flv-module && make
+  - ./configure --add-module=../nginx-http-flv-module && make -j 8
+  - ./configure --add-dynamic-module=../nginx-http-flv-module && make -j 8

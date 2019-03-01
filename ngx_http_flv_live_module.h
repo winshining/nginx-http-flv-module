@@ -21,6 +21,10 @@
 extern ngx_module_t ngx_rtmp_module;
 
 
+ngx_rtmp_play_pt         http_flv_live_next_play;
+ngx_rtmp_close_stream_pt http_flv_live_next_close_stream;
+
+
 #define ngx_rtmp_cycle_get_module_main_conf(cycle, module)                \
     (cycle->conf_ctx[ngx_rtmp_module.index] ?                             \
         ((ngx_rtmp_conf_ctx_t *) cycle->conf_ctx[ngx_rtmp_module.index])  \
@@ -36,14 +40,11 @@ typedef struct ngx_http_flv_live_ctx_s {
     ngx_str_t            app;
     ngx_str_t            port;
     ngx_str_t            stream;
-
-    ngx_event_t          play;
 } ngx_http_flv_live_ctx_t;
 
 
 typedef struct ngx_http_flv_live_conf_s {
     ngx_flag_t    flv_live;
-    ngx_msec_t    poll_interval;
 } ngx_http_flv_live_conf_t;
 
 
@@ -54,28 +55,24 @@ typedef struct {
     ngx_chain_t  *rpkt;
 
     ngx_int_t (*send_message_pt)(ngx_rtmp_session_t *s,
-            ngx_chain_t *out, ngx_uint_t priority);
+        ngx_chain_t *out, ngx_uint_t priority);
     ngx_chain_t *(*meta_message_pt)(ngx_rtmp_session_t *s,
-            ngx_chain_t *in);
+        ngx_chain_t *in);
     ngx_chain_t *(*append_message_pt)(ngx_rtmp_session_t *s,
-            ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh,
-            ngx_chain_t *in);
+        ngx_rtmp_header_t *h, ngx_rtmp_header_t *lh,
+        ngx_chain_t *in);
     void (*free_message_pt)(ngx_rtmp_session_t *s,
-            ngx_chain_t *in);
+        ngx_chain_t *in);
 } ngx_rtmp_live_proc_handler_t;
 
 
-ngx_int_t ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
-        unsigned int publisher);
+ngx_int_t ngx_http_flv_live_play(ngx_rtmp_session_t *s,
+    ngx_rtmp_play_t *v);
+ngx_int_t ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
+    ngx_rtmp_close_stream_t *v);
+
 ngx_int_t ngx_http_flv_live_send_header(ngx_rtmp_session_t *s);
 void ngx_http_flv_live_set_status(ngx_rtmp_session_t *s, unsigned active);
-ngx_chain_t *ngx_http_flv_live_append_shared_bufs(
-        ngx_rtmp_core_srv_conf_t *cscf,
-        ngx_rtmp_header_t *h,
-        ngx_chain_t *in,
-        ngx_flag_t chunked);
-ngx_int_t ngx_http_flv_live_send_message(ngx_rtmp_session_t *s,
-        ngx_chain_t *out, ngx_uint_t priority);
 
 
 #endif

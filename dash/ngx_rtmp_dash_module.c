@@ -597,12 +597,12 @@ ngx_rtmp_dash_close_fragment(ngx_rtmp_session_t *s, ngx_rtmp_dash_track_t *t)
     while (left > 0) {
 
         n = ngx_read_fd(t->fd, buffer, ngx_min(sizeof(buffer), left));
-        if (n == NGX_ERROR) {
+        if (n == 0 || n == NGX_ERROR) {
             break;
         }
 
         n = ngx_write_fd(fd, buffer, (size_t) n);
-        if (n == NGX_ERROR) {
+        if (n == 0 || n == NGX_ERROR) {
             break;
         }
 

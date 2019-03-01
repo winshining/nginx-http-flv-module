@@ -1,8 +1,8 @@
 
 /*
  * Copyright (C) Igor Sysoev
- * Copyright (C) Nginx, Inc. 
- * Copyright (C) Winshining 
+ * Copyright (C) Nginx, Inc.
+ * Copyright (C) Winshining
  */
 
 
@@ -15,10 +15,6 @@ static ngx_rtmp_variable_t *ngx_rtmp_add_prefix_variable(ngx_conf_t *cf,
     ngx_str_t *name, ngx_uint_t flags);
 
 static ngx_int_t ngx_rtmp_variable_request(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_rtmp_variable_request_get_size(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data);
-static void ngx_rtmp_variable_request_set_size(ngx_rtmp_session_t *s,
     ngx_rtmp_variable_value_t *v, uintptr_t data);
 
 static ngx_int_t ngx_rtmp_variable_argument(ngx_rtmp_session_t *s,
@@ -111,11 +107,6 @@ static ngx_rtmp_variable_t  ngx_rtmp_core_variables[] = {
     { ngx_string("request_id"), NULL,
       ngx_rtmp_variable_request_id,
       0, 0, 0 },
-
-    { ngx_string("limit_rate"), ngx_rtmp_variable_request_set_size,
-      ngx_rtmp_variable_request_get_size,
-      offsetof(ngx_rtmp_session_t, limit_rate),
-      NGX_RTMP_VAR_CHANGEABLE|NGX_RTMP_VAR_NOCACHEABLE, 0 },
 
     { ngx_string("connection"), NULL,
       ngx_rtmp_variable_connection, 0, 0, 0 },
@@ -512,54 +503,6 @@ ngx_rtmp_variable_request(ngx_rtmp_session_t *s, ngx_rtmp_variable_value_t *v,
     }
 
     return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_rtmp_variable_request_get_size(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data)
-{
-    size_t  *sp;
-
-    sp = (size_t *) ((char *) s + data);
-
-    v->data = ngx_pnalloc(s->connection->pool, NGX_SIZE_T_LEN);
-    if (v->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    v->len = ngx_sprintf(v->data, "%uz", *sp) - v->data;
-    v->valid = 1;
-    v->no_cacheable = 0;
-    v->not_found = 0;
-
-    return NGX_OK;
-}
-
-
-static void
-ngx_rtmp_variable_request_set_size(ngx_rtmp_session_t *s,
-    ngx_rtmp_variable_value_t *v, uintptr_t data)
-{
-    ssize_t    size, *sp;
-    ngx_str_t  val;
-
-    val.len = v->len;
-    val.data = v->data;
-
-    size = ngx_parse_size(&val);
-
-    if (size == NGX_ERROR) {
-        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                      "invalid size \"%V\"", &val);
-        return;
-    }
-
-    sp = (ssize_t *) ((char *) size + data);
-
-    *sp = size;
-
-    return;
 }
 
 

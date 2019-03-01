@@ -303,7 +303,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
     ftype = (fmt & 0xf0) >> 4;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "codec: ftype='%uD'", ftype);
+            "codec: ftype=%uD", ftype);
 
     if (ftype != NGX_RTMP_FRAME_IDR) {
         return NGX_ERROR;
@@ -315,7 +315,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "codec: htype='%uD'", htype);
+            "codec: htype=%uD", htype);
 
     /* proceed only with PICT */
     if (htype != 1) {
@@ -361,7 +361,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
     nal_bytes = ctx->avc_nal_bytes;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-            "codec: nal_bytes='%uD'", nal_bytes);
+            "codec: nal_bytes=%uD", nal_bytes);
 
     left = NGX_RTMP_SPS_MAX_LENGTH;
 
@@ -374,11 +374,11 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
         ngx_rtmp_rmemcpy(&len, &rlen, nal_bytes);
 
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "codec: len='%uD'", len);
+                "codec: len=%uD", len);
 
         if (len == 0) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "codec: skip, len='%uD'", len);
+                    "codec: skip, len=%uD", len);
 
             continue;
         }
@@ -388,7 +388,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
         }
 
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "codec: src_nal_type='%uD'", src_nal_type);
+                "codec: src_nal_type=%uD", src_nal_type);
 
         /**
           * +---------------+
@@ -400,7 +400,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
         nal_type = src_nal_type & 0x1f;
 
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "codec: nal_type='%uD'", nal_type);
+                "codec: nal_type=%uD", nal_type);
 
         if (!(nal_type >= NGX_RTMP_NALU_SPS
                 && nal_type <= NGX_RTMP_NALU_PPS))
@@ -410,7 +410,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
             }
 
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "codec: skip non-sps or non-pps, nal_type='%uD'", nal_type);
+                "codec: skip non-sps or non-pps, nal_type=%uD", nal_type);
 
             continue;
         }
@@ -443,7 +443,7 @@ ngx_rtmp_codec_parse_avc_header_in_keyframe(ngx_rtmp_session_t *s,
         has_sps = 1;
 
         ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                "codec: has_sps='%uD'", has_sps);
+                "codec: has_sps=%uD", has_sps);
     }
 
     return (has_sps == 1) ? NGX_OK : NGX_ERROR;
@@ -887,7 +887,7 @@ ngx_rtmp_codec_reconstruct_meta(ngx_rtmp_session_t *s)
 
         { NGX_RTMP_AMF_STRING,
           ngx_string("Server"),
-          "NGINX RTMP (https://github.com/winshining/nginx-http-flv-module)", 0 },
+          "NGINX HTTP-FLV (https://github.com/winshining/nginx-http-flv-module)", 0 },
 
         { NGX_RTMP_AMF_NUMBER,
           ngx_string("width"),
