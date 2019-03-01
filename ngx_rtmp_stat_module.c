@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) plainheart
  */
 
 
@@ -351,11 +352,19 @@ ngx_rtmp_stat_dump_pool(ngx_http_request_t *r, ngx_chain_t ***lll,
     size = 0;
     nlarge = 0;
     ngx_rtmp_stat_get_pool_size(pool, &nlarge, &size);
-    NGX_RTMP_STAT_L("<pool><nlarge>");
-    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
-    NGX_RTMP_STAT_L("</nlarge><size>");
-    NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
-    NGX_RTMP_STAT_L("</size></pool>\r\n");
+    if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
+        NGX_RTMP_STAT_L("<pool><nlarge>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
+        NGX_RTMP_STAT_L("</nlarge><size>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
+        NGX_RTMP_STAT_L("</size></pool>\r\n");
+    } else {
+        NGX_RTMP_STAT_L("\"pool\":{\"nlarge\":");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
+        NGX_RTMP_STAT_L(",\"size\":");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
+        NGX_RTMP_STAT_L("},");
+    }
 }
 #endif
 
@@ -744,24 +753,25 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                     if (*cname) {
                         NGX_RTMP_STAT_L(",\"codec\":\"");
                         NGX_RTMP_STAT_ECS(cname);
+                        NGX_RTMP_STAT_L("\"");
                     }
-
                     if (codec->avc_profile) {
-                        NGX_RTMP_STAT_L("\",\"profile\":\"");
+                        NGX_RTMP_STAT_L(",\"profile\":\"");
                         NGX_RTMP_STAT_CS(ngx_rtmp_stat_get_avc_profile(codec->avc_profile));
-
+                        NGX_RTMP_STAT_L("\"");
                     }
                     if (codec->avc_compat) {
-                        NGX_RTMP_STAT_L("\",\"compat\":\"");
+                        NGX_RTMP_STAT_L(",\"compat\":\"");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->avc_compat) - buf);
+                        NGX_RTMP_STAT_L("\"");
                     }
                     if (codec->avc_level) {
-                        NGX_RTMP_STAT_L("\",\"level\":\"");
+                        NGX_RTMP_STAT_L(",\"level\":\"");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%.1f", codec->avc_level / 10.) - buf);
+                        NGX_RTMP_STAT_L("\"");
                     }
-                    NGX_RTMP_STAT_L("\"");
 
 
                     NGX_RTMP_STAT_L("}, \"audio\": {");
