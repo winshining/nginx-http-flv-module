@@ -36,7 +36,6 @@ static time_t                       start_time;
 #define NGX_RTMP_STAT_FORMAT_XML    0x01
 #define NGX_RTMP_STAT_FORMAT_JSON   0x02
 
-#define NGX_RTMP_POOL_DEBUG         0x01
 
 /*
  * global: stat-{bufs-{total,free,used}, total bytes in/out, bw in/out} - cscf
@@ -1053,7 +1052,7 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<server>\r\n");
     }
-    
+
 #ifdef NGX_RTMP_POOL_DEBUG
     ngx_rtmp_stat_dump_pool(slcf, r, lll, cscf->pool);
     if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
