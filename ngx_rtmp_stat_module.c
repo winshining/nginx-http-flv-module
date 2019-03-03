@@ -344,12 +344,14 @@ ngx_rtmp_stat_get_pool_size(ngx_pool_t *pool, ngx_uint_t *nlarge,
 
 
 static void
-ngx_rtmp_stat_dump_pool(ngx_rtmp_stat_loc_conf_t *slcf,
-        ngx_http_request_t *r, ngx_chain_t ***lll,
+ngx_rtmp_stat_dump_pool(ngx_http_request_t *r, ngx_chain_t ***lll,
         ngx_pool_t *pool)
 {
-    ngx_uint_t  nlarge, size;
-    u_char      buf[NGX_INT_T_LEN];
+    ngx_uint_t                      nlarge, size;
+    u_char                          buf[NGX_INT_T_LEN];
+    ngx_rtmp_stat_loc_conf_t       *slcf;
+    
+    slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
 
     size = 0;
     nlarge = 0;
@@ -381,7 +383,7 @@ ngx_rtmp_stat_client(ngx_http_request_t *r, ngx_chain_t ***lll,
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
 
 #ifdef NGX_RTMP_POOL_DEBUG
-    ngx_rtmp_stat_dump_pool(slcf, r, lll, s->connection->pool);
+    ngx_rtmp_stat_dump_pool(r, lll, s->connection->pool);
     if(slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
         NGX_RTMP_STAT_L(",");
     }
@@ -1054,7 +1056,7 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     }
 
 #ifdef NGX_RTMP_POOL_DEBUG
-    ngx_rtmp_stat_dump_pool(slcf, r, lll, cscf->pool);
+    ngx_rtmp_stat_dump_pool(r, lll, cscf->pool);
     if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
         NGX_RTMP_STAT_L(",");
     }
