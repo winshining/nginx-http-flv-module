@@ -36,6 +36,7 @@ static time_t                       start_time;
 #define NGX_RTMP_STAT_FORMAT_XML    0x01
 #define NGX_RTMP_STAT_FORMAT_JSON   0x02
 
+
 /*
  * global: stat-{bufs-{total,free,used}, total bytes in/out, bw in/out} - cscf
 */
@@ -346,8 +347,11 @@ static void
 ngx_rtmp_stat_dump_pool(ngx_http_request_t *r, ngx_chain_t ***lll,
         ngx_pool_t *pool)
 {
-    ngx_uint_t  nlarge, size;
-    u_char      buf[NGX_INT_T_LEN];
+    ngx_uint_t                      nlarge, size;
+    u_char                          buf[NGX_INT_T_LEN];
+    ngx_rtmp_stat_loc_conf_t       *slcf;
+    
+    slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
 
     size = 0;
     nlarge = 0;
@@ -363,7 +367,7 @@ ngx_rtmp_stat_dump_pool(ngx_http_request_t *r, ngx_chain_t ***lll,
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", nlarge) - buf);
         NGX_RTMP_STAT_L(",\"size\":");
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf), "%ui", size) - buf);
-        NGX_RTMP_STAT_L("},");
+        NGX_RTMP_STAT_L("}");
     }
 }
 #endif
@@ -380,6 +384,9 @@ ngx_rtmp_stat_client(ngx_http_request_t *r, ngx_chain_t ***lll,
 
 #ifdef NGX_RTMP_POOL_DEBUG
     ngx_rtmp_stat_dump_pool(r, lll, s->connection->pool);
+    if(slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+        NGX_RTMP_STAT_L(",");
+    }
 #endif
 
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
@@ -1046,14 +1053,19 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<server>\r\n");
-    } else {
-        NGX_RTMP_STAT_L("[");
     }
 
 #ifdef NGX_RTMP_POOL_DEBUG
     ngx_rtmp_stat_dump_pool(r, lll, cscf->pool);
+    if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+        NGX_RTMP_STAT_L(",");
+    }
 #endif
 
+    if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+        NGX_RTMP_STAT_L("\"applicatons\":[");
+    }
+    
     cacf = cscf->applications.elts;
     for (n = 0; n < cscf->applications.nelts; ++n, ++cacf) {
         ngx_rtmp_stat_application(r, lll, *cacf);
@@ -1179,7 +1191,7 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     ngx_rtmp_stat_bw(r, lll, &ngx_rtmp_bw_out, "out", NGX_RTMP_STAT_BW_BYTES);
     
     if(slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
-        NGX_RTMP_STAT_L("\"servers\":[");
+        NGX_RTMP_STAT_L("\"server\":{");
     }
 
     cscf = cmcf->servers.elts;
@@ -1193,7 +1205,7 @@ ngx_rtmp_stat_handler(ngx_http_request_t *r)
     if(slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("</http-flv>\r\n");
     } else {
-        NGX_RTMP_STAT_L("]}}"); 
+        NGX_RTMP_STAT_L("}}}");
     }
     
     len = 0;
