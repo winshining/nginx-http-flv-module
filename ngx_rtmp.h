@@ -353,9 +353,7 @@ struct ngx_rtmp_session_s {
     u_char                        *port_end;
 
     unsigned                       keepalive:1;
-    unsigned                       lingering_close:1;
 
-    unsigned                       valid_application:1;
     unsigned                       valid_unparsed_uri:1;
 
 #if (NGX_PCRE)
@@ -363,9 +361,6 @@ struct ngx_rtmp_session_s {
     int                           *captures;
     u_char                        *captures_data;
 #endif
-
-    size_t                         limit_rate;
-    size_t                         limit_rate_after;
 
     ngx_rtmp_connection_t         *rtmp_connection;
 
@@ -378,8 +373,8 @@ struct ngx_rtmp_session_s {
     ngx_pool_t                    *out_temp_pool;
 
     unsigned                       server_changed:1;
-    unsigned                       wait_notify_connect:1;
-    unsigned                       wait_notify_play:1;
+    unsigned                       notify_connect:1;
+    unsigned                       notify_play:1;
 
     /* input stream 0 (reserved by RTMP spec)
      * is used as free chain link */
@@ -517,25 +512,12 @@ typedef struct {
     ngx_rtmp_regex_t       *regex;
 #endif
 
-    unsigned                noname:1; /* "if () {}" block or limit_except */
-    unsigned                named:1;
-
     size_t                  send_lowat;
-    size_t                  postpone_output;
-    size_t                  limit_rate;
-    size_t                  limit_rate_after;
-    size_t                  sendfile_max_chunk;
 
     ngx_msec_t              send_timeout;
-    ngx_msec_t              keepalive_timeout;
-    ngx_msec_t              lingering_time;
-    ngx_msec_t              lingering_timeout;
     ngx_msec_t              resolver_timeout;
 
     ngx_resolver_t         *resolver;
-
-    ngx_flag_t              tcp_nopush;
-    ngx_flag_t              tcp_nodelay;
 } ngx_rtmp_core_app_conf_t;
 
 
