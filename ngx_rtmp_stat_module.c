@@ -1063,7 +1063,7 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
 #endif
 
     if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
-        NGX_RTMP_STAT_L("\"applicatons\":[");
+        NGX_RTMP_STAT_L("\"applications\":[");
     }
     
     cacf = cscf->applications.elts;
