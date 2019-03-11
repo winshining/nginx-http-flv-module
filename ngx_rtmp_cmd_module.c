@@ -539,6 +539,13 @@ ngx_rtmp_cmd_publish_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
 
+    if (ngx_strlen(v.name) == 0) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "publish: no stream name specified");
+
+        return NGX_ERROR;
+    }
+
     if (ngx_rtmp_process_request_line(s, v.name, v.args,
             (const u_char *) "publish") != NGX_OK)
     {
@@ -602,6 +609,13 @@ ngx_rtmp_cmd_play_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
+
+    if (ngx_strlen(v.name) == 0) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "play: no stream name specified");
+
+        return NGX_ERROR;
+    }
 
     if (ngx_rtmp_process_request_line(s, v.name, v.args,
             (const u_char *) "play") != NGX_OK)
@@ -670,6 +684,13 @@ ngx_rtmp_cmd_play2_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     ngx_rtmp_cmd_fill_args(v.name, v.args);
+
+    if (ngx_strlen(v.name) == 0) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "play2: no stream name specified");
+        
+        return NGX_ERROR;
+    }
 
     ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "play2: name='%s' args='%s' start=%i",
