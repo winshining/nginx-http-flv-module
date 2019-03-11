@@ -504,6 +504,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_live_ctx_t            *ctx;
     ngx_rtmp_session_t             *s;
     ngx_int_t                       n;
+    ngx_uint_t                      m;
     ngx_uint_t                      nclients, total_nclients;
     ngx_uint_t                      f;
     u_char                          buf[NGX_INT_T_LEN];
@@ -526,15 +527,18 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
 
     total_nclients = 0;
     for (n = 0; n < lacf->nbuckets; ++n) {
-        for (stream = lacf->streams[n]; ; stream = stream->next) {
-
-            if (!stream) {
-                break;
-            }
+        m = 0;
+        if (n > 0 && lacf->streams[n - 1]) {
+            m = 1;
+        }
+        for (stream = lacf->streams[n]; stream; stream = stream->next) {
             
             if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
                 NGX_RTMP_STAT_L("<stream>\r\n");
             } else {
+                if (m == 1 || stream->next != NULL) {
+                    NGX_RTMP_STAT_L(",");
+                }
                 NGX_RTMP_STAT_L("{");
             }
 
@@ -781,7 +785,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                     }
 
 
-                    NGX_RTMP_STAT_L("}, \"audio\": {");
+                    NGX_RTMP_STAT_L("},\"audio\": {");
                     cname = ngx_rtmp_get_audio_codec_name(codec->audio_codec_id);
                     f = 0;
                     if (*cname) {
@@ -866,8 +870,6 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
 
                 NGX_RTMP_STAT_L("}");
             }
-
-            NGX_RTMP_STAT_L(",");
         }
     }
     
@@ -893,7 +895,7 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
 {
     ngx_rtmp_play_ctx_t            *ctx, *sctx;
     ngx_rtmp_session_t             *s;
-    ngx_uint_t                      n, nclients, total_nclients;
+    ngx_uint_t                      m, n, nclients, total_nclients;
     u_char                          buf[NGX_INT_T_LEN];
     u_char                          bbuf[NGX_INT32_LEN];
     ngx_rtmp_stat_loc_conf_t       *slcf;
@@ -913,6 +915,10 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
 
     total_nclients = 0;
     for (n = 0; n < pacf->nbuckets; ++n) {
+        m = 0;
+        if (n > 0 && pacf->ctx[n - 1]) {
+            m = 1;
+        }
         for (ctx = pacf->ctx[n]; ctx; ) {
             
             if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
@@ -921,6 +927,9 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
                 NGX_RTMP_STAT_ECS(ctx->name);
                 NGX_RTMP_STAT_L("</name>\r\n");
             } else {
+                if (m == 1 || ctx->next != NULL) {
+                    NGX_RTMP_STAT_L(",");
+                }
                 NGX_RTMP_STAT_L("{\"name\":\"");
                 NGX_RTMP_STAT_ECS(ctx->name);
                 NGX_RTMP_STAT_L("\",\"clients\":[");
@@ -959,9 +968,6 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
                                       "%D", s->current_time) - bbuf);
                         
                         NGX_RTMP_STAT_L("}");
-                        if (ctx->next) {
-                            NGX_RTMP_STAT_L(",");
-                        }
                     }
                 }
             }
