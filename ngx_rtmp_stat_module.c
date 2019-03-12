@@ -1065,6 +1065,10 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
         NGX_RTMP_STAT_L("<server>\r\n");
     }
 
+    if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+        NGX_RTMP_STAT_L("{");
+    }
+
 #ifdef NGX_RTMP_POOL_DEBUG
     ngx_rtmp_stat_dump_pool(r, lll, cscf->pool);
     if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
@@ -1073,7 +1077,7 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
 #endif
 
     if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
-        NGX_RTMP_STAT_L("{\"applications\":[");
+        NGX_RTMP_STAT_L("\"applications\":[");
     }
 
     cacf = cscf->applications.elts;
