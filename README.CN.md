@@ -298,10 +298,11 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue    4096;
-        out_cork     8;
-        max_streams  128;
-        timeout      15s;
+        out_queue           4096;
+        out_cork            8;
+        max_streams         128;
+        timeout             15s;
+        drop_idle_publisher 15s;
 
         log_interval 5s; #log模块在access.log中记录日志的间隔时间，对调试非常有用
         log_size     1m; #log模块用来记录日志的缓冲区大小

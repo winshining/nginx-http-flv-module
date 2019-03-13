@@ -2,10 +2,15 @@ language: c
 
 install:
   - cd ..
-  - wget http://nginx.org/download/nginx-1.12.2.tar.gz
-  - tar zxvf nginx-1.12.2.tar.gz
-  - cd nginx-1.12.2
+  - wget http://nginx.org/download/nginx-1.14.2.tar.gz
+  - tar zxvf nginx-1.14.2.tar.gz
+  - cd nginx-1.14.2
 
 script:
-  - ./configure --add-module=../nginx-http-flv-module && make -j 8
-  - ./configure --add-dynamic-module=../nginx-http-flv-module && make -j 8
+  - ./configure --add-module=../nginx-http-flv-module && make -j 4
+  - ./configure --add-dynamic-module=../nginx-http-flv-module && make -j 4
+
+after_script:
+  - make clean
+  - cd ..
+  - rm -rf "nginx-1.14.2*"

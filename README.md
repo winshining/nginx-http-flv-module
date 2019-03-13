@@ -299,10 +299,11 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue    4096;
-        out_cork     8;
-        max_streams  128;
-        timeout      15s;
+        out_queue           4096;
+        out_cork            8;
+        max_streams         128;
+        timeout             15s;
+        drop_idle_publisher 15s;
 
         log_interval 5s; #interval used by log module to log in access.log, it is very useful for debug
         log_size     1m; #buffer size used by log module to log in access.log
