@@ -521,7 +521,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<live>\r\n");
     } else {
-        NGX_RTMP_STAT_L("\"live\":{");
+        NGX_RTMP_STAT_L(",\"live\":{");
         NGX_RTMP_STAT_L("\"streams\":[");
     }
 
@@ -769,19 +769,17 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                         NGX_RTMP_STAT_L("\"");
                     }
                     if (codec->avc_compat) {
-                        NGX_RTMP_STAT_L(",\"compat\":\"");
+                        NGX_RTMP_STAT_L(",\"compat\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->avc_compat) - buf);
-                        NGX_RTMP_STAT_L("\"");
                     }
                     if (codec->avc_level) {
-                        NGX_RTMP_STAT_L(",\"level\":\"");
+                        NGX_RTMP_STAT_L(",\"level\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%.1f", codec->avc_level / 10.) - buf);
-                        NGX_RTMP_STAT_L("\"");
                     }
 
-                    NGX_RTMP_STAT_L("},\"audio\": {");
+                    NGX_RTMP_STAT_L("},\"audio\":{");
                     cname = ngx_rtmp_get_audio_codec_name(codec->audio_codec_id);
                     f = 0;
                     if (*cname) {
@@ -801,18 +799,18 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                     if (codec->aac_chan_conf) {
                         if (f >= 1) NGX_RTMP_STAT_L("\",");
                         f = 3;
-                        NGX_RTMP_STAT_L("\"channels\":\"");
+                        NGX_RTMP_STAT_L("\"channels\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->aac_chan_conf) - buf);
                     } else if (codec->audio_channels) {
-                        if (f >= 1) NGX_RTMP_STAT_L("\",");
+                        if (f >= 1) NGX_RTMP_STAT_L(",");
                         f = 3;
-                        NGX_RTMP_STAT_L("\"channels\":\"");
+                        NGX_RTMP_STAT_L("\"channels\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->audio_channels) - buf);
                     }
                     if (codec->sample_rate) {
-                        if (f >= 1) NGX_RTMP_STAT_L("\",");
+                        if (f >= 1) NGX_RTMP_STAT_L(",");
                         f = 4;
                         NGX_RTMP_STAT_L("\"sample_rate\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
@@ -821,9 +819,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                     if (f >= 1 && f <= 3) {
                         NGX_RTMP_STAT_L("\"");
                     }
-                    NGX_RTMP_STAT_L("}");
-
-                    NGX_RTMP_STAT_L("}");
+                    NGX_RTMP_STAT_L("}}");
                 }
             }
 
@@ -904,7 +900,7 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<play>\r\n");
     } else {
-        NGX_RTMP_STAT_L("\"play\":{");
+        NGX_RTMP_STAT_L(",\"play\":{");
         NGX_RTMP_STAT_L("\"streams\":[");
     }
 
@@ -1013,12 +1009,7 @@ ngx_rtmp_stat_application(ngx_http_request_t *r, ngx_chain_t ***lll,
         NGX_RTMP_STAT_L("{");
         NGX_RTMP_STAT_L("\"name\":\"");
         NGX_RTMP_STAT_ES(&cacf->name);
-
-        if (slcf->stat & NGX_RTMP_STAT_LIVE || slcf->stat & NGX_RTMP_STAT_PLAY) {
-            NGX_RTMP_STAT_L("\",");
-        } else {
-            NGX_RTMP_STAT_L("\"");
-        }
+		NGX_RTMP_STAT_L("\"");
     }
 
     if (slcf->stat & NGX_RTMP_STAT_LIVE) {
