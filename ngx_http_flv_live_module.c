@@ -986,8 +986,6 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     if (s->notify_connect) {
-        r->main->count++;
-
         return NGX_OK;
     }
 
@@ -1005,12 +1003,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
            (ngx_int_t) v.silent);
 
-    rc = ngx_rtmp_play(s, &v);
-    if (rc == NGX_OK && s->notify_play) {
-        r->main->count++;
-    }
-
-    return rc;
+    return ngx_rtmp_play(s, &v);
 }
 
 
@@ -1143,8 +1136,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
-    r->main->count++;
-
 #if (nginx_version >= 1013001)
         /**
          * when playing from pull, the downstream requests on the most
@@ -1160,8 +1151,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     /* join stream as a subscriber */
 
     if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-        r->main->count--;
-
         return NGX_ERROR;
     }
 
@@ -1182,8 +1171,6 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 
     r = s->data;
     if (r && r->connection && !r->connection->destroyed) {
-        r->main->count--;
-
         if (r->chunked) {
             ngx_http_flv_live_send_tail(s);
         }
@@ -2335,5 +2322,7 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    return NGX_OK;
+    r->main->count++;
+
+    return NGX_DONE;
 }
