@@ -335,9 +335,11 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     ngx_connection_t               *c;
     ngx_addr_t                     *addr;
     ngx_pool_t                     *pool;
+    size_t                          len;
     ngx_int_t                       rc;
     ngx_str_t                       v, *uri;
     u_char                         *first, *last, *p;
+    u_char                          buf[NGX_SOCKADDR_STRLEN];
 #if (NGX_HAVE_UNIX_DOMAIN)
     u_char                         *client;
 #endif
@@ -465,6 +467,24 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t* name,
     }
     c = pc->connection;
     c->pool = pool;
+
+    if (addr->sockaddr->sa_family != AF_UNIX) {
+        len = ngx_sock_ntop(pc->sockaddr,
+#if (nginx_version >= 1005003)
+                            pc->socklen,
+#endif
+                            buf, NGX_SOCKADDR_STRLEN, 0);
+
+        c->addr_text.data = ngx_pcalloc(pool, len);
+        if (c->addr_text.data == NULL) {
+            ngx_log_error(NGX_LOG_ERR, racf->log, 0,
+                          "relay: allocation for address failed");
+            goto clear;
+        }
+
+        c->addr_text.len = len;
+        ngx_memcpy(c->addr_text.data, buf, len);
+    }
 
 #if (NGX_HAVE_UNIX_DOMAIN)
     if (addr->sockaddr->sa_family == AF_UNIX) {

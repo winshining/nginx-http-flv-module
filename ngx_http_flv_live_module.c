@@ -986,8 +986,6 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     if (s->notify_connect) {
-        r->main->count++;
-
         return NGX_OK;
     }
 
@@ -1005,12 +1003,7 @@ ngx_http_flv_live_request(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
            (ngx_int_t) v.duration, (ngx_int_t) v.reset,
            (ngx_int_t) v.silent);
 
-    rc = ngx_rtmp_play(s, &v);
-    if (rc == NGX_OK && s->notify_play) {
-        r->main->count++;
-    }
-
-    return rc;
+    return ngx_rtmp_play(s, &v);
 }
 
 
@@ -1143,8 +1136,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
         goto next;
     }
 
-    r->main->count++;
-
 #if (nginx_version >= 1013001)
         /**
          * when playing from pull, the downstream requests on the most
@@ -1160,8 +1151,6 @@ ngx_http_flv_live_play(ngx_rtmp_session_t *s, ngx_rtmp_play_t *v)
     /* join stream as a subscriber */
 
     if (ngx_http_flv_live_join(s, v->name, 0) == NGX_ERROR) {
-        r->main->count--;
-
         return NGX_ERROR;
     }
 
@@ -1182,8 +1171,6 @@ ngx_http_flv_live_close_http_request(ngx_rtmp_session_t *s)
 
     r = s->data;
     if (r && r->connection && !r->connection->destroyed) {
-        r->main->count--;
-
         if (r->chunked) {
             ngx_http_flv_live_send_tail(s);
         }
@@ -1586,7 +1573,6 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     ngx_str_t                    arg_app = ngx_string("app");
     ngx_str_t                    arg_stream = ngx_string("stream");
     ngx_str_t                    arg_port = ngx_string("port");
-    ngx_str_t                    app, stream, port;
     ngx_int_t                    in_port;
     ngx_uint_t                   i, n;
     ngx_flag_t                   port_match, addr_match;
@@ -1602,21 +1588,24 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
         ngx_http_split_args(r, &r->uri, &r->args);
     }
 
-    if (ngx_http_arg(r, arg_port.data, arg_port.len, &port) != NGX_OK) {
+    if (ngx_http_arg(r, arg_port.data, arg_port.len, &ctx->port) != NGX_OK) {
         /* no port in args */
-        port.data = (u_char *) "1935";
-        port.len = ngx_strlen("1935");
+        ctx->port.len = ngx_strlen("1935");
+        ctx->port.data = ngx_pcalloc(r->pool, ctx->port.len + 1);
+        if (ctx->port.data == NULL) {
+            return NGX_ERROR;
+        }
 
+        ngx_memcpy(ctx->port.data, (const void *) "1935", ctx->port.len);
         in_port = 1935;
     } else {
-        in_port = ngx_atoi(port.data, port.len);
+        in_port = ngx_atoi(ctx->port.data, ctx->port.len);
         if (in_port == NGX_ERROR || (in_port < 0 || in_port > 65535)) {
             return NGX_ERROR;
         }
     }
 
     in_port = htons(in_port);
-    ctx->port = port;
 
     port_match = 1;
     addr_match = 1;
@@ -1754,25 +1743,23 @@ ngx_http_flv_live_preprocess(ngx_http_request_t *r,
 
     if (n == ngx_cycle->listening.nelts) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: failed to find configured port: '%V'", &port);
+                "flv live: failed to find configured port: '%V'", &ctx->port);
 
         return NGX_ERROR;
     }
 
-    if (ngx_http_arg(r, arg_app.data, arg_app.len, &app) != NGX_OK) {
+    if (ngx_http_arg(r, arg_app.data, arg_app.len, &ctx->app) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "flv live: app args MUST be specified");
 
         return NGX_ERROR;
-    } else {
-        ctx->app = app;
     }
 
-    if (ngx_http_arg(r, arg_stream.data, arg_stream.len, &stream) != NGX_OK) {
+    if (ngx_http_arg(r, arg_stream.data, arg_stream.len,
+                     &ctx->stream) != NGX_OK)
+    {
         ctx->stream.data = (u_char *) "";
         ctx->stream.len = 0;
-    } else {
-        ctx->stream = stream;
     }
 
     return NGX_OK;
@@ -1955,7 +1942,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 
 #define NGX_RTMP_SET_STRPAR(name)                                          \
     s->name.len = ngx_strlen(v.name);                                      \
-    s->name.data = ngx_palloc(s->connection->pool, s->name.len);           \
+    s->name.data = ngx_palloc(r->pool, s->name.len);                       \
     ngx_memcpy(s->name.data, v.name, s->name.len)
 
     NGX_RTMP_SET_STRPAR(app);
@@ -1982,7 +1969,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     }
 
     s->stream.len = stream->len;
-    s->stream.data = ngx_pstrdup(s->connection->pool, stream);
+    s->stream.data = ngx_pstrdup(r->pool, stream);
 
     return ngx_rtmp_connect(s, &v);
 }
@@ -2335,5 +2322,7 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    return NGX_OK;
+    r->main->count++;
+
+    return NGX_DONE;
 }
