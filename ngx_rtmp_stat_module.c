@@ -1009,7 +1009,8 @@ ngx_rtmp_stat_application(ngx_http_request_t *r, ngx_chain_t ***lll,
         NGX_RTMP_STAT_L("{");
         NGX_RTMP_STAT_L("\"name\":\"");
         NGX_RTMP_STAT_ES(&cacf->name);
-        }    }
+        NGX_RTMP_STAT_L("\"");
+    }
 
     if (slcf->stat & NGX_RTMP_STAT_LIVE) {
         ngx_rtmp_stat_live(r, lll,
