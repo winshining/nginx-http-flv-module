@@ -106,9 +106,13 @@ For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-
 
 ## Publish
 
-For simplicity, transcoding is not used (so **-vcodec copy -acodec copy** is used):
+For simplicity, transcoding is not used (so **-c copy** is used):
 
-    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+    ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
+
+### Note
+
+* Some legacy versions of [FFmpeg](http://ffmpeg.org) don't support the option `-c copy`, the options `-vcodec copy -acodec copy` can be used instead.
 
 The `appname` is used to match an application block in rtmp block (see below for details).
 
@@ -124,7 +128,9 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 
 ### Note
 
-If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
+* If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
+
+* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the publishing stream is encoded properly for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
 
 The `dir` is used to match location blocks in http block (see below for details).
 
@@ -138,7 +144,7 @@ The `stream` is used to match the publishing streamname.
 
 ### Example
 
-Assuming that `listen` directive specified in `http` block is:
+Assume that `listen` directive specified in `http` block is:
 
     http {
         ...
