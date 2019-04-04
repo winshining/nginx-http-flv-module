@@ -108,7 +108,11 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 为了简单起见，不用转码：
 
-    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+    ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
+
+### 注意
+
+* 一些旧版本的[FFmpeg](http://ffmpeg.org)不支持选项`-c copy`，可以使用选项`-vcodec copy -acodec copy`替代。
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
@@ -124,7 +128,9 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 ### 注意
 
-如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
+* 如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
+
+* 如果使用[flv.js](https://github.com/Bilibili/flv.js)播放流，那么请保证发布的流被正确编码，因为[flv.js](https://github.com/Bilibili/flv.js)**只支持H.264编码的视频和AAC/MP3编码的音频**。
 
 参数`dir`用于匹配http配置块中的location块（更多详情见下文）。
 
