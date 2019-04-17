@@ -96,6 +96,11 @@ RTMP_CORE_SRCS="                                                \
                 "
 
 
+RTMP_HTTP_DEPS="                                                \
+                $ngx_addon_dir/ngx_http_flv_live_module.h       \
+                "
+
+
 RTMP_HTTP_SRCS="                                                \
                 $ngx_addon_dir/ngx_rtmp_stat_module.c           \
                 $ngx_addon_dir/ngx_rtmp_control_module.c        \
@@ -104,7 +109,7 @@ RTMP_HTTP_SRCS="                                                \
 
 if [ -f auto/module ] ; then
     ngx_module_incs=$ngx_addon_dir
-    ngx_module_deps=$RTMP_DEPS
+    ngx_module_deps="$RTMP_DEPS $RTMP_HTTP_DEPS"
 
     if [ $ngx_module_link = DYNAMIC ] ; then
         ngx_module_name="$ngx_addon_name $RTMP_CORE_MODULES $RTMP_HTTP_MODULES"
@@ -125,6 +130,7 @@ if [ -f auto/module ] ; then
     else
         ngx_module_type=CORE
         ngx_module_name=$RTMP_CORE_MODULES
+        ngx_module_deps=$RTMP_DEPS
         ngx_module_srcs=$RTMP_CORE_SRCS
 
         . auto/module
@@ -132,8 +138,7 @@ if [ -f auto/module ] ; then
 
         ngx_module_type=HTTP
         ngx_module_name=$RTMP_HTTP_MODULES
-        ngx_module_incs=
-        ngx_module_deps=
+        ngx_module_deps=$RTMP_HTTP_DEPS
         ngx_module_srcs=$RTMP_HTTP_SRCS
 
         . auto/module
@@ -143,7 +148,7 @@ else
     CORE_MODULES="$CORE_MODULES $RTMP_CORE_MODULES"
     HTTP_MODULES="$HTTP_MODULES $RTMP_HTTP_MODULES"
 
-    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $RTMP_DEPS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $RTMP_DEPS $RTMP_HTTP_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $RTMP_CORE_SRCS $RTMP_HTTP_SRCS"
 
     CFLAGS="$CFLAGS -I$ngx_addon_dir"

@@ -1005,7 +1005,6 @@ ngx_rtmp_notify_connect_handle(ngx_rtmp_session_t *s,
             ngx_memzero(&p, sizeof(ngx_rtmp_play_t));
             ngx_memcpy(p.name, s->stream.data, s->stream.len);
             ngx_memcpy(p.args, s->args.data, s->args.len);
-            r->main->count--;
 
             rc = ngx_rtmp_play(s, &p);
         }
@@ -1122,18 +1121,12 @@ ngx_rtmp_notify_play_handle(ngx_rtmp_session_t *s,
     ngx_rtmp_relay_target_t     target;
     ngx_url_t                  *u;
     ngx_rtmp_notify_app_conf_t *nacf;
-    ngx_http_request_t         *r;
     u_char                      name[NGX_RTMP_MAX_NAME];
 
     static ngx_str_t            location = ngx_string("location");
 
     if (s->notify_play) {
         s->notify_play = 0;
-
-        r = s->data;
-        if (r) {
-            r->main->count--;
-        }
     }
 
     rc = ngx_rtmp_notify_parse_http_retcode(s, in);
