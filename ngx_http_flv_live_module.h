@@ -34,7 +34,6 @@ ngx_rtmp_close_stream_pt http_flv_live_next_close_stream;
 
 typedef struct ngx_http_flv_live_ctx_s {
     ngx_rtmp_session_t  *s;
-    ngx_flag_t           flv_live;
     ngx_flag_t           header_sent;
 
     ngx_str_t            app;
