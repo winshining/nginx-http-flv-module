@@ -451,15 +451,6 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     }
 
     if (ch->type == NGX_RTMP_MSG_VIDEO) {
-        // drop video when not H.264
-        if (codec_ctx->video_codec_id != NGX_RTMP_VIDEO_H264) {
-            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop video non-H.264 encode type timestamp=%uD",
-                    ch->timestamp);
-
-            return;
-        }
-
         // drop non-IDR
         if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache_head == NULL) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
