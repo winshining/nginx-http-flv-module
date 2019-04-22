@@ -27,7 +27,7 @@ Donate if you like this module. Many thanks to you!
 |         Features        | nginx-http-flv-module | nginx-rtmp-module |                     Remarks                     |
 | :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
 |   HTTP-FLV (subscribe)  |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
-|        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
+|        GOP cache        |           √           |         x         |                                                 |
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
 |   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
