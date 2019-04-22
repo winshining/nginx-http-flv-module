@@ -435,7 +435,9 @@ ngx_http_flv_live_send_header(ngx_rtmp_session_t *s)
         flv_header[4] |= (0x1 << 2);
     }
 
-    if (clcf->chunked_transfer_encoding) {
+    if (clcf->chunked_transfer_encoding &&
+        r->http_version == NGX_HTTP_VERSION_11)
+    {
         r->chunked = 1;
 
         p = chunked_flv_header_data;
@@ -760,7 +762,11 @@ ngx_http_flv_live_header_filter(ngx_rtmp_session_t *s)
     }
 
     /* "HTTP/1.x " */
-    b->last = ngx_cpymem(b->last, "HTTP/1.1 ", sizeof("HTTP/1.x ") - 1);
+    if (r->http_version == NGX_HTTP_VERSION_10) {
+        b->last = ngx_cpymem(b->last, "HTTP/1.0 ", sizeof("HTTP/1.x ") - 1);
+    } else {
+        b->last = ngx_cpymem(b->last, "HTTP/1.1 ", sizeof("HTTP/1.x ") - 1);
+    }
 
     /* status line */
     if (status_line) {
@@ -2255,14 +2261,19 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 
     if (!(r->method & (NGX_HTTP_GET))) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: HTTP method was not \"GET\"");
+                      "flv live: HTTP method was not \"GET\"");
 
         return NGX_HTTP_NOT_ALLOWED;
     }
 
-    if (r->http_version < NGX_HTTP_VERSION_10) {
+    if (r->http_version == NGX_HTTP_VERSION_9
+#if (NGX_HTTP_V2)
+        || r->http_version == NGX_HTTP_VERSION_20
+#endif
+       )
+    {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                "flv live: HTTP version 0.9 not supported");
+                      "flv live: HTTP version 0.9 or 2.0 not supported");
 
         return NGX_HTTP_NOT_ALLOWED;
     }
