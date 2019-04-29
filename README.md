@@ -130,7 +130,7 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 
 * If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
 
-* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the publishing stream is encoded properly for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
+* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the publishing stream is encoded properly, for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
 
 The `dir` is used to match location blocks in http block (see below for details).
 
@@ -212,7 +212,53 @@ Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/n
 
 The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
 
-The directive `worker_processes` of value 1 is preferable to other values, because there are something wrong with `ngx_rtmp_stat_module` and `ngx_rtmp_control_module` in multi-processes mode, in addtion, `vhost` feature is not perfect in multi-processes mode yet, wating to be fixed.
+It's better to specify the directive `worker_processes` as 1, because `ngx_rtmp_stat_module` may not get statistics from a specified worker process in multi-processes mode, for HTTP requests are randomly distributed to worker processes. `ngx_rtmp_control_module` has the same problem. The problem can be optimized by this patch [per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener).
+
+In addtion, `vhost` feature is not perfect in multi-processes mode yet, waiting to be fixed. For example, the following configuration is OK in multi-processes mode:
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+While the following configuration doesn't work for play requests distinated to the port 1945 of non-publisher worker processes on which some streams are published:
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1945;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+## Example configuration
 
     worker_processes  1; #should be 1 for Windows, for it doesn't support Unix domain socket
     #worker_processes  auto; #from versions 1.3.8 and 1.2.5

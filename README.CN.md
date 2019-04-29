@@ -212,7 +212,53 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。
+最好将配置项`worker_processes`设置为1，因为在多进程模式下，`ngx_rtmp_stat_module`可能不会从指定的worker进程获取统计数据，因为HTTP请求是被随机分配给worker进程的。`ngx_rtmp_control_module`也有同样的问题。这个问题可以通过这个布丁[per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener)优化。
+
+另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。例如，下面的配置在多进程模式下是没有问题的：
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+而使用下面的配置，当publisher在端口1945上发布媒体流，播放请求在此端口上访问非publisher的worker进程时是有问题的：
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1945;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+## 配置实例
 
     worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
