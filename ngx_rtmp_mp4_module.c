@@ -1276,6 +1276,10 @@ ngx_rtmp_mp4_parse(ngx_rtmp_session_t *s, u_char *pos, u_char *last)
 
         hdr = (uint32_t *) pos;
         size = ngx_rtmp_r32(hdr[0]);
+        if (size == 0) {
+            return NGX_ERROR;
+        }
+
         tag  = hdr[1];
 
         if (pos + size > last) {
