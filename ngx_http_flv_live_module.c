@@ -1986,6 +1986,11 @@ ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 {
     ngx_rtmp_core_srv_conf_t        *cscf;
     ngx_http_request_t              *r;
+    ngx_chain_t                     *meta, *iter, *out;
+    u_char                          *p, *save;
+    uint8_t                          fmt;
+    uint32_t                         csid;
+    ngx_int_t                        thsize;
     ngx_rtmp_header_t                ch;
 
     cscf = ngx_rtmp_get_module_srv_conf(s, ngx_rtmp_core_module);
@@ -1998,10 +2003,77 @@ ngx_http_flv_live_meta_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
         return NULL;
     }
 
+    /* remove RTMP header in meta */
+    meta = in;
+    p = meta->buf->pos;
+    save = meta->buf->pos;
+    if (meta->buf->last == p) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "flv live: no meta");
+
+        return NULL;
+    }
+
+    fmt = (*p >> 6) & 0x03;
+    if (fmt) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "flv live: non-type 0 format chunk message header");
+
+        return NULL;
+    }
+
+    csid = *p++ & 0x3f;
+    if (csid == 0) {
+        if (meta->buf->last - p < 1) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "flv live: incorrect basic header 2");
+
+            return NULL;
+        }
+
+        p += 1;
+    } else if (csid == 1) {
+        if (meta->buf->last - p < 2) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "flv live: incorrect basic header 3");
+
+            return NULL;
+        }
+
+        p += 2;
+    }
+
+    thsize = p - meta->buf->pos;
+
+    /*
+     * Chunk Message Header - Type 0
+     * |timestamp(3B)|msg len(3B)|msg type id(1B)|msg stream id(4B)|
+     */
+    if (meta->buf->last - p <= 11) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "flv live: incorrect chunk message header");
+
+        return NULL;
+    }
+
+    p += 11;
+    meta->buf->pos = p;
+
+    for (iter = meta->next; iter; iter = iter->next) {
+        iter->buf->pos += thsize;
+    }
+
     ch.timestamp = 0;
     ch.type = NGX_RTMP_MSG_AMF_META;
 
-    return ngx_http_flv_live_append_message(s, &ch, NULL, in);
+    out = ngx_http_flv_live_append_message(s, &ch, NULL, meta);
+
+    in->buf->pos = save;
+    for (iter = meta->next; iter; iter = iter->next) {
+        iter->buf->pos -= thsize;
+    }
+
+    return out;
 }
 
 
@@ -2018,7 +2090,7 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     r = s->data;
-    if (r == NULL || (r->connection && r->connection->destroyed)) {
+    if (r == NULL || r->connection == NULL || r->connection->destroyed) {
         return NULL;
     }
 
