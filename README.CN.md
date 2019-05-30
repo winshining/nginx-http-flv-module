@@ -58,11 +58,11 @@
 
 * [VLC](http://www.videolan.org)（推荐）或者[flv.js](https://github.com/Bilibili/flv.js)（推荐），用于播放媒体流。
 
-* 如果NGINX要支持正则表达式，需要PCRE库。
+* 如果NGINX要支持正则表达式，需要[PCRE库](http://www.pcre.org)。
 
-* 如果NGINX要支持加密访问，需要OpenSSL库。
+* 如果NGINX要支持加密访问，需要[OpenSSL库](https://www.openssl.org)。
 
-* 如果NGINX要支持压缩，需要zlib库。
+* 如果NGINX要支持压缩，需要[zlib库](http://www.zlib.net)。
 
 # 创建
 
@@ -275,7 +275,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
-        worker_connections  1024;
+        worker_connections  4096;
     }
 
     http {
