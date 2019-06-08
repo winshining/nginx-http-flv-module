@@ -207,12 +207,13 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
         ngx_delete_file(saun->sun_path);
     }
 
-    ngx_str_set(&ls->addr_text, "worker_socket");
+    ls->addr_text.data = (u_char *) saun->sun_path;
+    ls->addr_text.len = ngx_strlen(saun->sun_path);
 
     s = ngx_socket(AF_UNIX, SOCK_STREAM, 0);
     if (s == -1) {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                      ngx_socket_n " worker_socket failed");
+                      ngx_socket_n " %s failed", saun->sun_path);
         return NGX_ERROR;
     }
 
@@ -221,28 +222,28 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
         == -1)
     {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                "setsockopt(SO_REUSEADDR) worker_socket failed");
+                "setsockopt(SO_REUSEADDR) %s failed", saun->sun_path);
         goto sock_error;
     }
 
     if (!(ngx_event_flags & NGX_USE_AIO_EVENT)) {
         if (ngx_nonblocking(s) == -1) {
             ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                          ngx_nonblocking_n " worker_socket failed");
+                          ngx_nonblocking_n " %s failed", saun->sun_path);
             return NGX_ERROR;
         }
     }
 
     if (bind(s, (struct sockaddr *) saun, sizeof(*saun)) == -1) {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                      ngx_nonblocking_n " worker_socket bind failed");
+                      ngx_nonblocking_n " %s bind failed", saun->sun_path);
         goto sock_error;
     }
 
     if (listen(s, NGX_LISTEN_BACKLOG) == -1) {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                      "listen() to worker_socket, backlog %d failed",
-                      NGX_LISTEN_BACKLOG);
+                      "listen() to %s, backlog %d failed",
+                      saun->sun_path, NGX_LISTEN_BACKLOG);
         goto sock_error;
     }
 
@@ -254,7 +255,7 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
 sock_error:
     if (s != (ngx_socket_t) -1 && ngx_close_socket(s) == -1) {
         ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
-                ngx_close_socket_n " worker_socket failed");
+                ngx_close_socket_n " %s failed", saun->sun_path);
     }
     ngx_delete_file(saun->sun_path);
 
