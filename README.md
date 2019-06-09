@@ -58,11 +58,11 @@ Donate if you like this module. Many thanks to you!
 
 * [VLC](http://www.videolan.org) (recommended) or [flv.js](https://github.com/Bilibili/flv.js) (recommended) for playing media streams.
 
-* PCRE for NGINX if regular expressions needed.
+* [PCRE](http://www.pcre.org) for NGINX if regular expressions needed.
 
-* OpenSSL for NGINX if encrypted access needed.
+* [OpenSSL](https://www.openssl.org) for NGINX if encrypted access needed.
 
-* zlib for NGINX if compression needed.
+* [zlib](http://www.zlib.net) for NGINX if compression needed.
 
 # Build
 
@@ -276,7 +276,7 @@ While the following configuration doesn't work for play requests distinated to t
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
-        worker_connections  1024;
+        worker_connections  4096;
     }
 
     http {
