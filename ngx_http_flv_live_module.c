@@ -1231,9 +1231,10 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
             "flv live: leave '%s'", ctx->stream->name);
 
     if (passive) {
-        /* TODO: maybe using red-black tree is more efficient */
         for (cctx = &ctx->stream->ctx; *cctx; /* void */) {
-            if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+            if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP &&
+                !lacf->idle_streams)
+            {
                 ngx_http_flv_live_close_http_request((*cctx)->session);
 
                 if (!(*cctx)->publishing && (*cctx)->stream->active) {
@@ -1249,8 +1250,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 unlink->next = NULL;
             } else {
-                ngx_rtmp_finalize_session((*cctx)->session);
-
                 cctx = &(*cctx)->next;
             }
         }
