@@ -901,11 +901,11 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ctx->width = (ngx_uint_t) v.width;
     ctx->height = (ngx_uint_t) v.height;
-    ctx->duration = (ngx_uint_t) v.duration;
-    ctx->frame_rate = (ngx_uint_t) v.frame_rate;
-    ctx->video_data_rate = (ngx_uint_t) v.video_data_rate;
+    ctx->duration = v.duration;
+    ctx->frame_rate = v.frame_rate;
+    ctx->video_data_rate = v.video_data_rate;
     ctx->video_codec_id = (ngx_uint_t) v.video_codec_id_n;
-    ctx->audio_data_rate = (ngx_uint_t) v.audio_data_rate;
+    ctx->audio_data_rate = v.audio_data_rate;
     ctx->audio_codec_id = (v.audio_codec_id_n == -1
             ? 0 : v.audio_codec_id_n == 0
             ? NGX_RTMP_AUDIO_UNCOMPRESSED : (ngx_uint_t) v.audio_codec_id_n);
@@ -914,7 +914,7 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "codec: data frame: "
-            "width=%ui height=%ui duration=%ui frame_rate=%ui "
+            "width=%ui height=%ui duration=%.3f frame_rate=%.3f "
             "video=%s (%ui) audio=%s (%ui)",
             ctx->width, ctx->height, ctx->duration, ctx->frame_rate,
             ngx_rtmp_get_video_codec_name(ctx->video_codec_id),
