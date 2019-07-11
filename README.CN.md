@@ -124,7 +124,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 ### HTTP-FLV方式
 
-    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+    http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
 ### 注意
 
@@ -140,7 +140,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 参数`app`用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
 
-参数`stream`用来匹配发布流的streamname。
+参数`stream`用来匹配发布的流的名称。
 
 ### 例子
 
@@ -172,7 +172,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
-那么基于HTTP的播放url是：
+并且发布的流的名称是`mystream`，那么基于HTTP的播放url是：
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
