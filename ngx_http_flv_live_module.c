@@ -2091,6 +2091,7 @@ static ngx_chain_t *
 ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_header_t *lh, ngx_chain_t *in)
 {
+    ngx_rtmp_header_t                header;
     ngx_rtmp_core_srv_conf_t        *cscf;
     ngx_http_request_t              *r;
 
@@ -2104,7 +2105,25 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NULL;
     }
 
-    return ngx_http_flv_live_append_shared_bufs(cscf, h, in, r->chunked);
+    header = *h;
+
+    if (header.type == NGX_RTMP_MSG_VIDEO ||
+        header.type == NGX_RTMP_MSG_AUDIO)
+    {
+        if (!s->offset_timestamp_set) {
+            s->offset_timestamp_set = 1;
+            s->offset_timestamp = header.timestamp;
+        } else if (header.timestamp == 0) {
+            s->offset_timestamp = 0;
+        }
+
+        header.timestamp -= s->offset_timestamp;
+        ngx_log_error(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                      "flv live: timestamp=%uD, offset_timestamp=%uD",
+                      header.timestamp, s->offset_timestamp);
+    }
+
+    return ngx_http_flv_live_append_shared_bufs(cscf, &header, in, r->chunked);
 }
 
 

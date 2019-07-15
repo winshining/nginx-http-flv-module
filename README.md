@@ -124,13 +124,13 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 
 ### via HTTP-FLV
 
-    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+    http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
 ### Note
 
 * If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
 
-* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the publishing stream is encoded properly, for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
+* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the published stream is encoded properly, for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
 
 The `dir` is used to match location blocks in http block (see below for details).
 
@@ -140,7 +140,7 @@ The **default port for RTMP** is **1935**, if some other ports were used, `port=
 
 The `app` is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
 
-The `stream` is used to match the publishing streamname.
+The `stream` is used to match the name of published stream.
 
 ### Example
 
@@ -172,7 +172,7 @@ And `listen` directive specified in `rtmp` block is:
         }
     }
 
-Then the url of playback based on HTTP is:
+And the name of published stream is `mystream`, then the url of playback based on HTTP is:
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
