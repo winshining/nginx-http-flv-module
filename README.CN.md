@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=vhost)](https://travis-ci.org/winshining/nginx-http-flv-module)
+[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
@@ -27,7 +27,7 @@
 |       功能       | nginx-http-flv-module | nginx-rtmp-module |                  备注                  |
 | :--------------: | :-------------------: | :---------------: | :------------------------------------: |
 | HTTP-FLV (播放)  |           √           |         x         |        支持HTTPS-FLV和chunked回复      | 
-|     GOP缓存      |           √           |         x         |        仅适用于H.264视频和AAC音频      |
+|     GOP缓存      |           √           |         x         |                                        |
 |     虚拟主机     |           √           |         x         |                                        |
 | 省略`listen`配置 |           √           |       见备注      |        配置中必须有一个`listen`        |
 |    纯音频支持    |           √           |       见备注      | `wait_video`或`wait_key`开启后无法工作 |
@@ -58,11 +58,11 @@
 
 * [VLC](http://www.videolan.org)（推荐）或者[flv.js](https://github.com/Bilibili/flv.js)（推荐），用于播放媒体流。
 
-* 如果NGINX要支持正则表达式，需要PCRE库。
+* 如果NGINX要支持正则表达式，需要[PCRE库](http://www.pcre.org)。
 
-* 如果NGINX要支持加密访问，需要OpenSSL库。
+* 如果NGINX要支持加密访问，需要[OpenSSL库](https://www.openssl.org)。
 
-* 如果NGINX要支持压缩，需要zlib库。
+* 如果NGINX要支持压缩，需要[zlib库](http://www.zlib.net)。
 
 # 创建
 
@@ -108,11 +108,15 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 为了简单起见，不用转码：
 
-    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+    ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
+
+### 注意
+
+* 一些旧版本的[FFmpeg](http://ffmpeg.org)不支持选项`-c copy`，可以使用选项`-vcodec copy -acodec copy`替代。
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
-`streamname`可以随意指定。
+`streamname`可以随意指定，但是**不能**省略。
 
 **RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
@@ -120,11 +124,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 ### HTTP-FLV方式
 
-    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+    http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
 ### 注意
 
-如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
+* 如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
+
+* 如果使用[flv.js](https://github.com/Bilibili/flv.js)播放流，那么请保证发布的流被正确编码，因为[flv.js](https://github.com/Bilibili/flv.js)**只支持H.264编码的视频和AAC/MP3编码的音频**。
 
 参数`dir`用于匹配http配置块中的location块（更多详情见下文）。
 
@@ -132,9 +138,9 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 **RTMP默认端口**为**1935**，如果使用了其他端口，必须指定`port=xxx`。
 
-参数`app`用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+参数`app`的值（appname）用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
 
-参数`stream`用来匹配发布流的streamname。
+参数`stream`的值（streamname）用来匹配发布的流的名称。
 
 ### 例子
 
@@ -166,7 +172,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
-那么基于HTTP的播放url是：
+并且发布的流的名称是`mystream`，那么基于HTTP的播放url是：
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
@@ -206,7 +212,53 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
-最好将配置项`worker_processes`设置为1，因为`ngx_rtmp_stat_module`和`ngx_rtmp_control_module`在多进程模式下有问题，另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。
+最好将配置项`worker_processes`设置为1，因为在多进程模式下，`ngx_rtmp_stat_module`可能不会从指定的worker进程获取统计数据，因为HTTP请求是被随机分配给worker进程的。`ngx_rtmp_control_module`也有同样的问题。这个问题可以通过这个补丁[per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener)优化。
+
+另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。例如，下面的配置在多进程模式下是没有问题的：
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+而使用下面的配置，当publisher在端口1945上发布媒体流，播放请求在此端口上访问非publisher的worker进程时是有问题的：
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1945;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+## 配置实例
 
     worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
@@ -223,7 +275,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
-        worker_connections  1024;
+        worker_connections  4096;
     }
 
     http {
@@ -298,10 +350,11 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue    4096;
-        out_cork     8;
-        max_streams  128;
-        timeout      15s;
+        out_queue           4096;
+        out_cork            8;
+        max_streams         128;
+        timeout             15s;
+        drop_idle_publisher 15s;
 
         log_interval 5s; #log模块在access.log中记录日志的间隔时间，对调试非常有用
         log_size     1m; #log模块用来记录日志的缓冲区大小

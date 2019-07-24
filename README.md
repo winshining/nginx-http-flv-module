@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=vhost)](https://travis-ci.org/winshining/nginx-http-flv-module)
+[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
 
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
@@ -27,7 +27,7 @@ Donate if you like this module. Many thanks to you!
 |         Features        | nginx-http-flv-module | nginx-rtmp-module |                     Remarks                     |
 | :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
 |   HTTP-FLV (subscribe)  |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
-|        GOP cache        |           √           |         x         |        Only for H.264 video and AAC audio       |
+|        GOP cache        |           √           |         x         |                                                 |
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
 |   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
@@ -58,11 +58,11 @@ Donate if you like this module. Many thanks to you!
 
 * [VLC](http://www.videolan.org) (recommended) or [flv.js](https://github.com/Bilibili/flv.js) (recommended) for playing media streams.
 
-* PCRE for NGINX if regular expressions needed.
+* [PCRE](http://www.pcre.org) for NGINX if regular expressions needed.
 
-* OpenSSL for NGINX if encrypted access needed.
+* [OpenSSL](https://www.openssl.org) for NGINX if encrypted access needed.
 
-* zlib for NGINX if compression needed.
+* [zlib](http://www.zlib.net) for NGINX if compression needed.
 
 # Build
 
@@ -106,13 +106,17 @@ For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-
 
 ## Publish
 
-For simplicity, transcoding is not used (so **-vcodec copy -acodec copy** is used):
+For simplicity, transcoding is not used (so **-c copy** is used):
 
-    ffmpeg -re -i example.mp4 -vcodec copy -acodec copy -f flv rtmp://example.com[:port]/appname/streamname
+    ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
+
+### Note
+
+* Some legacy versions of [FFmpeg](http://ffmpeg.org) don't support the option `-c copy`, the options `-vcodec copy -acodec copy` can be used instead.
 
 The `appname` is used to match an application block in rtmp block (see below for details).
 
-The `streamname` can be specified at will.
+The `streamname` can be specified at will but can **NOT** be omitted.
 
 The **default port for RTMP** is **1935**, if some other ports were used, `:port` must be specified.
 
@@ -120,11 +124,13 @@ The **default port for RTMP** is **1935**, if some other ports were used, `:port
 
 ### via HTTP-FLV
 
-    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+    http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
 ### Note
 
-If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
+* If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
+
+* If [flv.js](https://github.com/Bilibili/flv.js) is used to play the stream, make sure that the published stream is encoded properly, for [flv.js](https://github.com/Bilibili/flv.js) supports **ONLY H.264 encoded video and AAC/MP3 encoded audio**.
 
 The `dir` is used to match location blocks in http block (see below for details).
 
@@ -132,13 +138,13 @@ The **default port for HTTP** is **80**, if some other ports were used, `:port` 
 
 The **default port for RTMP** is **1935**, if some other ports were used, `port=xxx` must be specified.
 
-The `app` is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+The value of `app` (appname) is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
 
-The `stream` is used to match the publishing streamname.
+The value of `stream` (streamname) is used to match the name of published stream.
 
 ### Example
 
-Assuming that `listen` directive specified in `http` block is:
+Assume that `listen` directive specified in `http` block is:
 
     http {
         ...
@@ -166,7 +172,7 @@ And `listen` directive specified in `rtmp` block is:
         }
     }
 
-Then the url of playback based on HTTP is:
+And the name of published stream is `mystream`, then the url of playback based on HTTP is:
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
@@ -206,7 +212,53 @@ Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/n
 
 The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
 
-The directive `worker_processes` of value 1 is preferable to other values, because there are something wrong with `ngx_rtmp_stat_module` and `ngx_rtmp_control_module` in multi-processes mode, in addtion, `vhost` feature is not perfect in multi-processes mode yet, wating to be fixed.
+It's better to specify the directive `worker_processes` as 1, because `ngx_rtmp_stat_module` may not get statistics from a specified worker process in multi-processes mode, for HTTP requests are randomly distributed to worker processes. `ngx_rtmp_control_module` has the same problem. The problem can be optimized by this patch [per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener).
+
+In addtion, `vhost` feature is not perfect in multi-processes mode yet, waiting to be fixed. For example, the following configuration is OK in multi-processes mode:
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1935;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+While the following configuration doesn't work for play requests distinated to the port 1945 of non-publisher worker processes on which some streams are published:
+
+    rtmp {
+        ...
+        server {
+            listen 1935;
+
+            application myapp {
+                ...
+            }
+        }
+
+        server {
+            listen 1945;
+            server_name localhost;
+
+            application myapp {
+                ...
+            }
+        }
+    }
+
+## Example configuration
 
     worker_processes  1; #should be 1 for Windows, for it doesn't support Unix domain socket
     #worker_processes  auto; #from versions 1.3.8 and 1.2.5
@@ -224,7 +276,7 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
-        worker_connections  1024;
+        worker_connections  4096;
     }
 
     http {
@@ -299,10 +351,11 @@ The directive `worker_processes` of value 1 is preferable to other values, becau
     rtmp_socket_dir /tmp;
 
     rtmp {
-        out_queue    4096;
-        out_cork     8;
-        max_streams  128;
-        timeout      15s;
+        out_queue           4096;
+        out_cork            8;
+        max_streams         128;
+        timeout             15s;
+        drop_idle_publisher 15s;
 
         log_interval 5s; #interval used by log module to log in access.log, it is very useful for debug
         log_size     1m; #buffer size used by log module to log in access.log
