@@ -1191,6 +1191,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_http_request_t         *r;
     ngx_rtmp_live_app_conf_t   *lacf;
+    ngx_rtmp_live_stream_t    **stream;
     ngx_flag_t                  passive;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -1230,9 +1231,10 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
             "flv live: leave '%s'", ctx->stream->name);
 
     if (passive) {
-        /* TODO: maybe using red-black tree is more efficient */
         for (cctx = &ctx->stream->ctx; *cctx; /* void */) {
-            if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+            if ((*cctx)->protocol == NGX_RTMP_PROTOCOL_HTTP &&
+                !lacf->idle_streams)
+            {
                 ngx_http_flv_live_close_http_request((*cctx)->session);
 
                 if (!(*cctx)->publishing && (*cctx)->stream->active) {
@@ -1248,8 +1250,6 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
 
                 unlink->next = NULL;
             } else {
-                ngx_rtmp_finalize_session((*cctx)->session);
-
                 cctx = &(*cctx)->next;
             }
         }
@@ -1261,6 +1261,16 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 }
 
                 *cctx = ctx->next;
+
+                if (ctx->stream->pub_ctx == NULL) {
+                    stream = ngx_rtmp_live_get_stream(s, ctx->stream->name, 0);
+                    if (stream) {
+                        *stream = (*stream)->next;
+
+                        ctx->stream->next = lacf->free_streams;
+                        lacf->free_streams = ctx->stream;
+                    }
+                }
 
                 ctx->next = NULL;
                 ctx->stream = NULL;
@@ -2081,6 +2091,7 @@ static ngx_chain_t *
 ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_header_t *lh, ngx_chain_t *in)
 {
+    ngx_rtmp_header_t                header;
     ngx_rtmp_core_srv_conf_t        *cscf;
     ngx_http_request_t              *r;
 
@@ -2094,7 +2105,25 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NULL;
     }
 
-    return ngx_http_flv_live_append_shared_bufs(cscf, h, in, r->chunked);
+    header = *h;
+
+    if (header.type == NGX_RTMP_MSG_VIDEO ||
+        header.type == NGX_RTMP_MSG_AUDIO)
+    {
+        if (!s->offset_timestamp_set) {
+            s->offset_timestamp_set = 1;
+            s->offset_timestamp = header.timestamp;
+        } else if (header.timestamp == 0) {
+            s->offset_timestamp = 0;
+        }
+
+        header.timestamp -= s->offset_timestamp;
+        ngx_log_error(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                      "flv live: timestamp=%uD, offset_timestamp=%uD",
+                      header.timestamp, s->offset_timestamp);
+    }
+
+    return ngx_http_flv_live_append_shared_bufs(cscf, &header, in, r->chunked);
 }
 
 

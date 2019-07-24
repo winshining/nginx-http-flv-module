@@ -615,9 +615,27 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                 ++fmt;
             }
         }
-        timestamp = h->timestamp - lh->timestamp;
+
+        if (h->type == NGX_RTMP_MSG_VIDEO || h->type == NGX_RTMP_MSG_AUDIO) {
+            timestamp = h->timestamp - s->offset_timestamp - lh->timestamp;
+
+            if (lh->timestamp) {
+                timestamp += s->offset_timestamp;
+            }
+        } else {
+            timestamp = h->timestamp - lh->timestamp;
+        }
     } else {
-        timestamp = h->timestamp;
+        if (h->type == NGX_RTMP_MSG_VIDEO || h->type == NGX_RTMP_MSG_AUDIO) {
+            if (!s->offset_timestamp_set) {
+                s->offset_timestamp_set = 1;
+                s->offset_timestamp = h->timestamp;
+            } else if (h->timestamp == 0) {
+                s->offset_timestamp = 0;
+            }
+        }
+
+        timestamp = h->timestamp - s->offset_timestamp;
     }
 
     /*if (lh) {

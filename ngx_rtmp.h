@@ -342,6 +342,10 @@ struct ngx_rtmp_session_s {
     /* URI with " " */
     unsigned                       space_in_uri:1;
 
+    unsigned                       offset_timestamp_set:1;
+
+    uint32_t                       offset_timestamp;
+
     u_char                        *uri_start;
     u_char                        *uri_end;
     u_char                        *args_start;

@@ -58,11 +58,11 @@
 
 * [VLC](http://www.videolan.org)（推荐）或者[flv.js](https://github.com/Bilibili/flv.js)（推荐），用于播放媒体流。
 
-* 如果NGINX要支持正则表达式，需要PCRE库。
+* 如果NGINX要支持正则表达式，需要[PCRE库](http://www.pcre.org)。
 
-* 如果NGINX要支持加密访问，需要OpenSSL库。
+* 如果NGINX要支持加密访问，需要[OpenSSL库](https://www.openssl.org)。
 
-* 如果NGINX要支持压缩，需要zlib库。
+* 如果NGINX要支持压缩，需要[zlib库](http://www.zlib.net)。
 
 # 创建
 
@@ -116,7 +116,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
-`streamname`可以随意指定。
+`streamname`可以随意指定，但是**不能**省略。
 
 **RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
@@ -124,7 +124,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 ### HTTP-FLV方式
 
-    http://example.com[:port]/dir?[port=xxx&]app=myapp&stream=mystream
+    http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
 ### 注意
 
@@ -138,9 +138,9 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 **RTMP默认端口**为**1935**，如果使用了其他端口，必须指定`port=xxx`。
 
-参数`app`用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+参数`app`的值（appname）用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
 
-参数`stream`用来匹配发布流的streamname。
+参数`stream`的值（streamname）用来匹配发布的流的名称。
 
 ### 例子
 
@@ -172,7 +172,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
-那么基于HTTP的播放url是：
+并且发布的流的名称是`mystream`，那么基于HTTP的播放url是：
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
@@ -275,7 +275,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
     #load_module modules/ngx_http_flv_live_module.so;
 
     events {
-        worker_connections  1024;
+        worker_connections  4096;
     }
 
     http {

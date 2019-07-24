@@ -276,14 +276,14 @@ ngx_rtmp_dash_write_playlist(ngx_rtmp_session_t *s)
     "        segmentAlignment=\"true\"\n"                                      \
     "        maxWidth=\"%ui\"\n"                                               \
     "        maxHeight=\"%ui\"\n"                                              \
-    "        maxFrameRate=\"%ui\">\n"                                          \
+    "        maxFrameRate=\"%.3f\">\n"                                         \
     "      <Representation\n"                                                  \
     "          id=\"%V_H264\"\n"                                               \
     "          mimeType=\"video/mp4\"\n"                                       \
     "          codecs=\"avc1.%02uxi%02uxi%02uxi\"\n"                           \
     "          width=\"%ui\"\n"                                                \
     "          height=\"%ui\"\n"                                               \
-    "          frameRate=\"%ui\"\n"                                            \
+    "          frameRate=\"%.3f\"\n"                                           \
     "          startWithSAP=\"1\"\n"                                           \
     "          bandwidth=\"%ui\">\n"                                           \
     "        <SegmentTemplate\n"                                               \
