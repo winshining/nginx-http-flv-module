@@ -116,7 +116,7 @@ For simplicity, transcoding is not used (so **-c copy** is used):
 
 The `appname` is used to match an application block in rtmp block (see below for details).
 
-The `streamname` can be specified at will.
+The `streamname` can be specified at will but can **NOT** be omitted.
 
 The **default port for RTMP** is **1935**, if some other ports were used, `:port` must be specified.
 
@@ -138,9 +138,9 @@ The **default port for HTTP** is **80**, if some other ports were used, `:port` 
 
 The **default port for RTMP** is **1935**, if some other ports were used, `port=xxx` must be specified.
 
-The `app` is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
+The value of `app` (appname) is used to match an application block, but if the requested `app` appears in several server blocks and those blocks have the same address and port configuration, host name matches `server_name` directive will be additionally used to identify the requested application block, otherwise the first one is matched.
 
-The `stream` is used to match the name of published stream.
+The value of `stream` (streamname) is used to match the name of published stream.
 
 ### Example
 

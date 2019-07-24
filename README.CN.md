@@ -116,7 +116,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
-`streamname`可以随意指定。
+`streamname`可以随意指定，但是**不能**省略。
 
 **RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
@@ -138,9 +138,9 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 **RTMP默认端口**为**1935**，如果使用了其他端口，必须指定`port=xxx`。
 
-参数`app`用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
+参数`app`的值（appname）用来匹配application块，但是如果请求的`app`出现在多个server块中，并且这些server块有相同的地址和端口配置，那么还需要用匹配主机名的`server_name`配置项来区分请求的是哪个application块，否则，将匹配第一个application块。
 
-参数`stream`用来匹配发布的流的名称。
+参数`stream`的值（streamname）用来匹配发布的流的名称。
 
 ### 例子
 
