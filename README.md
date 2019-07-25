@@ -64,13 +64,20 @@ Donate if you like this module. Many thanks to you!
 
 * [zlib](http://www.zlib.net) for NGINX if compression needed.
 
-## Install in RHEL/CentOS 6, 7 and 8
+## Install in RHEL/CentOS
+
+### RHEL/CentOS 6, 7 
 
 For these operating systems, automatic builds of latest release of the module for latest stable NGINX are available:
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
     
+### RHEL 8    
+    
+    dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
+    sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
+
 To enable this module, add the following to `/etc/nginx/nginx.conf` and reload NGINX:
 
     load_module modules/ngx_http_flv_live_module.so;
