@@ -18,7 +18,7 @@ Donate if you like this module. Many thanks to you!
 
 * Contributors, refer to [AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS) for details.
 
-# Features
+## Features
 
 * All features [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides.
 
@@ -34,19 +34,19 @@ Donate if you like this module. Many thanks to you!
 |  Timing log for access  |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 
-# Systems supported
+## Systems supported
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).
 
-# Players supported
+## Players supported
 
 * [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
-## Note
+### Note
 
 [flv.js](https://github.com/Bilibili/flv.js) can only run with browsers that support [Media Source Extensions](https://www.w3.org/TR/media-source).
 
-# Prerequisites
+## Prerequisites
 
 * GNU make for activating compiler on Unix-like systems to compile software.
 
@@ -64,17 +64,39 @@ Donate if you like this module. Many thanks to you!
 
 * [zlib](http://www.zlib.net) for NGINX if compression needed.
 
-# Build
+## Install in RHEL/CentOS
 
-## Note
+### RHEL/CentOS 6, 7 
+
+For these operating systems, automatic builds of latest release of the module for latest stable NGINX are available:
+
+    yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
+    yum install nginx-module-flv
+    
+### RHEL 8    
+    
+    dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
+    sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
+
+To enable this module, add the following to `/etc/nginx/nginx.conf` and reload NGINX:
+
+    load_module modules/ngx_http_flv_live_module.so;
+    
+Updates can be complete via `yum update`. More [about GetPageSpeed repository with other NGINX modules](https://www.getpagespeed.com/redhat).    
+ 
+For other systems, follow Build instructions in the next section.
+
+## Build
+
+### Note
 
 nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides, so **DON'T** compile nginx-http-flv-module along with [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
-## On Windows
+### On Windows
 
 For details of build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
-## On Unix-like systems
+### On Unix-like systems
 
 Download [NGINX](http://nginx.org) and nginx-http-flv-module.
 
@@ -82,7 +104,7 @@ Uncompress them.
 
 cd to NGINX source directory & run this:
 
-### Compile the module into [NGINX](http://nginx.org)
+#### Compile the module into [NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -90,27 +112,27 @@ cd to NGINX source directory & run this:
 
 or
 
-### Compile the module as a dynamic module
+#### Compile the module as a dynamic module
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
     make install
 
-### Note
+#### Note
 
 If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) version **MUST** be equal to or greater than 1.9.11.
 
-# Usage
+## Usage
 
 For details of usages of [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module), please refer to [README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md).
 
-## Publish
+### Publish
 
 For simplicity, transcoding is not used (so **-c copy** is used):
 
     ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
 
-### Note
+#### Note
 
 * Some legacy versions of [FFmpeg](http://ffmpeg.org) don't support the option `-c copy`, the options `-vcodec copy -acodec copy` can be used instead.
 
@@ -120,13 +142,13 @@ The `streamname` can be specified at will but can **NOT** be omitted.
 
 The **default port for RTMP** is **1935**, if some other ports were used, `:port` must be specified.
 
-## Play
+### Play
 
-### via HTTP-FLV
+#### via HTTP-FLV
 
     http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
-### Note
+#### Note
 
 * If [ffplay](http://www.ffmpeg.org/ffplay.html) is used in command line to play the stream, the url above **MUST** be enclosed by quotation marks, or arguments in url will be discarded (some shells not so smart will interpret "&" as "run in background").
 
@@ -142,7 +164,7 @@ The value of `app` (appname) is used to match an application block, but if the r
 
 The value of `stream` (streamname) is used to match the name of published stream.
 
-### Example
+#### Example
 
 Assume that `listen` directive specified in `http` block is:
 
@@ -176,39 +198,39 @@ And the name of published stream is `mystream`, then the url of playback based o
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
-### Note
+#### Note
 
 Since some players don't support HTTP chunked transmission, it's better to specify `chunked_transfer_encoding off;` in location where `flv_live on;` is specified in this case, or play will fail.
 
-### via RTMP
+#### via RTMP
 
     rtmp://example.com[:port]/appname/streamname
 
-### via HLS
+#### via HLS
 
     http://example.com[:port]/dir/streamname.m3u8
 
-### via DASH
+#### via DASH
 
     http://example.com[:port]/dir/streamname.mpd
 
-# Sample Pictures
+## Sample Pictures
 
-## RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
+### RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
 
 ![RTMP & HTTP-FLV](samples/jwplayer_vlc.png)
 
-## HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
+### HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
 
 ![HTTP-FLV](samples/flv.js.png)
 
-# Packages for nginx-http-flv-module
+## Packages for nginx-http-flv-module
 
 Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages).
 
-# Example nginx.conf
+## Example nginx.conf
 
-## Note
+### Note
 
 The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir` will not function on Windows except on Windows 10 17063 and later versions, because `relay` in multiple processes mode needs help of Unix domain socket, please refer to [Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows) for details.
 
@@ -258,7 +280,7 @@ While the following configuration doesn't work for play requests distinated to t
         }
     }
 
-## Example configuration
+### Example configuration
 
     worker_processes  1; #should be 1 for Windows, for it doesn't support Unix domain socket
     #worker_processes  auto; #from versions 1.3.8 and 1.2.5
