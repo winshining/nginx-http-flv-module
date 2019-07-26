@@ -68,14 +68,14 @@ Donate if you like this module. Many thanks to you!
 
 ### Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
 
-* RHEL/CentOS 6, 7
+#### RHEL/CentOS 6, 7
 
 For these operating systems, automatic builds of the latest release of module for the latest stable NGINX are available:
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
 
-* RHEL 8
+#### RHEL 8
 
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
@@ -84,7 +84,7 @@ To enable this module, add the following to `/etc/nginx/nginx.conf` and reload N
 
     load_module modules/ngx_http_flv_live_module.so;
 
-### Note
+#### Note
 
 The above setting **MUST** be located before the directive `events`, or NGINX can not be started.
 
@@ -94,15 +94,15 @@ For other systems, follow Installation instructions in the next section.
 
 ### Install by compiling source code
 
-### Note
+#### Note
 
 nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) provides, so **DON'T** compile nginx-http-flv-module along with [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
-### On Windows
+#### On Windows
 
 For details of build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
-### On Unix-like systems
+#### On Unix-like systems
 
 Download [NGINX](http://nginx.org) and nginx-http-flv-module.
 
@@ -110,7 +110,7 @@ Uncompress them.
 
 cd to NGINX source directory & run this:
 
-#### Compile the module into [NGINX](http://nginx.org)
+##### Compile the module into [NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -118,13 +118,13 @@ cd to NGINX source directory & run this:
 
 or
 
-#### Compile the module as a dynamic module
+##### Compile the module as a dynamic module
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
     make install
 
-#### Note
+##### Note
 
 If the module is compiled as a dynamic module, the [NGINX](http://nginx.org) version **MUST** be equal to or greater than 1.9.11.
 

@@ -66,16 +66,16 @@
 
 ## 安装
 
-## 在RHEL/CentOS上安装（感谢[dvershinin](https://github.com/dvershinin)）
+### 在RHEL/CentOS上安装（感谢[dvershinin](https://github.com/dvershinin)）
 
-* RHEL/CentOS 6, 7
+#### RHEL/CentOS 6, 7
 
 在这些操作系统上，最新发布且适配最新稳定版NGINX的模块可以通过以下方式获取：
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
 
-* RHEL 8
+#### RHEL 8
 
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
@@ -84,7 +84,7 @@
 
     load_module modules/ngx_http_flv_live_module.so;
 
-### 注意
+#### 注意
 
 上述的配置**必须**位于`events`配置项之前，否则NGINX不能启动。
 
@@ -92,17 +92,17 @@
 
 对于其他操作系统，见下面源码编译安装的说明。
 
-## 源码编译安装
+### 源码编译安装
 
-### 注意
+#### 注意
 
 nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)所有的功能，所以**不要**将nginx-http-flv-module和[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)一起编译。
 
-### 在Windows上
+#### 在Windows上
 
 编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)，不要忘了在`Run configure script`步骤中添加`--add-module=/path/to/nginx-http-flv-module`。
 
-### 在类Unix系统上
+#### 在类Unix系统上
 
 下载[NGINX](http://nginx.org)和nginx-http-flv-module。
 
@@ -110,7 +110,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 打开NGINX的源代码路径并执行：
 
-#### 将模块编译进[NGINX](http://nginx.org)
+##### 将模块编译进[NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -118,13 +118,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 或者
 
-#### 将模块编译为动态模块
+##### 将模块编译为动态模块
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
     make install
 
-#### 注意
+##### 注意
 
 如果将模块编译为动态模块，那么[NGINX](http://nginx.org)的版本号**必须**大于或者等于1.9.11。
 
