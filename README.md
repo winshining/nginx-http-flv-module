@@ -64,29 +64,35 @@ Donate if you like this module. Many thanks to you!
 
 * [zlib](http://www.zlib.net) for NGINX if compression needed.
 
-## Install in RHEL/CentOS
+## Installation
 
-### RHEL/CentOS 6, 7 
+* Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
 
-For these operating systems, automatic builds of latest release of the module for latest stable NGINX are available:
+### RHEL/CentOS 6, 7
+
+For these operating systems, automatic builds of the latest release of module for the latest stable NGINX are available:
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
-    
-### RHEL 8    
-    
+
+### RHEL 8
+
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
 
 To enable this module, add the following to `/etc/nginx/nginx.conf` and reload NGINX:
 
     load_module modules/ngx_http_flv_live_module.so;
-    
-Updates can be complete via `yum update`. More [about GetPageSpeed repository with other NGINX modules](https://www.getpagespeed.com/redhat).    
- 
-For other systems, follow Build instructions in the next section.
 
-## Build
+### Note
+
+The above setting **MUST** be located before the directive `events`, or NGINX can not be started.
+
+Updates can be completed via `yum update`. More [about GetPageSpeed repository with other NGINX modules](https://www.getpagespeed.com/redhat).
+ 
+For other systems, follow Installation instructions in the next section.
+
+* Install by compiling source code
 
 ### Note
 
@@ -223,10 +229,6 @@ Since some players don't support HTTP chunked transmission, it's better to speci
 ### HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
 
 ![HTTP-FLV](samples/flv.js.png)
-
-## Packages for nginx-http-flv-module
-
-Please refer to [nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages).
 
 ## Example nginx.conf
 

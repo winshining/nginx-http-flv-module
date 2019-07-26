@@ -18,7 +18,7 @@
 
 * 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS)。
 
-# 功能
+## 功能
 
 * [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)提供的所有功能。
 
@@ -34,19 +34,19 @@
 | 定时打印访问记录 |           √           |         x         |                                        |
 |  JSON风格的stat  |           √           |         x         |                                        |
 
-# 支持的系统
+## 支持的系统
 
 * Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
 
-# 支持的播放器
+## 支持的播放器
 
 * [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
-## 注意
+### 注意
 
 [flv.js](https://github.com/Bilibili/flv.js)只能运行在支持[Media Source Extensions](https://www.w3.org/TR/media-source)的浏览器上。
 
-# 依赖
+## 依赖
 
 * 在类Unix系统上，需要GNU make，用于调用编译器来编译软件。
 
@@ -64,17 +64,45 @@
 
 * 如果NGINX要支持压缩，需要[zlib库](http://www.zlib.net)。
 
-# 创建
+## 安装
 
-## 注意
+* 在RHEL/CentOS上安装（感谢[dvershinin](https://github.com/dvershinin)）
+
+### RHEL/CentOS 6, 7
+
+在这些操作系统上，最新发布且适配最新稳定版NGINX的模块可以通过以下方式获取：
+
+    yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
+    yum install nginx-module-flv
+
+### RHEL 8
+
+    dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
+    sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
+
+添加以下配置到`/etc/nginx/nginx.conf`，启动或者重启NGINX来启用本模块：
+
+    load_module modules/ngx_http_flv_live_module.so;
+
+### 注意
+
+上述的配置**必须**位于`events`配置项之前，否则NGINX不能启动。
+
+更新可以通过`yum update`来完成。关于其他NGINX模块的详情见[GetPageSpeed](https://www.getpagespeed.com/redhat)。
+
+对于其他操作系统，见下面源码编译安装的说明。
+
+* 源码编译安装
+
+### 注意
 
 nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)所有的功能，所以**不要**将nginx-http-flv-module和[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)一起编译。
 
-## 在Windows上
+### 在Windows上
 
 编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)，不要忘了在`Run configure script`步骤中添加`--add-module=/path/to/nginx-http-flv-module`。
 
-## 在类Unix系统上
+### 在类Unix系统上
 
 下载[NGINX](http://nginx.org)和nginx-http-flv-module。
 
@@ -82,7 +110,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 打开NGINX的源代码路径并执行：
 
-### 将模块编译进[NGINX](http://nginx.org)
+#### 将模块编译进[NGINX](http://nginx.org)
 
     ./configure --add-module=/path/to/nginx-http-flv-module
     make
@@ -90,27 +118,27 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 或者
 
-### 将模块编译为动态模块
+#### 将模块编译为动态模块
 
     ./configure --add-dynamic-module=/path/to/nginx-http-flv-module
     make
     make install
 
-### 注意
+#### 注意
 
 如果将模块编译为动态模块，那么[NGINX](http://nginx.org)的版本号**必须**大于或者等于1.9.11。
 
-# 使用方法
+## 使用方法
 
 关于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)用法的详情，请参考[README.md](https://github.com/arut/nginx-rtmp-module/blob/master/README.md)。
 
-## 发布
+### 发布
 
 为了简单起见，不用转码：
 
     ffmpeg -re -i MEDIA_FILE_NAME -c copy -f flv rtmp://example.com[:port]/appname/streamname
 
-### 注意
+#### 注意
 
 * 一些旧版本的[FFmpeg](http://ffmpeg.org)不支持选项`-c copy`，可以使用选项`-vcodec copy -acodec copy`替代。
 
@@ -120,13 +148,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 **RTMP默认端口**为**1935**，如果要使用其他端口，必须指定`:port`。
 
-## 播放
+### 播放
 
-### HTTP-FLV方式
+#### HTTP-FLV方式
 
     http://example.com[:port]/dir?[port=xxx&]app=appname&stream=streamname
 
-### 注意
+#### 注意
 
 * 如果使用[ffplay](http://www.ffmpeg.org/ffplay.html)命令行方式播放流，那么**必须**为上述的url加上引号，否则url中的参数会被丢弃（有些不太智能的shell会把"&"解释为"后台运行"）。
 
@@ -142,7 +170,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 参数`stream`的值（streamname）用来匹配发布的流的名称。
 
-### 例子
+#### 例子
 
 假设在`http`配置块中的`listen`配置项是：
 
@@ -176,39 +204,35 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
     http://example.com:8080/live?port=1985&app=myapp&stream=mystream
 
-### 注意
+#### 注意
 
 由于一些播放器不支持HTTP块传输, 这种情况下最好在指定了`flv_live on;`的location中指定`chunked_transfer_encoding off`，否则播放会失败。
 
-### RTMP方式
+#### RTMP方式
 
     rtmp://example.com[:port]/appname/streamname
 
-### HLS方式
+#### HLS方式
 
     http://example.com[:port]/dir/streamname.m3u8
 
-### DASH方式
+#### DASH方式
 
     http://example.com[:port]/dir/streamname.mpd
 
-# 示例图片
+## 示例图片
 
-## RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
+### RTMP ([JW Player](https://www.jwplayer.com)) & HTTP-FLV ([VLC](http://www.videolan.org))
 
 ![RTMP & HTTP-FLV](samples/jwplayer_vlc.png)
 
-## HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
+### HTTP-FLV ([flv.js](https://github.com/Bilibili/flv.js))
 
 ![HTTP-FLV](samples/flv.js.png)
 
-# nginx-http-flv-module的安装包
+## nginx.conf实例
 
-详情见[nginx-http-flv-module-packages](https://github.com/winshining/nginx-http-flv-module-packages)。
-
-# nginx.conf实例
-
-## 注意
+### 注意
 
 配置项`rtmp_auto_push`，`rtmp_auto_push_reconnect`和`rtmp_socket_dir`在Windows上不起作用，除了Windows 10 17063以及后续版本之外，因为多进程模式的`relay`需要Unix domain socket的支持，详情请参考[Unix domain socket on Windows 10](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows)。
 
@@ -258,7 +282,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         }
     }
 
-## 配置实例
+### 配置实例
 
     worker_processes  1; #运行在Windows上时，设置为1，因为Windows不支持Unix domain socket
     #worker_processes  auto; #1.3.8和1.2.5以及之后的版本
