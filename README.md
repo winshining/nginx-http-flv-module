@@ -66,16 +66,16 @@ Donate if you like this module. Many thanks to you!
 
 ## Installation
 
-* Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
+### Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
 
-### RHEL/CentOS 6, 7
+* RHEL/CentOS 6, 7
 
 For these operating systems, automatic builds of the latest release of module for the latest stable NGINX are available:
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
 
-### RHEL 8
+* RHEL 8
 
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
@@ -92,7 +92,7 @@ Updates can be completed via `yum update`. More [about GetPageSpeed repository w
  
 For other systems, follow Installation instructions in the next section.
 
-* Install by compiling source code
+### Install by compiling source code
 
 ### Note
 

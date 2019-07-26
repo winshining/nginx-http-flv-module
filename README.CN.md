@@ -66,16 +66,16 @@
 
 ## 安装
 
-* 在RHEL/CentOS上安装（感谢[dvershinin](https://github.com/dvershinin)）
+## 在RHEL/CentOS上安装（感谢[dvershinin](https://github.com/dvershinin)）
 
-### RHEL/CentOS 6, 7
+* RHEL/CentOS 6, 7
 
 在这些操作系统上，最新发布且适配最新稳定版NGINX的模块可以通过以下方式获取：
 
     yum install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     yum install nginx-module-flv
 
-### RHEL 8
+* RHEL 8
 
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
@@ -92,7 +92,7 @@
 
 对于其他操作系统，见下面源码编译安装的说明。
 
-* 源码编译安装
+## 源码编译安装
 
 ### 注意
 
