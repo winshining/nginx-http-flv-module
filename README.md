@@ -88,7 +88,7 @@ To enable this module, add the following to `/etc/nginx/nginx.conf` and reload N
 
 The above setting **MUST** be located before the directive `events`, or NGINX can not be started.
 
-Updates can be completed via `yum update`. More [about GetPageSpeed repository with other NGINX modules](https://www.getpagespeed.com/redhat).
+Updates can be completed via `yum update`. More details about other NGINX modules, refer to [GetPageSpeed repository](https://www.getpagespeed.com/redhat).
  
 For other systems, follow Installation instructions in the next section.
 
@@ -100,7 +100,7 @@ nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.c
 
 #### On Windows
 
-For details of build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
+For details about build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
 #### On Unix-like systems
 

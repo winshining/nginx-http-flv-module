@@ -706,10 +706,6 @@ ngx_rtmp_record_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ngx_rtmp_record_ctx_t          *ctx;
     u_char                         *p;
 
-    if (s->auto_pushed) {
-        goto next;
-    }
-
     racf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_record_module);
 
     if (racf == NULL || racf->rec.nelts == 0) {
@@ -719,10 +715,6 @@ ngx_rtmp_record_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     if (ngx_rtmp_record_init(s) != NGX_OK) {
         return NGX_ERROR;
     }
-
-    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                   "record: publish %ui nodes",
-                   racf->rec.nelts);
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_record_module);
 
@@ -739,6 +731,14 @@ ngx_rtmp_record_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
             break;
         }
     }
+
+    if (s->auto_pushed) {
+        goto next;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                   "record: publish %ui nodes",
+                   racf->rec.nelts);
 
     ngx_rtmp_record_start(s);
 
