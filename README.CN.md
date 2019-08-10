@@ -4,7 +4,7 @@
 
 基于[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的流媒体服务器。
 
-[English README](https://github.com/winshining/nginx-http-flv-module/blob/vhost/README.md)。
+[English README](https://github.com/winshining/nginx-http-flv-module/blob/master/README.md)。
 
 如果您喜欢这个模块，可以通过赞赏来支持我的工作，非常感谢！
 
@@ -16,7 +16,7 @@
 
 * Roman Arutyunyan，[nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module)的作者。
 
-* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/vhost/AUTHORS)。
+* 贡献者，详情见[AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS)。
 
 ## 功能
 
