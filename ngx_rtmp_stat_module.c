@@ -1003,14 +1003,23 @@ ngx_rtmp_stat_play(ngx_http_request_t *r, ngx_chain_t ***lll,
 
 static void
 ngx_rtmp_stat_application(ngx_http_request_t *r, ngx_chain_t ***lll,
-        ngx_rtmp_core_app_conf_t *cacf)
+        ngx_rtmp_core_srv_conf_t *cscf, ngx_rtmp_core_app_conf_t *cacf)
 {
+    u_char                          buf[NGX_INT_T_LEN];
     ngx_rtmp_stat_loc_conf_t       *slcf;
 
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
 
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<application>\r\n");
+        NGX_RTMP_STAT_L("<port>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", cscf->port) - buf);
+        NGX_RTMP_STAT_L("</port>\r\n");
+        NGX_RTMP_STAT_L("<server_index>");
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                      "%ui", cscf->index) - buf);
+        NGX_RTMP_STAT_L("</server_index>\r\n");
         NGX_RTMP_STAT_L("<name>");
         NGX_RTMP_STAT_ES(&cacf->name);
         NGX_RTMP_STAT_L("</name>\r\n");
@@ -1070,7 +1079,7 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
 
     cacf = cscf->applications.elts;
     for (n = 0; n < cscf->applications.nelts; ++n, ++cacf) {
-        ngx_rtmp_stat_application(r, lll, *cacf);
+        ngx_rtmp_stat_application(r, lll, cscf, *cacf);
 
         if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON &&
             n < cscf->applications.nelts - 1)

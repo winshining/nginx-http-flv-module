@@ -629,6 +629,8 @@ ngx_rtmp_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_rtmp_add_listen(cf, cscf, &lsopt) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
+
+        cscf->port = 1935;
     }
 
     return rv;
@@ -1381,6 +1383,8 @@ ngx_rtmp_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                            "invalid parameter \"%V\"", &value[n]);
         return NGX_CONF_ERROR;
     }
+
+    cscf->port = u.port;
 
     if (ngx_rtmp_add_listen(cf, cscf, &lsopt) == NGX_OK) {
         return NGX_CONF_OK;

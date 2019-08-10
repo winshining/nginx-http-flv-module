@@ -4,7 +4,7 @@
 
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
-[中文说明](https://github.com/winshining/nginx-http-flv-module/blob/master/README.CN.md).
+[中文说明](https://github.com/winshining/nginx-http-flv-module/blob/vhost/README.CN.md).
 
 Donate if you like this module. Many thanks to you!
 
@@ -16,7 +16,7 @@ Donate if you like this module. Many thanks to you!
 
 * Roman Arutyunyan, who created [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
-* Contributors, refer to [AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/master/AUTHORS) for details.
+* Contributors, refer to [AUTHORS](https://github.com/winshining/nginx-http-flv-module/blob/vhost/AUTHORS) for details.
 
 ## Features
 
