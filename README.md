@@ -66,7 +66,7 @@ Donate if you like this module. Many thanks to you!
 
 ## Installation
 
-### Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
+### Install in RHEL/CentOS (Thanks to [dvershinin](https://github.com/dvershinin))
 
 #### RHEL/CentOS 6, 7
 
@@ -89,7 +89,7 @@ Now configuration files named `http-flv.conf` for HTTP-FLV feature and `rtmp.con
 
     include /etc/nginx/http-flv/rtmp.conf;
 
-To enable this module, add the following to `/etc/nginx/nginx.conf` and reload NGINX:
+To enable this module, add the following to `/etc/nginx/nginx.conf` and start or reload NGINX:
 
     load_module modules/ngx_http_flv_live_module.so;
 

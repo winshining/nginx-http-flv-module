@@ -243,12 +243,12 @@ ngx_rtmp_init_session(ngx_connection_t *c, ngx_rtmp_addr_conf_t *addr_conf)
     return s;
 
 failed:
-    if (s->out_pool) {
+    if (s && s->out_pool) {
         ngx_destroy_pool(s->out_pool);
         s->out_pool = NULL;
     }
 
-    if (s->in_streams_pool) {
+    if (s && s->in_streams_pool) {
         ngx_destroy_pool(s->in_streams_pool);
         s->in_streams_pool = NULL;
     }

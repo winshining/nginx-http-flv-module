@@ -1923,12 +1923,12 @@ ngx_http_flv_live_init_session(ngx_http_request_t *r,
     return s;
 
 failed:
-    if (s->out_pool) {
+    if (s && s->out_pool) {
         ngx_destroy_pool(s->out_pool);
         s->out_pool = NULL;
     }
 
-    if (s->in_streams_pool) {
+    if (s && s->in_streams_pool) {
         ngx_destroy_pool(s->in_streams_pool);
         s->in_streams_pool = NULL;
     }
