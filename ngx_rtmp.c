@@ -326,6 +326,11 @@ ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     *cf = pcf;
 
+    cscfp = cmcf->servers.elts;
+    for (s = 0; s < cmcf->servers.nelts; s++) {
+        cscfp[s]->index = s;
+    }
+
     if (ngx_rtmp_init_event_handlers(cf, cmcf) != NGX_OK) {
         return NGX_CONF_ERROR;
     }

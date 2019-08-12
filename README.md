@@ -66,7 +66,7 @@ Donate if you like this module. Many thanks to you!
 
 ## Installation
 
-### Install in RHEL/CentOS (Thanks [dvershinin](https://github.com/dvershinin))
+### Install in RHEL/CentOS (Thanks to [dvershinin](https://github.com/dvershinin))
 
 #### RHEL/CentOS 6, 7
 
@@ -80,7 +80,16 @@ For these operating systems, automatic builds of the latest release of module fo
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
 
-To enable this module, add the following to `/etc/nginx/nginx.conf` and reload NGINX:
+Now configuration files named `http-flv.conf` for HTTP-FLV feature and `rtmp.conf` for RTMP feature are located in `/etc/nginx/http-flv` directory, add them to `/etc/nginx/nginx.conf` manually via `include` to enable HTTP-FLV and RTMP features:
+
+    http {
+        ...
+        include /etc/nginx/http-flv/http-flv.conf;
+    }
+
+    include /etc/nginx/http-flv/rtmp.conf;
+
+To enable this module, add the following to `/etc/nginx/nginx.conf` and start or reload NGINX:
 
     load_module modules/ngx_http_flv_live_module.so;
 

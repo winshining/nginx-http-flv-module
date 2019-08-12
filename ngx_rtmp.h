@@ -464,6 +464,8 @@ struct ngx_rtmp_core_srv_conf_s {
 
     ngx_array_t             applications; /* ngx_rtmp_core_app_conf_t */
 
+    ngx_uint_t              index; /* index in server array */
+
     ngx_msec_t              timeout;
     ngx_msec_t              ping;
     ngx_msec_t              ping_timeout;
@@ -496,6 +498,8 @@ struct ngx_rtmp_core_srv_conf_s {
 #if (NGX_PCRE)
     unsigned                captures:1;
 #endif
+
+    in_port_t               port;
 };
 
 

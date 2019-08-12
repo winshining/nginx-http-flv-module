@@ -80,6 +80,15 @@
     dnf install https://extras.getpagespeed.com/release-el$(rpm -E %{rhel})-latest.rpm
     sudo dnf --disablerepo=rhel-8-for-x86_64-appstream-rpms install nginx-module-flv
 
+安装完毕后，HTTP-FLV功能的配置文件`http-flv.conf`和RTMP功能的配置文件`rtmp.conf`会被放在`/etc/nginx/http-flv`目录下，通过`include`手工将它们添加到`/etc/nginx/nginx.conf`，以开启HTTP-FLV和RTMP功能：
+
+    http {
+        ...
+        include /etc/nginx/http-flv/http-flv.conf;
+    }
+
+    include /etc/nginx/http-flv/rtmp.conf;
+
 添加以下配置到`/etc/nginx/nginx.conf`，启动或者重启NGINX来启用本模块：
 
     load_module modules/ngx_http_flv_live_module.so;
