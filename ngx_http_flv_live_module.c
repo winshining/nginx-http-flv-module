@@ -203,6 +203,8 @@ static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
+static void ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s,
+    ngx_flag_t correct);
 
 static ngx_int_t ngx_http_flv_live_preprocess(ngx_http_request_t *r,
     ngx_rtmp_connection_t *rconn);
@@ -1517,11 +1519,15 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 
     if (s->out_chain == NULL && s->out_pos != s->out_last) {
         s->out_chain = s->out[s->out_pos];
+        ngx_http_flv_live_correct_timestamp(s, 1);
         s->out_bpos = s->out_chain->buf->pos;
+    } else if (s->out_chain) {
+        ngx_http_flv_live_correct_timestamp(s, 1);
     }
 
     while (s->out_chain) {
         n = c->send(c, s->out_bpos, s->out_chain->buf->last - s->out_bpos);
+        ngx_http_flv_live_correct_timestamp(s, 0);
 
         if (n == NGX_AGAIN || n == 0) {
             ngx_add_timer(c->write, s->timeout);
@@ -1553,6 +1559,7 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
                     break;
                 }
                 s->out_chain = s->out[s->out_pos];
+                ngx_http_flv_live_correct_timestamp(s, 1);
             }
             s->out_bpos = s->out_chain->buf->pos;
         }
@@ -1563,6 +1570,57 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
     }
 
     ngx_event_process_posted((ngx_cycle_t *) ngx_cycle, &s->posted_dry_events);
+}
+
+
+static void
+ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
+{
+    uint8_t     type;
+    uint32_t    timestamp;
+    u_char     *p, *pt;
+    ngx_buf_t  *b;
+
+    if (s->out_chain == NULL) {
+        return;
+    }
+
+    b = s->out_chain->buf;
+
+    if (b->start + NGX_RTMP_MAX_CHUNK_HEADER != b->pos) {
+        type = b->pos[0] & 0x1f;
+        if (type != NGX_RTMP_MSG_VIDEO && type != NGX_RTMP_MSG_AUDIO) {
+            return;
+        }
+
+        timestamp = 0;
+        pt = (u_char *) &timestamp;
+
+        p = b->pos + 4;
+        pt[2] = *p++;
+        pt[1] = *p++;
+        pt[0] = *p++;
+        pt[3] = *p++;
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                      "flv live: offset_timestamp=%uD", s->offset_timestamp);
+
+        if (correct) {
+            timestamp -= s->offset_timestamp;
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                           "flv live: correct timestamp=%uD", timestamp);
+        } else {
+            timestamp += s->offset_timestamp;
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                           "flv live: recover timestamp=%uD", timestamp);
+        }
+
+        p = b->pos + 4;
+        p[2] = *pt++;
+        p[1] = *pt++;
+        p[0] = *pt++;
+        p[3] = *pt++;
+    }
 }
 
 
@@ -2091,7 +2149,6 @@ static ngx_chain_t *
 ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_header_t *lh, ngx_chain_t *in)
 {
-    ngx_rtmp_header_t                header;
     ngx_rtmp_core_srv_conf_t        *cscf;
     ngx_http_request_t              *r;
 
@@ -2105,25 +2162,20 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NULL;
     }
 
-    header = *h;
-
-    if (header.type == NGX_RTMP_MSG_VIDEO ||
-        header.type == NGX_RTMP_MSG_AUDIO)
-    {
+    if (h->type == NGX_RTMP_MSG_VIDEO || h->type == NGX_RTMP_MSG_AUDIO) {
         if (!s->offset_timestamp_set) {
             s->offset_timestamp_set = 1;
-            s->offset_timestamp = header.timestamp;
-        } else if (header.timestamp == 0) {
+            s->offset_timestamp = h->timestamp;
+        } else if (h->timestamp == 0) {
             s->offset_timestamp = 0;
         }
 
-        header.timestamp -= s->offset_timestamp;
-        ngx_log_error(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
                       "flv live: timestamp=%uD, offset_timestamp=%uD",
-                      header.timestamp, s->offset_timestamp);
+                      h->timestamp, s->offset_timestamp);
     }
 
-    return ngx_http_flv_live_append_shared_bufs(cscf, &header, in, r->chunked);
+    return ngx_http_flv_live_append_shared_bufs(cscf, h, in, r->chunked);
 }
 
 
