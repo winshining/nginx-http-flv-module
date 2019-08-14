@@ -1576,19 +1576,39 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 static void
 ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
 {
-    uint8_t     type;
-    uint32_t    timestamp;
-    u_char     *p, *pt;
-    ngx_buf_t  *b;
+    uint8_t              type;
+    uint32_t             timestamp;
+    u_char              *p, *pt;
+    ngx_chain_t         *cl;
+    ngx_buf_t           *b;
+    ngx_http_request_t  *r;
 
-    if (s->out_chain == NULL) {
+    cl = s->out_chain;
+    if (cl == NULL) {
         return;
     }
 
-    b = s->out_chain->buf;
+    if (cl != s->out[s->out_pos]) {
+        return;
+    }
 
+    r = s->data;
+    if (r->chunked) {
+        cl = cl->next;
+        if (cl == NULL) {
+            return;
+        }
+    }
+
+    b = cl->buf;
     if (b->start + NGX_RTMP_MAX_CHUNK_HEADER != b->pos) {
         type = b->pos[0] & 0x1f;
+
+        ngx_log_debug4(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                       "flv live: type=%uD, chunked=%uD, "
+                       "correct=%uD, offset_timestamp=%uD",
+                       type, r->chunked, correct, s->offset_timestamp);
+
         if (type != NGX_RTMP_MSG_VIDEO && type != NGX_RTMP_MSG_AUDIO) {
             return;
         }
@@ -1601,9 +1621,6 @@ ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
         pt[1] = *p++;
         pt[0] = *p++;
         pt[3] = *p++;
-
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
-                      "flv live: offset_timestamp=%uD", s->offset_timestamp);
 
         if (correct) {
             timestamp -= s->offset_timestamp;
@@ -2171,8 +2188,8 @@ ngx_http_flv_live_append_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         }
 
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
-                      "flv live: timestamp=%uD, offset_timestamp=%uD",
-                      h->timestamp, s->offset_timestamp);
+                       "flv live: timestamp=%uD, offset_timestamp=%uD",
+                       h->timestamp, s->offset_timestamp);
     }
 
     return ngx_http_flv_live_append_shared_bufs(cscf, h, in, r->chunked);
