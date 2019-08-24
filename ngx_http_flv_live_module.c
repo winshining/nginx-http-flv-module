@@ -1308,6 +1308,7 @@ next:
 static void
 ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
 {
+    ngx_connection_t               *c;
     ngx_http_request_t             *r;
     ngx_http_cleanup_t            **cln;
 
@@ -1322,6 +1323,8 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
             cln = &(*cln)->next;
         }
 
+        c = r->connection;
+
 #if (nginx_version <= 1003014)
         ngx_http_do_free_request(r, 0);
 #else
@@ -1329,13 +1332,13 @@ ngx_http_flv_live_free_request(ngx_rtmp_session_t *s)
 #endif
 
 #if (NGX_HTTP_SSL)
-        if (r->connection->ssl) {
-            ngx_ssl_shutdown(r->connection);
+        if (c->ssl) {
+            ngx_ssl_shutdown(c);
         }
 #endif
 
         /* for later processing */
-        r->connection->destroyed = 0;
+        c->destroyed = 0;
     }
 }
 
@@ -2017,10 +2020,12 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_str_t *stream)
 {
     ngx_rtmp_connect_t           v;
+    ngx_connection_t            *c;
     ngx_http_request_t          *r;
     u_char                       name[NGX_RTMP_MAX_NAME];
 
     r = s->data;
+    c = s->connection;
 
     ngx_memzero(&v, sizeof(ngx_rtmp_connect_t));
 
@@ -2033,7 +2038,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 
 #define NGX_RTMP_SET_STRPAR(name)                                          \
     s->name.len = ngx_strlen(v.name);                                      \
-    s->name.data = ngx_palloc(r->pool, s->name.len);                       \
+    s->name.data = ngx_palloc(c->pool, s->name.len);                       \
     ngx_memcpy(s->name.data, v.name, s->name.len)
 
     NGX_RTMP_SET_STRPAR(app);
@@ -2060,7 +2065,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     }
 
     s->stream.len = stream->len;
-    s->stream.data = ngx_pstrdup(r->pool, stream);
+    s->stream.data = ngx_pstrdup(c->pool, stream);
 
     return ngx_rtmp_connect(s, &v);
 }
