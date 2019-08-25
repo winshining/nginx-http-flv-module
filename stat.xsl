@@ -32,6 +32,7 @@
         <tr bgcolor="#999999">
             <th>HTTP-FLV</th>
             <th>#clients</th>
+            <th colspan="2">Server</th>
             <th colspan="4">Video</th>
             <th colspan="4">Audio</th>
             <th>In bytes</th>
@@ -43,6 +44,8 @@
         </tr>
         <tr>
             <td colspan="2">Accepted: <xsl:value-of select="naccepted"/></td>
+            <th bgcolor="#999999">port</th>
+            <th bgcolor="#999999">index</th>
             <th bgcolor="#999999">codec</th>
             <th bgcolor="#999999">bits/s</th>
             <th bgcolor="#999999">size</th>
@@ -135,7 +138,7 @@
         <td>
             <a href="">
                 <xsl:attribute name="onclick">
-                    var d=document.getElementById('<xsl:value-of select="../../port"/>-<xsl:value-of select="../../server_index"/>-<xsl:value-of select="../../name"/>-<xsl:value-of select="name"/>');
+                    var d=document.getElementById('<xsl:value-of select="../../../port"/>-<xsl:value-of select="../../../server_index"/>-<xsl:value-of select="../../name"/>-<xsl:value-of select="name"/>');
                     d.style.display=d.style.display=='none'?'':'none';
                     return false
                 </xsl:attribute>
@@ -146,6 +149,8 @@
             </a>
         </td>
         <td align="middle"> <xsl:value-of select="nclients"/> </td>
+        <td align="middle"> <xsl:value-of select="../../../port"/> </td>
+        <td align="middle"> <xsl:value-of select="../../../server_index"/> </td>
         <td>
             <xsl:value-of select="meta/video/codec"/>&#160;<xsl:value-of select="meta/video/profile"/>&#160;<xsl:value-of select="meta/video/level"/>
         </td>
@@ -211,7 +216,7 @@
     </tr>
     <tr style="display:none">
         <xsl:attribute name="id">
-            <xsl:value-of select="../../port"/>-<xsl:value-of select="../../server_index"/>-<xsl:value-of select="../../name"/>-<xsl:value-of select="name"/>
+            <xsl:value-of select="../../../port"/>-<xsl:value-of select="../../../server_index"/>-<xsl:value-of select="../../name"/>-<xsl:value-of select="name"/>
         </xsl:attribute>
         <td colspan="16" ngcolor="#eeeeee">
             <table cellspacing="1" cellpadding="5">
