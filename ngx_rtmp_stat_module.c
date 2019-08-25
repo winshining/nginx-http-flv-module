@@ -792,7 +792,7 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                         f = 1;
                         NGX_RTMP_STAT_L("\"codec\":\"");
                         NGX_RTMP_STAT_ECS(cname);
-						NGX_RTMP_STAT_L("\"");
+                        NGX_RTMP_STAT_L("\"");
                     }
                     if (codec->aac_profile) {
                         if (f == 1) NGX_RTMP_STAT_L(",");
@@ -1048,13 +1048,13 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_core_app_conf_t      **cacf;
     size_t                          n;
     ngx_rtmp_stat_loc_conf_t       *slcf;
-	u_char                          buf[NGX_INT_T_LEN];
+    u_char                          buf[NGX_INT_T_LEN];
 
     slcf = ngx_http_get_module_loc_conf(r, ngx_rtmp_stat_module);
 
     if (slcf->format & NGX_RTMP_STAT_FORMAT_XML) {
         NGX_RTMP_STAT_L("<server>\r\n");
-		NGX_RTMP_STAT_L("<port>");
+        NGX_RTMP_STAT_L("<port>");
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", cscf->port) - buf);
         NGX_RTMP_STAT_L("</port>\r\n");
@@ -1063,10 +1063,10 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
                       "%ui", cscf->index) - buf);
         NGX_RTMP_STAT_L("</server_index>\r\n");
     }
-	
-	if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
-		NGX_RTMP_STAT_L("{");
-	}
+    
+    if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+        NGX_RTMP_STAT_L("{");
+    }
 
 #ifdef NGX_RTMP_POOL_DEBUG
     ngx_rtmp_stat_dump_pool(r, lll, cscf->pool);
@@ -1075,12 +1075,12 @@ ngx_rtmp_stat_server(ngx_http_request_t *r, ngx_chain_t ***lll,
     }
 #endif
 
-	if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
+    if (slcf->format & NGX_RTMP_STAT_FORMAT_JSON) {
         NGX_RTMP_STAT_L("\"port\":");
-		NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", cscf->port) - buf);
-		NGX_RTMP_STAT_L(",\"server_index\":");			  
-		NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+        NGX_RTMP_STAT_L(",\"server_index\":");            
+        NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", cscf->index) - buf);
         NGX_RTMP_STAT_L(",\"applications\":[");
     }
