@@ -816,13 +816,17 @@ ngx_rtmp_stat_live(ngx_http_request_t *r, ngx_chain_t ***lll,
                                       "%ui", codec->audio_channels) - buf);
                     }
                     if (codec->sample_rate) {
-                        if (f >= 1) NGX_RTMP_STAT_L(",");
+                        if (f == 1 || f == 2) {
+                            NGX_RTMP_STAT_L("\",");
+                        } else if (f == 3) {
+                            NGX_RTMP_STAT_L(",");
+                        }
                         f = 4;
                         NGX_RTMP_STAT_L("\"sample_rate\":");
                         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                                       "%ui", codec->sample_rate) - buf);
                     }
-                    if (f >= 1 && f <= 3) {
+                    if (f == 1 || f == 2) {
                         NGX_RTMP_STAT_L("\"");
                     }
                     NGX_RTMP_STAT_L("}}");
