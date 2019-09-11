@@ -981,9 +981,16 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         }
 
         if (handler->meta == NULL && meta_version != pctx->meta_version) {
-            handler->meta = handler->meta_message_pt(ss, codec_ctx->meta);
-            if (handler->meta == NULL) {
-                continue;
+            if (codec_ctx->meta) {
+                handler->meta = handler->meta_message_pt(ss, codec_ctx->meta);
+                if (handler->meta == NULL) {
+                    continue;
+                }
+            } else {
+                ngx_log_error(NGX_LOG_WARN, ss->connection->log, 0,
+                              "live: no meta");
+
+                pctx->meta_version = meta_version;
             }
         }
 
