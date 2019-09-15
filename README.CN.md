@@ -247,12 +247,13 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 最好将配置项`worker_processes`设置为1，因为在多进程模式下，`ngx_rtmp_stat_module`可能不会从指定的worker进程获取统计数据，因为HTTP请求是被随机分配给worker进程的。`ngx_rtmp_control_module`也有同样的问题。这个问题可以通过这个补丁[per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener)优化。
 
-另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。例如，下面的配置在多进程模式下是没有问题的：
+另外，`vhost`功能在多进程模式下还不能完全正确运行，等待修复。例如，不管向哪个域名推流，下面的配置在多进程模式下是没有问题的：
 
     rtmp {
         ...
         server {
             listen 1935;
+            server_name 1st_domain_name;
 
             application myapp {
                 ...
@@ -261,7 +262,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
         server {
             listen 1935;
-            server_name localhost;
+            server_name 2nd_domain_name;
 
             application myapp {
                 ...
@@ -275,6 +276,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         ...
         server {
             listen 1935;
+            server_name 1st_domain_name;
 
             application myapp {
                 ...
@@ -283,7 +285,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
         server {
             listen 1945;
-            server_name localhost;
+            server_name 2nd_domain_name;
 
             application myapp {
                 ...

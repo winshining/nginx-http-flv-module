@@ -203,6 +203,8 @@ static void ngx_http_flv_live_free_request(ngx_rtmp_session_t *s);
 
 static void ngx_http_flv_live_read_handler(ngx_event_t *rev);
 static void ngx_http_flv_live_write_handler(ngx_event_t *wev);
+
+static ngx_int_t ngx_http_flv_live_send(ngx_rtmp_session_t *s);
 static void ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s,
     ngx_flag_t correct);
 
@@ -1522,15 +1524,11 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 
     if (s->out_chain == NULL && s->out_pos != s->out_last) {
         s->out_chain = s->out[s->out_pos];
-        ngx_http_flv_live_correct_timestamp(s, 1);
         s->out_bpos = s->out_chain->buf->pos;
-    } else if (s->out_chain) {
-        ngx_http_flv_live_correct_timestamp(s, 1);
     }
 
     while (s->out_chain) {
-        n = c->send(c, s->out_bpos, s->out_chain->buf->last - s->out_bpos);
-        ngx_http_flv_live_correct_timestamp(s, 0);
+        n = ngx_http_flv_live_send(s);
 
         if (n == NGX_AGAIN || n == 0) {
             ngx_add_timer(c->write, s->timeout);
@@ -1562,7 +1560,6 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
                     break;
                 }
                 s->out_chain = s->out[s->out_pos];
-                ngx_http_flv_live_correct_timestamp(s, 1);
             }
             s->out_bpos = s->out_chain->buf->pos;
         }
@@ -1576,41 +1573,67 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
 }
 
 
+static ngx_int_t
+ngx_http_flv_live_send(ngx_rtmp_session_t *s)
+{
+    ngx_int_t            n;
+    ngx_connection_t    *c;
+    ngx_http_request_t  *r;
+
+    c = s->connection;
+    r = s->data;
+
+    if (r->chunked) {
+        if (s->out_chain == s->out[s->out_pos]) {
+            n = c->send(c, s->out_bpos, s->out_chain->buf->last - s->out_bpos);
+            if (n == NGX_AGAIN || n == 0 || n < 0) {
+                return n;
+            }
+
+            if (n != s->out_chain->buf->last - s->out_bpos ||
+                s->out_chain->next == NULL)
+            {
+                return n;
+            }
+
+            s->out_chain = s->out_chain->next;
+
+            s->out_bytes += n;
+            s->out_bpos = s->out_chain->buf->pos;
+            s->ping_reset = 1;
+            ngx_rtmp_update_bandwidth(&ngx_rtmp_bw_out, n);
+        }
+    }
+
+    ngx_http_flv_live_correct_timestamp(s, 1);
+    n = c->send(c, s->out_bpos, s->out_chain->buf->last - s->out_bpos);
+    ngx_http_flv_live_correct_timestamp(s, 0);
+
+    return n;
+}
+
+
 static void
 ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
 {
-    uint8_t              type;
-    uint32_t             timestamp;
-    u_char              *p, *pt;
-    ngx_chain_t         *cl;
-    ngx_buf_t           *b;
-    ngx_http_request_t  *r;
+    uint8_t       type;
+    uint32_t      timestamp;
+    u_char       *p, *pt;
+    ngx_chain_t  *cl;
+    ngx_buf_t    *b;
 
     cl = s->out_chain;
     if (cl == NULL) {
         return;
     }
 
-    if (cl != s->out[s->out_pos]) {
-        return;
-    }
-
-    r = s->data;
-    if (r->chunked) {
-        cl = cl->next;
-        if (cl == NULL) {
-            return;
-        }
-    }
-
     b = cl->buf;
     if (b->start + NGX_RTMP_MAX_CHUNK_HEADER != b->pos) {
         type = b->pos[0] & 0x1f;
 
-        ngx_log_debug4(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
-                       "flv live: type=%uD, chunked=%uD, "
-                       "correct=%uD, offset_timestamp=%uD",
-                       type, r->chunked, correct, s->offset_timestamp);
+        ngx_log_debug3(NGX_LOG_DEBUG_HTTP, s->connection->log, 0,
+                       "flv live: type=%uD, correct=%uD, offset_timestamp=%uD",
+                       type, correct, s->offset_timestamp);
 
         if (type != NGX_RTMP_MSG_VIDEO && type != NGX_RTMP_MSG_AUDIO) {
             return;

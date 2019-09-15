@@ -247,12 +247,13 @@ The directives `rtmp_auto_push`, `rtmp_auto_push_reconnect` and `rtmp_socket_dir
 
 It's better to specify the directive `worker_processes` as 1, because `ngx_rtmp_stat_module` may not get statistics from a specified worker process in multi-processes mode, for HTTP requests are randomly distributed to worker processes. `ngx_rtmp_control_module` has the same problem. The problem can be optimized by this patch [per-worker-listener](https://github.com/arut/nginx-patches/blob/master/per-worker-listener).
 
-In addtion, `vhost` feature is not perfect in multi-processes mode yet, waiting to be fixed. For example, the following configuration is OK in multi-processes mode:
+In addtion, `vhost` feature is not perfect in multi-processes mode yet, waiting to be fixed. For example, whichever domain name streams are pushed to, the following configuration is OK in multi-processes mode:
 
     rtmp {
         ...
         server {
             listen 1935;
+            server_name 1st_domain_name;
 
             application myapp {
                 ...
@@ -261,7 +262,7 @@ In addtion, `vhost` feature is not perfect in multi-processes mode yet, waiting 
 
         server {
             listen 1935;
-            server_name localhost;
+            server_name 2nd_domain_name;
 
             application myapp {
                 ...
@@ -275,6 +276,7 @@ While the following configuration doesn't work for play requests distinated to t
         ...
         server {
             listen 1935;
+            server_name 1st_domain_name;
 
             application myapp {
                 ...
@@ -283,7 +285,7 @@ While the following configuration doesn't work for play requests distinated to t
 
         server {
             listen 1945;
-            server_name localhost;
+            server_name 2nd_domain_name;
 
             application myapp {
                 ...
