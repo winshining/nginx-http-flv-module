@@ -176,6 +176,16 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_ERROR;
     }
 
+    if (v.tc_url[0]) {
+        /* compatibility for case: rtmps -> converter -> rtmp */
+        if (ngx_strncasecmp(v.tc_url, (u_char *) "rtmps://", 8) == 0) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                          "connect: rtmps tcUrl received: %s", v.tc_url);
+
+            ngx_memmove(v.tc_url + 4, v.tc_url + 5, ngx_strlen(v.tc_url) - 5);
+        }
+    }
+
 #define NGX_RTMP_SET_STRPAR(name)                                             \
     s->name.len = ngx_strlen(v.name);                                         \
     s->name.data = ngx_palloc(s->connection->pool, s->name.len);              \

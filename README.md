@@ -34,6 +34,10 @@ Donate if you like this module. Many thanks to you!
 |  Timing log for access  |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 
+## Compatibility
+
+The [NGINX](http://nginx.org) version **SHOULD** be equal to or greater than 1.2.6, the compatibility with other versions is unknown.
+
 ## Systems supported
 
 * Linux (recommended)/FreeBSD/MacOS/Windows (limited).

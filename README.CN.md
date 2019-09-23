@@ -34,6 +34,10 @@
 | 定时打印访问记录 |           √           |         x         |                                        |
 |  JSON风格的stat  |           √           |         x         |                                        |
 
+## 兼容性
+
+[NGINX](http://nginx.org)的版本**应该**大于或者等于1.2.6，与其他版本的兼容性未知。
+
 ## 支持的系统
 
 * Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
