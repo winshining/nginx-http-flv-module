@@ -1498,6 +1498,7 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
     ngx_http_request_t         *r;
     ngx_rtmp_session_t         *s;
     ngx_int_t                   n;
+    ngx_rtmp_live_ctx_t        *lctx;
     ngx_rtmp_core_srv_conf_t   *cscf;
     ngx_http_flv_live_ctx_t    *ctx;
 
@@ -1563,6 +1564,11 @@ ngx_http_flv_live_write_handler(ngx_event_t *wev)
             }
             s->out_bpos = s->out_chain->buf->pos;
         }
+    }
+
+    lctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
+    if (lctx && !lctx->publishing && !wev->timer_set) {
+        ngx_add_timer(wev, s->timeout);
     }
 
     if (wev->active) {

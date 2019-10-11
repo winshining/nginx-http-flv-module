@@ -7,9 +7,8 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include "ngx_rtmp.h"
+#include "ngx_rtmp_live_module.h"
 #include "ngx_rtmp_amf.h"
-#include "ngx_rtmp_cmd_module.h"
 
 
 static void ngx_rtmp_recv(ngx_event_t *rev);
@@ -503,6 +502,7 @@ ngx_rtmp_send(ngx_event_t *wev)
     ngx_connection_t           *c;
     ngx_rtmp_session_t         *s;
     ngx_int_t                   n;
+    ngx_rtmp_live_ctx_t        *lctx;
     ngx_rtmp_core_srv_conf_t   *cscf;
 
     c = wev->data;
@@ -563,6 +563,11 @@ ngx_rtmp_send(ngx_event_t *wev)
             }
             s->out_bpos = s->out_chain->buf->pos;
         }
+    }
+
+    lctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
+    if (lctx && !lctx->publishing && !wev->timer_set) {
+        ngx_add_timer(wev, s->timeout);
     }
 
     if (wev->active) {
