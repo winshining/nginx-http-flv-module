@@ -612,7 +612,7 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
         rctx->server_name.len = s->host_end - s->host_start;
     }
 
-	target->url = save;
+    target->url = save;
 
     return rctx;
 }
@@ -1756,6 +1756,14 @@ ngx_rtmp_relay_push_pull(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (!is_pull) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "static push is not allowed");
+            return NGX_CONF_ERROR;
+        }
+
+        if (ngx_strlchr(target->url.url.data,
+                        target->url.url.data + target->url.url.len, '$'))
+        {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "variable is not allowed");
             return NGX_CONF_ERROR;
         }
 
