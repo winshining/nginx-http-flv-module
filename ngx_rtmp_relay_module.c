@@ -580,6 +580,7 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
     cctx.srv_conf = s->srv_conf;
     cctx.main_conf = s->main_conf;
 
+    rctx = NULL;
     save = target->url;
 
     if(ngx_strlchr(target->url.url.data,
@@ -597,12 +598,12 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
             if(ngx_parse_url(s->connection->pool, &target->url) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                               "relay: invalid url='%V'", &target->url.url);
-                return NULL;
+                goto error;
             }
         } else {
             ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                           "relay: failed to eval url='%V'", &target->url.url);
-            return NULL;
+            goto error;
         }
     }
 
@@ -612,6 +613,7 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
         rctx->server_name.len = s->host_end - s->host_start;
     }
 
+error:
     target->url = save;
 
     return rctx;
