@@ -22,7 +22,8 @@ static ngx_int_t ngx_rtmp_dash_write_init_segments(ngx_rtmp_session_t *s);
 
 
 #define NGX_RTMP_DASH_BUFSIZE           (1024*1024)
-#define NGX_RTMP_DASH_MAX_MDAT          (10*1024*1024)
+#define NGX_RTMP_DASH_MAX_VIDEO_MDAT    (10*1024*1024)
+#define NGX_RTMP_DASH_MAX_AUDIO_MDAT    (1024*1024)
 #define NGX_RTMP_DASH_MAX_SAMPLES       1024
 #define NGX_RTMP_DASH_DIR_ACCESS        0744
 
@@ -1009,11 +1010,16 @@ ngx_rtmp_dash_update_fragments(ngx_rtmp_session_t *s, ngx_int_t boundary,
         boundary = hit;
     }
 
-    if (ctx->audio.mdat_size >= NGX_RTMP_DASH_MAX_MDAT) {
+    /* generally, the size of a audio fragment is mush smaller than
+     * the size of a video fragment, so it will take a long time to
+     * produce a audio fragment if a stream contains only audio.
+     */
+
+    if (ctx->audio.mdat_size >= NGX_RTMP_DASH_MAX_AUDIO_MDAT) {
         boundary = 1;
     }
 
-    if (ctx->video.mdat_size >= NGX_RTMP_DASH_MAX_MDAT) {
+    if (ctx->video.mdat_size >= NGX_RTMP_DASH_MAX_VIDEO_MDAT) {
         boundary = 1;
     }
 

@@ -2,9 +2,9 @@ language: c
 
 install:
   - cd ..
-  - wget http://nginx.org/download/nginx-1.14.2.tar.gz
-  - tar zxvf nginx-1.14.2.tar.gz
-  - cd nginx-1.14.2
+  - wget http://nginx.org/download/nginx-1.16.1.tar.gz
+  - tar zxvf nginx-1.16.1.tar.gz
+  - cd nginx-1.16.1
 
 script:
   - ./configure --add-module=../nginx-http-flv-module && make -j 4
@@ -13,4 +13,4 @@ script:
 after_script:
   - make clean
   - cd ..
-  - rm -rf "nginx-1.14.2*"
+  - rm -rf "nginx-1.16.1*"
