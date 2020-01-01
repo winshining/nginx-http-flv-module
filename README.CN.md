@@ -31,6 +31,7 @@
 |     虚拟主机     |           √           |         x         |                                        |
 | 省略`listen`配置 |           √           |       见备注      |        配置中必须有一个`listen`        |
 |    纯音频支持    |           √           |       见备注      | `wait_video`或`wait_key`开启后无法工作 |
+|  `reuseport`支持 |           √           |         x         |                                        |
 | 定时打印访问记录 |           √           |         x         |                                        |
 |  JSON风格的stat  |           √           |         x         |                                        |
 
@@ -257,6 +258,17 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
             application myapp {
                 ...
             }
+        }
+    }
+
+如果[NGINX](http://nginx.org)是以多进程模式运行并且平台支持socket选项`SO_REUSEPORT`，那么在配置项`listen`后添加选项`reuseport`可以解决惊群问题。
+
+    rtmp {
+        ...
+
+        server {
+            listen 1935 reuseport;
+            ...
         }
     }
 

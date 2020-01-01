@@ -250,6 +250,16 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     ls->fd = s;
     ls->listen = 1;
 
+    /* Socket option `SO_REUSEPORT` has been supported since nginx-1.9.1,
+     * if option `reuseport` is added for the directive `listen`, listening 
+     * structure of unix domain socket in the non-first process will not be 
+     * initialized, in fact `reuseport` is useless for a unix domain socket 
+     * on which there is only a process listening */ 
+
+#if (NGX_HAVE_REUSEPORT)
+    ls->reuseport = 0;
+#endif
+
     return NGX_OK;
 
 sock_error:

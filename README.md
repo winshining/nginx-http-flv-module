@@ -31,6 +31,7 @@ Donate if you like this module. Many thanks to you!
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
 |   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
+|   `reuseport` support   |           √           |         x         |                                                 |
 |  Timing log for access  |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 
@@ -257,6 +258,17 @@ While the following configuration doesn't work for play requests distinated to t
             application myapp {
                 ...
             }
+        }
+    }
+
+If [NGINX](http://nginx.org) is running in muti-processes mode and socket option `SO_REUSEPORT` is supported by platform, adding option `reuseport` for the directive `listen` will resolve the thundering herd problem.
+
+    rtmp {
+        ...
+
+        server {
+            listen 1935 reuseport;
+            ...
         }
     }
 
