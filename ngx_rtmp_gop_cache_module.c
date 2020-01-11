@@ -521,21 +521,23 @@ static void
 ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 {
     ngx_rtmp_session_t                 *rs;
-    ngx_chain_t                        *pkt, *apkt, *meta, *header;
+    ngx_chain_t                        *pkt, *apkt, *acopkt, *meta;
+    ngx_chain_t                        *header, *coheader;
     ngx_rtmp_live_ctx_t                *ctx, *pub_ctx;
     ngx_http_flv_live_ctx_t            *hflctx;
     ngx_rtmp_gop_cache_ctx_t           *gctx;
     ngx_rtmp_live_app_conf_t           *lacf;
     ngx_rtmp_gop_cache_t               *cache;
     ngx_rtmp_gop_frame_t               *gf;
-    ngx_rtmp_header_t                   ch, lh;
+    ngx_rtmp_header_t                   ch, lh, clh;
     ngx_uint_t                          meta_version;
     uint32_t                            delta;
     ngx_int_t                           csidx;
     ngx_rtmp_live_chunk_stream_t       *cs;
     ngx_rtmp_live_proc_handler_t       *handler;
     ngx_http_request_t                 *r;
-    ngx_flag_t                          error;
+    ngx_rtmp_codec_ctx_t               *codec_ctx;
+    ngx_flag_t                          mandatory, error;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
@@ -551,7 +553,9 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
     pkt = NULL;
     apkt = NULL;
+    acopkt = NULL;
     header = NULL;
+    coheader = NULL;
     meta = NULL;
     meta_version = 0;
 
@@ -560,8 +564,17 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     s->publisher = rs;
     handler = ngx_rtmp_live_proc_handlers[ctx->protocol];
 
+    if (rs == NULL) {
+        return;
+    }
+
     gctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_gop_cache_module);
     if (gctx == NULL) {
+        return;
+    }
+
+    codec_ctx = ngx_rtmp_get_module_ctx(rs, ngx_rtmp_codec_module);
+    if (codec_ctx == NULL) {
         return;
     }
 
@@ -624,16 +637,45 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 lh.timestamp = cs->timestamp;
             }
 
+            clh = lh;
+            clh.type = (gf->h.type == NGX_RTMP_MSG_AUDIO ? NGX_RTMP_MSG_VIDEO :
+                                                           NGX_RTMP_MSG_AUDIO);
+
             delta = ch.timestamp - lh.timestamp;
+            mandatory = 0;
             error = 0;
 
+            if (ch.type == NGX_RTMP_MSG_AUDIO) {
+                if (codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC &&
+                    ngx_rtmp_is_codec_header(gf->frame))
+                {
+                    mandatory = 1;
+                }
+            } else {
+                if (codec_ctx->video_codec_id == NGX_RTMP_VIDEO_H264 &&
+                    ngx_rtmp_is_codec_header(gf->frame))
+                {
+                    mandatory = 1;
+                }
+            }
+
             if (!cs->active) {
+                if (mandatory) {
+                    continue;
+                }
+
                 switch (gf->h.type) {
                     case NGX_RTMP_MSG_VIDEO:
                         header = gctx->video_seq_header;
+                        if (lacf->interleave) {
+                            coheader = gctx->audio_seq_header;
+                        }
                         break;
                     default:
                         header = gctx->audio_seq_header;
+                        if (lacf->interleave) {
+                            coheader = gctx->video_seq_header;
+                        }
                 }
 
                 if (header) {
@@ -645,6 +687,19 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 }
 
                 if (apkt && handler->send_message_pt(s, apkt, 0) != NGX_OK) {
+                    goto next;
+                }
+
+                if (coheader) {
+                    acopkt = handler->append_message_pt(s, &clh, NULL,
+                                                        coheader);
+                    if (acopkt == NULL) {
+                        error = 1;
+                        goto next;
+                    }
+                }
+
+                if (acopkt && handler->send_message_pt(s, acopkt, 0) != NGX_OK) {
                     goto next;
                 }
 
@@ -663,6 +718,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 ++pub_ctx->ndropped;
 
                 cs->dropped += delta;
+
+                if (mandatory) {
+                    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                                   "gop cache send: mandatory packet failed");
+
+                    error = 1;
+                }
 
                 goto next;
             }
@@ -686,6 +748,11 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             if (apkt) {
                 handler->free_message_pt(s, apkt);
                 apkt = NULL;
+            }
+
+            if (acopkt) {
+                handler->free_message_pt(s, acopkt);
+                acopkt = NULL;
             }
 
             if (error) {
