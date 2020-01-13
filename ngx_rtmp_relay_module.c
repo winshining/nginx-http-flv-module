@@ -515,8 +515,15 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
 
 #if (NGX_HAVE_UNIX_DOMAIN)
     if (addr->sockaddr->sa_family == AF_UNIX) {
-        c->addr_text.data = target->url.host.data;
         c->addr_text.len = target->url.host.len;
+        c->addr_text.data = ngx_pcalloc(pool, c->addr_text.len);
+        if (c->addr_text.data == NULL) {
+            ngx_log_error(NGX_LOG_ERR, racf->log, 0,
+                          "relay: allocation for unix address failed");
+            goto clear;
+        }
+
+        ngx_memcpy(c->addr_text.data, target->url.host.data, c->addr_text.len);
     }
 #endif
 
