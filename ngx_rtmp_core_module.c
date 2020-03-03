@@ -372,6 +372,18 @@ ngx_rtmp_core_create_srv_conf(ngx_conf_t *cf)
 }
 
 
+static void
+ngx_rtmp_core_free_pool_cleanup(void *data)
+{
+    ngx_rtmp_core_srv_conf_t *conf = data;
+
+    if (conf->pool != NULL) {
+        ngx_destroy_pool(conf->pool);
+        conf->pool = NULL;
+    }
+}
+
+
 static char *
 ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -379,6 +391,7 @@ ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_rtmp_core_srv_conf_t *conf = child;
 
     ngx_str_t                 name;
+    ngx_pool_cleanup_t       *cln;
     ngx_rtmp_server_name_t   *sn;
 
     ngx_conf_merge_msec_value(conf->timeout, prev->timeout, 60000);
@@ -408,6 +421,14 @@ ngx_rtmp_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
         if (prev->pool == NULL) {
             return NGX_CONF_ERROR;
         }
+
+        cln = ngx_pool_cleanup_add(cf->pool, 0);
+        if (cln == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        cln->handler = ngx_rtmp_core_free_pool_cleanup;
+        cln->data = conf;
     }
 
     conf->pool = prev->pool;
