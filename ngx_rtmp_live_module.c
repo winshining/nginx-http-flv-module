@@ -228,36 +228,15 @@ ngx_rtmp_live_free_message(ngx_rtmp_session_t *s, ngx_chain_t *in)
 }
 
 
-static void
-ngx_rtmp_live_free_pool_cleanup(void *data)
-{
-    ngx_rtmp_live_app_conf_t      *lacf = data;
-
-    if (lacf->pool != NULL) {
-        ngx_destroy_pool(lacf->pool);
-        lacf->pool = NULL;
-    }
-}
-
-
 static void *
 ngx_rtmp_live_create_app_conf(ngx_conf_t *cf)
 {
-    ngx_pool_cleanup_t            *cln;
     ngx_rtmp_live_app_conf_t      *lacf;
 
     lacf = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_live_app_conf_t));
     if (lacf == NULL) {
         return NULL;
     }
-
-    cln = ngx_pool_cleanup_add(cf->pool, 0);
-    if (cln == NULL) {
-        return NULL;
-    }
-
-    cln->handler = ngx_rtmp_live_free_pool_cleanup;
-    cln->data = lacf;
 
     lacf->live = NGX_CONF_UNSET;
     lacf->nbuckets = NGX_CONF_UNSET;
@@ -275,11 +254,24 @@ ngx_rtmp_live_create_app_conf(ngx_conf_t *cf)
 }
 
 
+static void
+ngx_rtmp_live_free_pool_cleanup(void *data)
+{
+    ngx_rtmp_live_app_conf_t      *lacf = data;
+
+    if (lacf->pool != NULL) {
+        ngx_destroy_pool(lacf->pool);
+        lacf->pool = NULL;
+    }
+}
+
+
 static char *
 ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_rtmp_live_app_conf_t *prev = parent;
-    ngx_rtmp_live_app_conf_t *conf = child;
+    ngx_pool_cleanup_t        *cln;
+    ngx_rtmp_live_app_conf_t  *prev = parent;
+    ngx_rtmp_live_app_conf_t  *conf = child;
 
     ngx_conf_merge_value(conf->live, prev->live, 0);
     ngx_conf_merge_value(conf->nbuckets, prev->nbuckets, 1024);
@@ -297,6 +289,14 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->pool == NULL) {
         return NGX_CONF_ERROR;
     }
+
+    cln = ngx_pool_cleanup_add(cf->pool, 0);
+    if (cln == NULL) {
+        return NULL;
+    }
+
+    cln->handler = ngx_rtmp_live_free_pool_cleanup;
+    cln->data = conf;
 
     conf->streams = ngx_pcalloc(cf->pool,
             sizeof(ngx_rtmp_live_stream_t *) * conf->nbuckets);
