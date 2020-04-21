@@ -775,9 +775,11 @@ static ngx_int_t
 ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         ngx_chain_t *in)
 {
+    uint16_t                        len;
+    ngx_uint_t                      skip;
+    u_char                         *p;
     ngx_rtmp_codec_app_conf_t      *cacf;
     ngx_rtmp_codec_ctx_t           *ctx;
-    ngx_uint_t                      skip;
 
     static struct {
         double                      width;
@@ -888,7 +890,23 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
      * 0 is a valid value for uncompressed audio */
     v.audio_codec_id_n = -1;
 
-    /* FFmpeg sends a string in front of actal metadata; ignore it */
+    if (in->buf->last > in->buf->pos
+        && in->buf->pos - in->buf->start >= 13
+        && in->buf->pos[-13] == NGX_RTMP_AMF_STRING)
+    {
+        p = (u_char *) &len;
+
+        *p++ = in->buf->pos[-11];
+        *p++ = in->buf->pos[-12];
+
+        if (ngx_strncasecmp(in->buf->pos - 10,
+                            (u_char *) "onMetaData", len) == 0)
+        {
+            in->buf->pos -= 13;
+        }
+    }
+
+    /* FFmpeg sends a string in front of actual metadata; ignore it */
     skip = !(in->buf->last > in->buf->pos
             && *in->buf->pos == NGX_RTMP_AMF_STRING);
     if (ngx_rtmp_receive_amf(s, in, in_elts + skip,
