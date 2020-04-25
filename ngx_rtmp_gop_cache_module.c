@@ -822,11 +822,17 @@ ngx_rtmp_gop_cache_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 static ngx_int_t
 ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 {
+    ngx_rtmp_live_ctx_t            *lctx;
     ngx_rtmp_gop_cache_app_conf_t  *gacf;
     ngx_rtmp_gop_cache_ctx_t       *ctx;
 
     gacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_gop_cache_module);
     if (gacf == NULL || !gacf->gop_cache) {
+        goto next;
+    }
+
+    lctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
+    if (lctx == NULL || !lctx->publishing) {
         goto next;
     }
 
