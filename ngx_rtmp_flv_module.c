@@ -505,7 +505,8 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
     /* output chain */
     out = ngx_rtmp_append_shared_bufs(cscf, NULL, &in);
 
-    ngx_rtmp_prepare_message(s, &h, ctx->msg_mask & (1 << h.type) ?
+    ngx_rtmp_prepare_message(s, &h,
+                             ctx->msg_mask & ((ngx_uint_t) 1 << h.type) ?
                              &lh : NULL, out);
     rc = ngx_rtmp_send_message(s, out, 0);
     ngx_rtmp_free_shared_chain(cscf, out);
@@ -518,7 +519,7 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
         return NGX_ERROR;
     }
 
-    ctx->msg_mask |= (1 << h.type);
+    ctx->msg_mask |= ((ngx_uint_t) 1 << h.type);
 
 next:
     if (ctx->start_timestamp == -1) {
