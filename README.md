@@ -79,6 +79,10 @@ nginx-http-flv-module has all features that [nginx-rtmp-module](https://github.c
 
 For details about build steps, please refer to [Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html), and don't forget to add `--add-module=/path/to/nginx-http-flv-module` in `Run configure script` step.
 
+#### Note
+
+If some compilers which do not support x64 perfectly, VS2010 for example, are used to compile the module, please make sure that the default settings are used (target machine type x86).
+
 ### On Unix-like systems
 
 Download [NGINX](http://nginx.org) and nginx-http-flv-module.
@@ -117,7 +121,7 @@ For simplicity, transcoding is not used (so **-c copy** is used):
 
 #### Note
 
-* Some legacy versions of [FFmpeg](http://ffmpeg.org) don't support the option `-c copy`, the options `-vcodec copy -acodec copy` can be used instead.
+Some legacy versions of [FFmpeg](http://ffmpeg.org) don't support the option `-c copy`, the options `-vcodec copy -acodec copy` can be used instead.
 
 The `appname` is used to match an application block in rtmp block (see below for details).
 
@@ -221,7 +225,7 @@ In addtion, `vhost` feature is OK in single process mode but not perfect in mult
         ...
         server {
             listen 1935;
-            server_name 1st_domain_name;
+            server_name domain_name;
 
             application myapp {
                 ...

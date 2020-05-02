@@ -79,6 +79,10 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)，不要忘了在`Run configure script`步骤中添加`--add-module=/path/to/nginx-http-flv-module`。
 
+#### Note
+
+如果使用没有完整支持x64的编译器来编译此模块，例如VS2010，请务必使用默认设置（目标机器类型x86）。
+
 ### 在类Unix系统上
 
 下载[NGINX](http://nginx.org)和nginx-http-flv-module。
@@ -117,7 +121,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 #### 注意
 
-* 一些旧版本的[FFmpeg](http://ffmpeg.org)不支持选项`-c copy`，可以使用选项`-vcodec copy -acodec copy`替代。
+一些旧版本的[FFmpeg](http://ffmpeg.org)不支持选项`-c copy`，可以使用选项`-vcodec copy -acodec copy`替代。
 
 `appname`用于匹配rtmp配置块中的application块（更多详情见下文）。
 
@@ -221,7 +225,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
         ...
         server {
             listen 1935;
-            server_name 1st_domain_name;
+            server_name domain_name;
 
             application myapp {
                 ...
