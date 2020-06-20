@@ -20,7 +20,7 @@
 
 * Ensure that your codes conform to code conventions:
   * All files are prefixed by 'ngx_'.
-  * Include #ifndef _FILE_NAME_H_INCLUDED_, #define _FILE_NAME_H_INCLUDED_ and #endif in header files.
+  * Include #ifndef \_FILE\_NAME\_H\_INCLUDED\_, #define \_FILE\_NAME\_H\_INCLUDED\_ and #endif in header files.
   * Comments use /* ... */ are preferable.
   * It would be better that built-in types appear before customized types.
   * There should be no less than 2 spaces between types and variables.

@@ -32,7 +32,7 @@ Donate if you like this module. Many thanks to you!
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
 |   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
 |   `reuseport` support   |           √           |         x         |                                                 |
-|  Timing log for access  |           √           |         x         |                                                 |
+|  Timer for access log   |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
 
 ## Compatibility
