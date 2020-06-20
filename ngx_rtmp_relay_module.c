@@ -796,7 +796,9 @@ ngx_rtmp_relay_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
                 &name, &target->app, &target->play_path,
                 &target->url.url, &s->args);
 
-        if (!ctx->push_evt.timer_set) {
+        /* ctx == NULL && s->relay == 0, BOOM! */
+        ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_relay_module);
+        if (ctx && !ctx->push_evt.timer_set) {
             ngx_add_timer(&ctx->push_evt, racf->push_reconnect);
         }
     }
