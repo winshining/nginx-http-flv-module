@@ -2078,7 +2078,8 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 #undef NGX_RTMP_SET_STRPAR
 
     ngx_memzero(name, NGX_RTMP_MAX_NAME);
-    ngx_memcpy(name, stream->data, stream->len);
+    ngx_memcpy(name, stream->data,
+               ngx_min(stream->len, NGX_RTMP_MAX_NAME - 1));
 
     if (ngx_rtmp_process_request_line(s, name, v.args,
             (const u_char *) "flv live connect") != NGX_OK)

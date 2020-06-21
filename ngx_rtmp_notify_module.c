@@ -1003,8 +1003,10 @@ ngx_rtmp_notify_connect_handle(ngx_rtmp_session_t *s,
         r = s->data;
         if (r) {
             ngx_memzero(&p, sizeof(ngx_rtmp_play_t));
-            ngx_memcpy(p.name, s->stream.data, s->stream.len);
-            ngx_memcpy(p.args, s->args.data, s->args.len);
+            ngx_memcpy(p.name, s->stream.data,
+                       ngx_min(s->stream.len, NGX_RTMP_MAX_NAME - 1));
+            ngx_memcpy(p.args, s->args.data,
+                       ngx_min(s->args.len, NGX_RTMP_MAX_ARGS - 1));
 
             rc = ngx_rtmp_play(s, &p);
         }
