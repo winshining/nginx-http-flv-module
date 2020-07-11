@@ -1145,8 +1145,8 @@ static void
 ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
     ngx_rtmp_core_app_conf_t *cacf)
 {
-    size_t                       n;
-    char                         flag[NGX_INT_T_LEN];
+    size_t                       n, len;
+    u_char                       flag[NGX_RTMP_MAX_URL];
     u_char                       buf[NGX_INT_T_LEN];
     ngx_rtmp_record_app_conf_t  *racf, *lracf, **rracf;
     ngx_rtmp_stat_loc_conf_t    *slcf;
@@ -1262,26 +1262,70 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
             ngx_memzero(flag, sizeof(flag));
 
             if(lracf->flags & NGX_RTMP_RECORD_OFF) {
-                strcat(flag, "\"off\",");
+                *ngx_snprintf(flag + ngx_strlen(flag),
+                              NGX_RTMP_MAX_URL - ngx_strlen(flag),
+                              "%s", "\"off\"") = 0;
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO) {
-                strcat(flag, "\"video\",");
+                len = ngx_strlen(flag);
+                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                    flag[len++] = ',';
+                }
+
+                if (NGX_RTMP_MAX_URL - len > sizeof("\"video\"")) {
+                    *ngx_snprintf(flag + ngx_strlen(flag),
+                                  NGX_RTMP_MAX_URL - len,
+                                  "%s", "\"video\"") = 0;
+                } else {
+                    flag[len - 1] = 0;
+                }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO) {
-                strcat(flag, "\"audio\",");
+                len = ngx_strlen(flag);
+                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                    flag[len++] = ',';
+                }
+
+                if (NGX_RTMP_MAX_URL - len > sizeof("\"audio\"")) {
+                    *ngx_snprintf(flag + ngx_strlen(flag),
+                                  NGX_RTMP_MAX_URL - len,
+                                  "%s", "\"audio\"") = 0;
+                } else {
+                    flag[len - 1] = 0;
+                }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES) {
-                strcat(flag, "\"keyframes\",");
+                len = ngx_strlen(flag);
+                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                    flag[len++] = ',';
+                }
+
+                if (NGX_RTMP_MAX_URL - len > sizeof("\"keyframes\"")) {
+                    *ngx_snprintf(flag + ngx_strlen(flag),
+                                  NGX_RTMP_MAX_URL - len,
+                                  "%s", "\"keyframes\"") = 0;
+                } else {
+                    flag[len - 1] = 0;
+                }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL) {
-                strcat(flag, "\"manual\",");
-            }
+                len = ngx_strlen(flag);
+                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                    flag[len++] = ',';
+                }
 
-            ngx_cpystrn((u_char *) flag, (u_char *) flag, ngx_strlen(flag));
+                if (NGX_RTMP_MAX_URL - len > sizeof("\"manual\"")) {
+                    *ngx_snprintf(flag + ngx_strlen(flag),
+                                  NGX_RTMP_MAX_URL - len,
+                                  "%s", "\"manual\"") = 0;
+                } else {
+                    flag[len - 1] = 0;
+                }
+            }
 
             NGX_RTMP_STAT_CS(flag);
 
