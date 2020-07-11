@@ -224,7 +224,7 @@ ngx_rtmp_record_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->lock_file, prev->lock_file, 0);
     ngx_conf_merge_value(conf->notify, prev->notify, 0);
     ngx_conf_merge_msec_value(conf->interval, prev->interval,
-                              (ngx_msec_t) NGX_CONF_UNSET);
+                              (ngx_msec_t) NGX_CONF_UNSET_MSEC);
     ngx_conf_merge_bitmask_value(conf->flags, prev->flags, 0);
     ngx_conf_merge_ptr_value(conf->url, prev->url, NULL);
 
@@ -363,6 +363,14 @@ ngx_rtmp_record_find(ngx_rtmp_record_app_conf_t *racf, ngx_str_t *id)
     }
 
     return NGX_CONF_UNSET_UINT;
+}
+
+
+void
+ngx_rtmp_record_get_path(ngx_rtmp_session_t *s,
+    ngx_rtmp_record_rec_ctx_t *rctx, ngx_str_t *path)
+{
+    ngx_rtmp_record_make_path(s, rctx, path);
 }
 
 
@@ -1069,7 +1077,7 @@ ngx_rtmp_record_node_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
 
     if (brkframe && (rracf->flags & NGX_RTMP_RECORD_MANUAL) == 0) {
 
-        if (rracf->interval != (ngx_msec_t) NGX_CONF_UNSET) {
+        if (rracf->interval != NGX_CONF_UNSET_MSEC) {
 
             next = rctx->last;
             next.msec += rracf->interval;
