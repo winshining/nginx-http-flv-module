@@ -45,8 +45,8 @@
         </tr>
         <tr>
             <td colspan="2">Accepted: <xsl:value-of select="naccepted"/></td>
-            <th bgcolor="#999999">list</th>
-            <th bgcolor="#999999">count</th>
+            <th bgcolor="#999999">lists</th>
+            <th bgcolor="#999999">#count</th>
             <th bgcolor="#999999">port</th>
             <th bgcolor="#999999">index</th>
             <th bgcolor="#999999">codec</th>

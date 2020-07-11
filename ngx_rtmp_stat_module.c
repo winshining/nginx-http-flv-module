@@ -1161,11 +1161,11 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                       "%ui", racf->rec.nelts) - buf);
         NGX_RTMP_STAT_L("</count>\r\n");
     } else {
-        NGX_RTMP_STAT_L(",\"recorder\":{");
+        NGX_RTMP_STAT_L(",\"recorders\":{");
         NGX_RTMP_STAT_L("\"count\":");
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", racf->rec.nelts) - buf);
-        NGX_RTMP_STAT_L(",\"list\":[");           
+        NGX_RTMP_STAT_L(",\"lists\":[");           
     }
 
     rracf = racf->rec.elts;
