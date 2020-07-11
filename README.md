@@ -331,7 +331,7 @@ If [NGINX](http://nginx.org) is running in muti-processes mode and socket option
             }
 
             location /stat {
-                #configuration of push & pull status
+                #configuration of streaming & recording statistics
 
                 rtmp_stat all;
                 rtmp_stat_stylesheet stat.xsl;

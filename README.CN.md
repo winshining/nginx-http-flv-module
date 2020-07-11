@@ -79,7 +79,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
 
 编译步骤请参考[Building nginx on the Win32 platform with Visual C](http://nginx.org/en/docs/howto_build_on_win32.html)，不要忘了在`Run configure script`步骤中添加`--add-module=/path/to/nginx-http-flv-module`。
 
-#### Note
+#### 注意
 
 如果使用没有完整支持x64的编译器来编译此模块，例如VS2010，请务必使用默认设置（目标机器类型x86）。
 
@@ -330,7 +330,7 @@ nginx-http-flv-module包含了[nginx-rtmp-module](https://github.com/arut/nginx-
             }
 
             location /stat {
-                #push和pull状态的配置
+                #推流播放和录制统计数据的配置
 
                 rtmp_stat all;
                 rtmp_stat_stylesheet stat.xsl;
