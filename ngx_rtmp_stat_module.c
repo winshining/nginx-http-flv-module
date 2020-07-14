@@ -1269,7 +1269,10 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
 
             if(lracf->flags & NGX_RTMP_RECORD_VIDEO) {
                 len = ngx_strlen(flag);
-                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                if (len &&
+                    (len + 1) < NGX_RTMP_MAX_URL &&
+                    flag[len - 1] != ',')
+                {
                     flag[len++] = ',';
                 }
 
@@ -1278,13 +1281,18 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                                   NGX_RTMP_MAX_URL - len,
                                   "%s", "\"video\"") = 0;
                 } else {
-                    flag[len - 1] = 0;
+                    if (flag[len - 1] == ',') {
+                        flag[len - 1] = 0;
+                    }
                 }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_AUDIO) {
                 len = ngx_strlen(flag);
-                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                if (len &&
+                    (len + 1) < NGX_RTMP_MAX_URL &&
+                    flag[len - 1] != ',')
+                {
                     flag[len++] = ',';
                 }
 
@@ -1293,13 +1301,18 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                                   NGX_RTMP_MAX_URL - len,
                                   "%s", "\"audio\"") = 0;
                 } else {
-                    flag[len - 1] = 0;
+                    if (flag[len - 1] == ',') {
+                        flag[len - 1] = 0;
+                    }
                 }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_KEYFRAMES) {
                 len = ngx_strlen(flag);
-                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                if (len &&
+                    (len + 1) < NGX_RTMP_MAX_URL &&
+                    flag[len - 1] != ',')
+                {
                     flag[len++] = ',';
                 }
 
@@ -1308,13 +1321,18 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                                   NGX_RTMP_MAX_URL - len,
                                   "%s", "\"keyframes\"") = 0;
                 } else {
-                    flag[len - 1] = 0;
+                    if (flag[len - 1] == ',') {
+                        flag[len - 1] = 0;
+                    }
                 }
             }
 
             if(lracf->flags & NGX_RTMP_RECORD_MANUAL) {
                 len = ngx_strlen(flag);
-                if (len && len < NGX_RTMP_MAX_URL && flag[len - 1] != ',') {
+                if (len &&
+                    (len + 1) < NGX_RTMP_MAX_URL &&
+                    flag[len - 1] != ',')
+                {
                     flag[len++] = ',';
                 }
 
@@ -1323,7 +1341,9 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                                   NGX_RTMP_MAX_URL - len,
                                   "%s", "\"manual\"") = 0;
                 } else {
-                    flag[len - 1] = 0;
+                    if (flag[len - 1] == ',') {
+                        flag[len - 1] = 0;
+                    }
                 }
             }
 

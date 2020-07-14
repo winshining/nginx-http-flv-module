@@ -34,6 +34,7 @@ Donate if you like this module. Many thanks to you!
 |   `reuseport` support   |           √           |         x         |                                                 |
 |  Timer for access log   |           √           |         x         |                                                 |
 |     JSON style stat     |           √           |         x         |                                                 |
+|   Stat for recordings   |           √           |         x         |                                                 |
 
 ## Compatibility
 
