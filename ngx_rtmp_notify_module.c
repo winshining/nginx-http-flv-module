@@ -1083,7 +1083,7 @@ ngx_rtmp_notify_publish_handle(ngx_rtmp_session_t *s,
         ngx_rtmp_notify_set_name(v->name, NGX_RTMP_MAX_NAME, name, (size_t) rc);
     }
 
-    ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+    ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
                   "notify: push '%s' to '%*s'", v->name, rc, name);
 
     local_name.data = v->name;
@@ -1100,7 +1100,7 @@ ngx_rtmp_notify_publish_handle(ngx_rtmp_session_t *s,
     u->no_resolve = nacf->no_resolve; /* want ip here */
 
     if (ngx_parse_url(s->connection->pool, u) != NGX_OK) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                       "notify: push failed '%V'", &local_name);
         return NGX_ERROR;
     }
