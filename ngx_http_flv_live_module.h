@@ -21,8 +21,8 @@
 extern ngx_module_t ngx_rtmp_module;
 
 
-ngx_rtmp_play_pt         http_flv_live_next_play;
-ngx_rtmp_close_stream_pt http_flv_live_next_close_stream;
+extern ngx_rtmp_play_pt                http_flv_live_next_play;
+extern ngx_rtmp_close_stream_pt        http_flv_live_next_close_stream;
 
 
 #define ngx_rtmp_cycle_get_module_main_conf(cycle, module)                \
