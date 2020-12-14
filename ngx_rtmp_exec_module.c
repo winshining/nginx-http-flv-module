@@ -104,6 +104,7 @@ typedef struct ngx_rtmp_exec_pull_ctx_s  ngx_rtmp_exec_pull_ctx_t;
 struct ngx_rtmp_exec_pull_ctx_s {
     ngx_pool_t                         *pool;
     ngx_uint_t                          counter;
+    ngx_str_t                           args;
     ngx_str_t                           name;
     ngx_str_t                           app;
     ngx_array_t                         pull_exec;   /* ngx_rtmp_exec_t */
@@ -348,6 +349,10 @@ static ngx_rtmp_eval_t * ngx_rtmp_exec_push_eval[] = {
 
 
 static ngx_rtmp_eval_t ngx_rtmp_exec_pull_specific_eval[] = {
+
+    { ngx_string("args"),
+      ngx_rtmp_exec_eval_pctx_str,
+      offsetof(ngx_rtmp_exec_pull_ctx_t, args) },
 
     { ngx_string("name"),
       ngx_rtmp_exec_eval_pctx_str,
@@ -1035,6 +1040,11 @@ ngx_rtmp_exec_init_pull_ctx(ngx_rtmp_session_t *s,
     }
 
     ngx_memcpy(pctx->app.data, s->app.data, s->app.len);
+
+    pctx->args.len = s->args.len;
+    pctx->args.data = ngx_palloc(pool, s->args.len);
+
+    ngx_memcpy(pctx->args.data, s->args.data, s->args.len);
 
     if (ngx_array_init(&pctx->pull_exec, pool, pull_conf->nelts,
                        sizeof(ngx_rtmp_exec_t)) != NGX_OK)
