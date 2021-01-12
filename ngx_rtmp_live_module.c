@@ -292,7 +292,7 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     cln = ngx_pool_cleanup_add(cf->pool, 0);
     if (cln == NULL) {
-        return NULL;
+        return NGX_CONF_ERROR;
     }
 
     cln->handler = ngx_rtmp_live_free_pool_cleanup;
