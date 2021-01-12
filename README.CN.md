@@ -42,15 +42,17 @@
 
 ## 支持的系统
 
-* Linux（推荐）/FreeBSD/MacOS/Windows（受限）。
+* Linux（推荐）/ FreeBSD / MacOS / Windows（受限）。
 
 ## 支持的播放器
 
-* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
+* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV) / [OBS](https://obsproject.com) (RTMP & HTTP-FLV) / [JW Player](https://www.jwplayer.com) (RTMP) / [flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
 ### 注意
 
-[flv.js](https://github.com/Bilibili/flv.js) 只能运行在支持 [Media Source Extensions](https://www.w3.org/TR/media-source) 的浏览器上。
+* Adobe 将在 2020 年 12 月 31 日之后停止对 [flash 播放器](https://www.adobe.com/products/flashplayer.html) 的官方支持，详情见 [Adobe Flash Player EOL General Information Page](https://www.adobe.com/products/flashplayer/end-of-life.html)。主流浏览器随后将移除 flash 播放器，使用 flash 播放器的插件将不再可用。
+
+* [flv.js](https://github.com/Bilibili/flv.js) 只能运行在支持 [Media Source Extensions](https://www.w3.org/TR/media-source) 的浏览器上。
 
 ## 依赖
 

@@ -26,7 +26,7 @@ Donate if you like this module. Many thanks to you!
 
 |         Features        | nginx-http-flv-module | nginx-rtmp-module |                     Remarks                     |
 | :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
-|   HTTP-FLV (subscribe)  |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
+|   HTTP-FLV (for play)   |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
 |        GOP cache        |           √           |         x         |                                                 |
 |          VHOST          |           √           |         x         |                                                 |
 | Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
@@ -42,15 +42,17 @@ The [NGINX](http://nginx.org) version **SHOULD** be equal to or greater than 1.2
 
 ## Systems supported
 
-* Linux (recommended)/FreeBSD/MacOS/Windows (limited).
+* Linux (recommended) / FreeBSD / MacOS / Windows (limited).
 
 ## Players supported
 
-* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV)/[OBS](https://obsproject.com) (RTMP & HTTP-FLV)/[JW Player](https://www.jwplayer.com) (RTMP)/[flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
+* [VLC](http://www.videolan.org) (RTMP & HTTP-FLV) / [OBS](https://obsproject.com) (RTMP & HTTP-FLV) / [JW Player](https://www.jwplayer.com) (RTMP) / [flv.js](https://github.com/Bilibili/flv.js) (HTTP-FLV).
 
 ### Note
 
-[flv.js](https://github.com/Bilibili/flv.js) can only run with browsers that support [Media Source Extensions](https://www.w3.org/TR/media-source).
+* [Flash player](https://www.adobe.com/products/flashplayer.html) will be no longer supported officially by Adobe after December 31, 2020, refer to [Adobe Flash Player EOL General Information Page](https://www.adobe.com/products/flashplayer/end-of-life.html) for details. Plugins that use flash player won't work after the major browsers subsequently remove flash player.
+
+* [flv.js](https://github.com/Bilibili/flv.js) can only run with browsers that support [Media Source Extensions](https://www.w3.org/TR/media-source).
 
 ## Prerequisites
 
