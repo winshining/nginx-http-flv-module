@@ -128,13 +128,19 @@ static ngx_int_t
 ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
 {
 #if (NGX_HAVE_UNIX_DOMAIN)
-    ngx_rtmp_auto_push_conf_t  *apcf;
-    ngx_listening_t            *ls, *lss;
-    struct sockaddr_un         *saun;
-    int                         reuseaddr;
-    ngx_socket_t                s;
-    size_t                      n;
-    ngx_file_info_t             fi;
+    ngx_rtmp_auto_push_conf_t   *apcf;
+    ngx_listening_t             *ls, *lss;
+    struct sockaddr_un          *saun;
+#if (nginx_version >= 1009011)
+    ngx_event_t                 *rev;
+    ngx_connection_t            *c, *old;
+    ngx_module_t               **modules;
+    ngx_int_t                    i, auto_push_index, event_core_index;
+#endif
+    int                          reuseaddr;
+    ngx_socket_t                 s;
+    size_t                       n;
+    ngx_file_info_t              fi;
 
     if (ngx_process != NGX_PROCESS_WORKER) {
         return NGX_OK;
@@ -258,6 +264,103 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
 
 #if (NGX_HAVE_REUSEPORT)
     ls->reuseport = 0;
+#endif
+
+    /* for dynamic module */
+#if (nginx_version >= 1009011)
+    auto_push_index = -1;
+    event_core_index = -1;
+
+    modules = cycle->modules;
+
+    for (i = 0; modules[i]; ++i) {
+        if (ngx_strcmp(modules[i]->name, "ngx_event_core_module") == 0) {
+            event_core_index = i;
+        }
+
+        if (ngx_strcmp(modules[i]->name, "ngx_rtmp_auto_push_module") == 0) {
+            auto_push_index = i;
+        }
+
+        if (auto_push_index != -1 && event_core_index != -1) {
+            break;
+        }
+    }
+
+    if (auto_push_index > event_core_index) {
+        c = ngx_get_connection(ls->fd, cycle->log);
+        if (c == NULL) {
+            goto sock_error;
+        }
+
+        rev = c->read;
+
+        c->type = ls->type;
+        c->log = &ls->log;
+
+        c->listening = ls;
+        ls->connection = c;
+
+        rev->log = c->log;
+        rev->accept = 1;
+
+#if (NGX_HAVE_DEFERRED_ACCEPT)
+        rev->deferred_accept = ls->deferred_accept;
+#endif
+
+        if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
+            if (ls->previous) {
+
+                /*
+                 * delete the old accept events that were bound to
+                 * the old cycle read events array
+                 */
+
+                old = ls->previous->connection;
+
+                if (ngx_del_event(old->read, NGX_READ_EVENT, NGX_CLOSE_EVENT)
+                    == NGX_ERROR)
+                {
+                    return NGX_ERROR;
+                }
+
+                old->fd = (ngx_socket_t) -1;
+            }
+        }
+
+#if (NGX_WIN32)
+        if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
+            ngx_iocp_conf_t  *iocpcf;
+
+            rev->handler = ngx_event_acceptex;
+
+            if (ngx_add_event(rev, 0, NGX_IOCP_ACCEPT) == NGX_ERROR) {
+                return NGX_ERROR;
+            }
+
+            ls->log.handler = ngx_acceptex_log_error;
+
+            iocpcf = ngx_event_get_conf(ngx_cycle->conf_ctx, ngx_iocp_module);
+            if (ngx_event_post_acceptex(ls, iocpcf->post_acceptex)
+                == NGX_ERROR)
+            {
+                return NGX_ERROR;
+            }
+        } else {
+            rev->handler = ngx_event_accept;
+
+            if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
+                return NGX_ERROR;
+            }
+        }
+#else
+        rev->handler = ngx_event_accept;
+
+        if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+#endif
+    }
 #endif
 
     return NGX_OK;
