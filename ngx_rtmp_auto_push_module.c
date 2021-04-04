@@ -295,7 +295,9 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
 
         rev = c->read;
 
+#if (nginx_version >= 1009013)
         c->type = ls->type;
+#endif
         c->log = &ls->log;
 
         c->listening = ls;
@@ -328,38 +330,16 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
             }
         }
 
-#if (NGX_WIN32)
-        if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
-            ngx_iocp_conf_t  *iocpcf;
-
-            rev->handler = ngx_event_acceptex;
-
-            if (ngx_add_event(rev, 0, NGX_IOCP_ACCEPT) == NGX_ERROR) {
-                return NGX_ERROR;
-            }
-
-            ls->log.handler = ngx_acceptex_log_error;
-
-            iocpcf = ngx_event_get_conf(ngx_cycle->conf_ctx, ngx_iocp_module);
-            if (ngx_event_post_acceptex(ls, iocpcf->post_acceptex)
-                == NGX_ERROR)
-            {
-                return NGX_ERROR;
-            }
-        } else {
-            rev->handler = ngx_event_accept;
-
-            if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
-                return NGX_ERROR;
-            }
-        }
+#if (nginx_version >= 1009013)
+        rev->handler = (c->type == SOCK_STREAM) ? ngx_event_accept
+                                                : ngx_event_recvmsg;
 #else
         rev->handler = ngx_event_accept;
+#endif
 
         if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
             return NGX_ERROR;
         }
-#endif
     }
 #endif
 
