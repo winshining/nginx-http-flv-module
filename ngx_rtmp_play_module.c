@@ -110,7 +110,7 @@ ngx_module_t  ngx_rtmp_play_module = {
 };
 
 
-#define NGX_RTMP_PLAY_TMP_FILE              "nginx-rtmp-vod."
+#define NGX_RTMP_PLAY_TMP_FILE              "nginx-http-flv-vod."
 
 
 static void *
