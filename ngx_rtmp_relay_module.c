@@ -602,6 +602,9 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
             target->url.uri_part = 1;
             target->url.url = url;
 
+            target->url.addrs = NULL;
+            target->url.naddrs = 0;
+
             if(ngx_parse_url(s->connection->pool, &target->url) != NGX_OK) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                               "relay: invalid url='%V'", &target->url.url);
