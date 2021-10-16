@@ -2,15 +2,15 @@ language: c
 
 install:
   - cd ..
-  - wget http://nginx.org/download/nginx-1.18.0.tar.gz
-  - tar zxvf nginx-1.18.0.tar.gz
-  - cd nginx-1.18.0
+  - wget http://nginx.org/download/nginx-1.20.1.tar.gz
+  - tar zxvf nginx-1.20.1.tar.gz
+  - cd nginx-1.20.1
 
 script:
-  - ./configure --add-module=../nginx-http-flv-module && make -j 4
-  - ./configure --add-dynamic-module=../nginx-http-flv-module && make -j 4
+  - ./configure --add-module=../nginx-http-flv-module && make -j 2
+  - ./configure --add-dynamic-module=../nginx-http-flv-module && make -j 2
 
 after_script:
   - make clean
   - cd ..
-  - rm -rf "nginx-1.18.0*"
+  - rm -rf "nginx-1.20.1*"

@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-[![Build Status](https://travis-ci.org/winshining/nginx-http-flv-module.svg?branch=master)](https://travis-ci.org/winshining/nginx-http-flv-module)
+[![Build Status](https://app.travis-ci.com/winshining/nginx-http-flv-module.svg?branch=master)](https://app.travis-ci.com/winshining/nginx-http-flv-module)
 
 Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
@@ -10,7 +10,7 @@ Donate if you like this module. Many thanks to you!
 
 <a href="https://www.buymeacoffee.com/winshining" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 
-### Appreciation
+### Credits
 
 * Igor Sysoev, the creator of [NGINX](http://nginx.org).
 
