@@ -1199,6 +1199,7 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
     ngx_rtmp_live_ctx_t        *ctx, **cctx, *unlink;
     ngx_http_request_t         *r;
     ngx_rtmp_live_app_conf_t   *lacf;
+    ngx_rtmp_live_stream_t    **stream;
     ngx_flag_t                  passive;
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -1268,6 +1269,18 @@ ngx_http_flv_live_close_stream(ngx_rtmp_session_t *s,
                 }
 
                 *cctx = ctx->next;
+
+                if (ctx->stream->pub_ctx == NULL &&
+                    ctx->stream->ctx == NULL)
+                {
+                    stream = ngx_rtmp_live_get_stream(s, ctx->stream->name, 0);
+                    if (stream) {
+                        *stream = (*stream)->next;
+
+                        ctx->stream->next = lacf->free_streams;
+                        lacf->free_streams = ctx->stream;
+                    }
+                }
 
                 ctx->next = NULL;
                 ctx->stream = NULL;
