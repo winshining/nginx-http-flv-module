@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -17,7 +18,6 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
         ngx_rtmp_header_t *h, ngx_chain_t *in)
 {
     ngx_buf_t              *b;
-    u_char                 *p;
     uint32_t                val;
     uint8_t                 limit;
 
@@ -30,11 +30,7 @@ ngx_rtmp_protocol_message_handler(ngx_rtmp_session_t *s,
         return NGX_OK;
     }
 
-    p = (u_char*)&val;
-    p[0] = b->pos[3];
-    p[1] = b->pos[2];
-    p[2] = b->pos[1];
-    p[3] = b->pos[0];
+    val = ntohl(*(uint32_t *) b->pos);
 
     switch(h->type) {
         case NGX_RTMP_MSG_CHUNK_SIZE:
@@ -88,7 +84,6 @@ ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                               ngx_chain_t *in)
 {
     ngx_buf_t              *b;
-    u_char                 *p;
     uint16_t                evt;
     uint32_t                val;
 
@@ -101,21 +96,13 @@ ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
         return NGX_OK;
     }
 
-    p = (u_char*)&evt;
-
-    p[0] = b->pos[1];
-    p[1] = b->pos[0];
+    evt = ntohs(*(uint16_t *) b->pos);
 
     ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "RTMP recv user evt %s (%i)",
                    ngx_rtmp_user_message_type(evt), (ngx_int_t) evt);
 
-    p = (u_char *) &val;
-
-    p[0] = b->pos[5];
-    p[1] = b->pos[4];
-    p[2] = b->pos[3];
-    p[3] = b->pos[2];
+    val = ntohl(*(uint32_t *) (b->pos + 2));
 
     switch(evt) {
         case NGX_RTMP_USER_STREAM_BEGIN:
@@ -164,12 +151,7 @@ ngx_rtmp_user_message_handler(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     return NGX_OK;
                 }
 
-                p = (u_char *) &v.buflen;
-
-                p[0] = b->pos[9];
-                p[1] = b->pos[8];
-                p[2] = b->pos[7];
-                p[3] = b->pos[6];
+                v.buflen = ntohl(*(uint32_t *) (b->pos + 6));
 
                 ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                                "receive: set_buflen msid=%uD buflen=%uD",
@@ -240,17 +222,23 @@ ngx_rtmp_fetch_uint8(ngx_chain_t **in, uint8_t *ret)
 static ngx_int_t
 ngx_rtmp_fetch_uint32(ngx_chain_t **in, uint32_t *ret, ngx_int_t n)
 {
-    u_char     *r = (u_char *) ret;
+    u_char      r;
     ngx_int_t   rc;
+    uint32_t    val;
 
     *ret = 0;
+    val = 0;
 
     while (--n >= 0) {
-        rc = ngx_rtmp_fetch(in, &r[n]);
+        rc = ngx_rtmp_fetch(in, &r);
         if (rc != NGX_OK) {
             return rc;
         }
+
+        val = (val << 8) | r;
     }
+
+    *ret = val;
 
     return NGX_OK;
 }

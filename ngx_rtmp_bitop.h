@@ -40,7 +40,7 @@ uint64_t ngx_rtmp_bit_read_golomb(ngx_rtmp_bit_reader_t *br);
     ((uint32_t) ngx_rtmp_bit_read(br, 32))
 
 #define ngx_rtmp_bit_read_64(br)                                              \
-    ((uint64_t) ngx_rtmp_read(br, 64))
+    ((uint64_t) ngx_rtmp_bit_read(br, 64))
 
 
 #endif /* _NGX_RTMP_BITOP_H_INCLUDED_ */

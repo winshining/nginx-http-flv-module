@@ -1097,6 +1097,24 @@ ngx_rtmp_rmemcpy(void *dst, const void* src, size_t n)
 }
 
 
+u_char *
+ngx_rtmp_h4_to_n3(u_char *dst, uint32_t h)
+{
+    dst[0] = (u_char) (h >> 16);
+    dst[1] = (u_char) (h >> 8);
+    dst[2] = (u_char) h;
+
+    return dst;
+}
+
+
+uint32_t
+ngx_rtmp_n3_to_h4(u_char *n)
+{
+    return ((uint32_t) n[0] << 16) | ((uint32_t) n[1] << 8) | (uint32_t) n[2];
+}
+
+
 static ngx_int_t
 ngx_rtmp_init_process(ngx_cycle_t *cycle)
 {

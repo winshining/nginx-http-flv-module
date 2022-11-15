@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -744,7 +745,7 @@ ngx_rtmp_hls_append_sps_pps(ngx_rtmp_session_t *s, ngx_buf_t *out)
                 return NGX_ERROR;
             }
 
-            ngx_rtmp_rmemcpy(&len, &rlen, 2);
+            len = ntohs(rlen);
 
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                            "hls: header NAL length: %uz", (size_t) len);
@@ -1919,8 +1920,17 @@ ngx_rtmp_hls_video(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
             return NGX_OK;
         }
 
-        len = 0;
-        ngx_rtmp_rmemcpy(&len, &rlen, nal_bytes);
+        if (nal_bytes != 3 && nal_bytes != 4) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "hls: incorrect NAL start code length");
+            return NGX_ERROR;
+        }
+
+        if (nal_bytes == 3) {
+            len = ngx_rtmp_n3_to_h4((u_char *) &rlen);
+        } else {
+            len = ntohl(rlen);
+        }
 
         if (len == 0) {
             continue;
