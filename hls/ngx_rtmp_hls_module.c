@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -849,6 +850,7 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
     ngx_fd_t                  fd;
     ngx_uint_t                g;
     ngx_rtmp_hls_ctx_t       *ctx;
+    ngx_rtmp_codec_ctx_t     *codec_ctx;
     ngx_rtmp_hls_frag_t      *f;
     ngx_rtmp_hls_app_conf_t  *hacf;
 
@@ -944,7 +946,8 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
         return NGX_ERROR;
     }
 
-    if (ngx_rtmp_mpegts_open_file(&ctx->file, ctx->stream.data,
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    if (ngx_rtmp_mpegts_open_file(&ctx->file, ctx->stream.data, codec_ctx,
                                   s->connection->log)
         != NGX_OK)
     {
