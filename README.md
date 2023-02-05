@@ -2,7 +2,7 @@
 
 [![Build Status](https://app.travis-ci.com/winshining/nginx-http-flv-module.svg?branch=master)](https://app.travis-ci.com/winshining/nginx-http-flv-module)
 
-Media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
+A media streaming server based on [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module).
 
 [中文说明](https://github.com/winshining/nginx-http-flv-module/blob/master/README.CN.md).
 
@@ -24,17 +24,18 @@ Donate if you like this module. Many thanks to you!
 
 * Other features provided by nginx-http-flv-module vs [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module):
 
-|         Features        | nginx-http-flv-module | nginx-rtmp-module |                     Remarks                     |
-| :---------------------: | :-------------------: | :---------------: | :---------------------------------------------: |
-|   HTTP-FLV (for play)   |           √           |         x         |     HTTPS-FLV and chunked response supported    | 
-|        GOP cache        |           √           |         x         |                                                 |
-|          VHOST          |           √           |         x         |                                                 |
-| Omit `listen` directive |           √           |    See remarks    |  There MUST be at least one `listen` directive  |
-|   Audio-only support    |           √           |    See remarks    |  Won't work if `wait_video` or `wait_key` is on |
-|   `reuseport` support   |           √           |         x         |                                                 |
-|  Timer for access log   |           √           |         x         |                                                 |
-|     JSON style stat     |           √           |         x         |                                                 |
-|   Stat for recordings   |           √           |         x         |                                                 |
+|         Features                   | nginx-http-flv-module | nginx-rtmp-module |                    Remarks                    |
+| :--------------------------------: | :-------------------: | :---------------: | :-------------------------------------------: |
+|        HTTP-FLV (for play)         |           √           |         x         |   HTTPS-FLV and chunked response supported    |
+|             GOP cache              |           √           |         x         |                                               |
+|            Virtual Host            |           √           |         x         |                                               |
+|      Omit `listen` directive       |           √           |    See remarks    | There MUST be at least one `listen` directive |
+|Audio-only support for RTMP/HTTP-FLV|           √           |    See remarks    |Won't work if `wait_video` or `wait_key` is on |
+|    Single-track support for HLS    |           √           |         x         |                                               |
+|        `reuseport` support         |           √           |         x         |                                               |
+|        Timer for access log        |           √           |         x         |                                               |
+|       JSON style statistics        |           √           |         x         |                                               |
+|     Statistics for recordings      |           √           |         x         |                                               |
 
 ## Compatibility
 
