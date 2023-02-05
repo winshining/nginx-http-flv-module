@@ -173,7 +173,7 @@ ngx_rtmp_mpegts_write_file(ngx_rtmp_mpegts_file_t *file, u_char *in,
 
 static ngx_int_t
 ngx_rtmp_mpegts_write_header(ngx_rtmp_mpegts_file_t *file,
-    ngx_rtmp_codec_ctx_t *codec_ctx)
+    ngx_rtmp_codec_ctx_t *codec_ctx, ngx_uint_t counter)
 {
     ngx_int_t              stream_bytes;
     ngx_rtmp_mpegts_crc_t  crc;
@@ -185,6 +185,12 @@ ngx_rtmp_mpegts_write_header(ngx_rtmp_mpegts_file_t *file,
 
     stream_bytes = 0;
     ngx_memcpy(buf, ngx_rtmp_mpegts_header, sizeof(ngx_rtmp_mpegts_header));
+
+    /* 4 bits, periodical */
+    counter %= 0x10;
+    /* fill headers */
+    buf[3] = (buf[3] & 0xf0) + (u_char) counter;
+    buf[191] = (buf[191] & 0xf0) + (u_char) counter;
 
     if (codec_ctx->video_codec_id) {
         /* video info */
@@ -409,7 +415,7 @@ ngx_rtmp_mpegts_init_encryption(ngx_rtmp_mpegts_file_t *file,
 
 ngx_int_t
 ngx_rtmp_mpegts_open_file(ngx_rtmp_mpegts_file_t *file, u_char *path,
-    ngx_rtmp_codec_ctx_t *codec_ctx, ngx_log_t *log)
+    ngx_rtmp_codec_ctx_t *codec_ctx, ngx_uint_t counter, ngx_log_t *log)
 {
     file->log = log;
 
@@ -424,7 +430,7 @@ ngx_rtmp_mpegts_open_file(ngx_rtmp_mpegts_file_t *file, u_char *path,
 
     file->size = 0;
 
-    if (ngx_rtmp_mpegts_write_header(file, codec_ctx) != NGX_OK) {
+    if (ngx_rtmp_mpegts_write_header(file, codec_ctx, counter) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, log, ngx_errno,
                       "hls: error writing fragment header");
         ngx_close_file(file->fd);

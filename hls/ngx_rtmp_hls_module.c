@@ -849,6 +849,7 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
     uint64_t                  id;
     ngx_fd_t                  fd;
     ngx_uint_t                g;
+    ngx_uint_t                counter;
     ngx_rtmp_hls_ctx_t       *ctx;
     ngx_rtmp_codec_ctx_t     *codec_ctx;
     ngx_rtmp_hls_frag_t      *f;
@@ -930,12 +931,14 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
         }
     }
 
-    ngx_log_debug6(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+    counter = (ngx_uint_t) (ctx->nfrags + ctx->frag);
+
+    ngx_log_debug7(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "hls: open fragment file='%s', keyfile='%s', "
-                   "frag=%uL, n=%ui, time=%uL, discont=%i",
+                   "frag=%uL, n=%ui, time=%uL, discont=%i, cc=%u",
                    ctx->stream.data,
                    ctx->keyfile.data ? ctx->keyfile.data : (u_char *) "",
-                   ctx->frag, ctx->nfrags, ts, discont);
+                   ctx->frag, ctx->nfrags, ts, discont, counter);
 
     if (hacf->keys &&
         ngx_rtmp_mpegts_init_encryption(&ctx->file, ctx->key, 16, ctx->key_id)
@@ -948,7 +951,7 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
 
     codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ngx_rtmp_mpegts_open_file(&ctx->file, ctx->stream.data, codec_ctx,
-                                  s->connection->log)
+                                  counter, s->connection->log)
         != NGX_OK)
     {
         return NGX_ERROR;
