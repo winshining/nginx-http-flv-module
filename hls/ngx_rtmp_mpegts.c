@@ -81,6 +81,11 @@ static u_char ngx_rtmp_mpegts_aac_header[] = {
 };
 
 
+static u_char ngx_rtmp_mpegts_mp3_header[] = {
+    0x03, 0xe1, 0x01, 0xf0, 0x00
+};
+
+
 #define NGX_RTMP_MPEGTS_PMT_CRC_START_OFFSET       193
 #define NGX_RTMP_MPEGTS_PMT_SECTION_LENGTH_OFFSET  195
 #define NGX_RTMP_MPEGTS_PMT_LOOP_OFFSET            205
@@ -202,8 +207,13 @@ ngx_rtmp_mpegts_write_header(ngx_rtmp_mpegts_file_t *file,
 
     if (codec_ctx->audio_codec_id) {
         /* audio info */
-        ngx_memcpy(buf + NGX_RTMP_MPEGTS_PMT_LOOP_OFFSET + stream_bytes,
-                   ngx_rtmp_mpegts_aac_header, NGX_RTMP_MPEGTS_STREAM_BYTES);
+        if (codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
+            ngx_memcpy(buf + NGX_RTMP_MPEGTS_PMT_LOOP_OFFSET + stream_bytes,
+                       ngx_rtmp_mpegts_aac_header, NGX_RTMP_MPEGTS_STREAM_BYTES);
+        } else {
+            ngx_memcpy(buf + NGX_RTMP_MPEGTS_PMT_LOOP_OFFSET + stream_bytes,
+                       ngx_rtmp_mpegts_mp3_header, NGX_RTMP_MPEGTS_STREAM_BYTES);
+        }
 
         stream_bytes += NGX_RTMP_MPEGTS_STREAM_BYTES;
     }
