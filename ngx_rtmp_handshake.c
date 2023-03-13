@@ -264,7 +264,8 @@ ngx_rtmp_handshake_create_challenge(ngx_rtmp_session_t *s,
     b = s->hs_buf;
     b->last = b->pos = b->start;
     *b->last++ = '\x03';
-    b->last = ngx_rtmp_rcpymem(b->last, &s->epoch, 4);
+    *(uint32_t *) b->last = htonl(s->epoch);
+    b->last += 4;
     b->last = ngx_cpymem(b->last, version, 4);
     ngx_rtmp_fill_random_buffer(b);
     ++b->pos;
@@ -292,8 +293,7 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
         return NGX_ERROR;
     }
     ++b->pos;
-    s->peer_epoch = 0;
-    ngx_rtmp_rmemcpy(&s->peer_epoch, b->pos, 4);
+    s->peer_epoch = ntohl(*(uint32_t *) b->pos);
 
     p = b->pos + 4;
     ngx_log_debug5(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,

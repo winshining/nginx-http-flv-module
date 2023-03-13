@@ -15,15 +15,15 @@
 static ngx_inline void*
 ngx_rtmp_amf_reverse_copy(void *dst, void* src, size_t len)
 {
-    size_t  k;
-
     if (dst == NULL || src == NULL) {
         return NULL;
     }
 
-    for(k = 0; k < len; ++k) {
-        ((u_char*)dst)[k] = ((u_char*)src)[len - 1 - k];
-    }
+#if (NGX_HAVE_LITTLE_ENDIAN)
+    ngx_rtmp_rmemcpy(dst, src, len);
+#else
+    ngx_memcpy(dst, src, len);
+#endif
 
     return dst;
 }

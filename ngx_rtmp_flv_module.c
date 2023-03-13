@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining
  */
 
 
@@ -102,7 +103,7 @@ ngx_rtmp_flv_fill_index(ngx_rtmp_amf_ctx_t *ctx, ngx_rtmp_flv_index_t *idx)
         return NGX_ERROR;
     }
 
-    ngx_rtmp_rmemcpy(&nelts, b->pos + ctx->offset, 4);
+    nelts = htonl(*(uint32_t *) (b->pos + ctx->offset));
 
     idx->nelts = nelts;
     idx->offset = ctx->offset + 4;
@@ -201,11 +202,7 @@ ngx_rtmp_flv_init_index(ngx_rtmp_session_t *s, ngx_chain_t *in)
 static double
 ngx_rtmp_flv_index_value(void *src)
 {
-    double      v;
-
-    ngx_rtmp_rmemcpy(&v, src, 8);
-
-    return v;
+    return *(double *) src;
 }
 
 
@@ -352,8 +349,7 @@ ngx_rtmp_flv_read_meta(ngx_rtmp_session_t *s, ngx_file_t *f)
     h.msid = NGX_RTMP_MSID;
     h.csid = NGX_RTMP_CSID_AMF;
 
-    size = 0;
-    ngx_rtmp_rmemcpy(&size, ngx_rtmp_flv_header + 1, 3);
+    size = ngx_rtmp_n3_to_h4(ngx_rtmp_flv_header + 1);
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                   "flv: metadata size=%D", size);
@@ -440,12 +436,9 @@ ngx_rtmp_flv_send(ngx_rtmp_session_t *s, ngx_file_t *f, ngx_uint_t *ts)
     h.msid = NGX_RTMP_MSID;
     h.type = ngx_rtmp_flv_header[0];
 
-    size = 0;
-
-    ngx_rtmp_rmemcpy(&size, ngx_rtmp_flv_header + 1, 3);
-    ngx_rtmp_rmemcpy(&h.timestamp, ngx_rtmp_flv_header + 4, 3);
-
-    ((u_char *) &h.timestamp)[3] = ngx_rtmp_flv_header[7];
+    size = ngx_rtmp_n3_to_h4(ngx_rtmp_flv_header + 1);
+    h.timestamp = ngx_rtmp_n3_to_h4(ngx_rtmp_flv_header + 4);
+    h.timestamp |= ((uint32_t) ngx_rtmp_flv_header[7] << 24);
 
     ctx->offset += (sizeof(ngx_rtmp_flv_header) + size + 4);
 

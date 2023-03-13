@@ -2250,7 +2250,7 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
 {
     ngx_chain_t        *tag, *chunk_head, *chunk_tail, chunk,
                        *iter, *last_in, **tail, prev_tag_size;
-    u_char             *pos, *p,
+    u_char             *pos,
 #if !(NGX_WIN32)
                         chunk_item[ngx_strlen("0000000000000000" CRLF) + 1];
 #else
@@ -2279,11 +2279,8 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
     prev_tag_size_buf.last = prev_tag_size_buf.end;
 
     pos = prev_tag_size_buf.pos;
-    p = (u_char *) &tag_size;
-    *pos++ = p[3];
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
+    *(uint32_t *) pos = htonl(tag_size);
+    pos += 4;
 
     /* ngx_rtmp_alloc_shared_buf returns the memory:
      * |4B|sizeof(ngx_chain_t)|sizeof(ngx_buf_t)|NGX_RTMP_MAX_CHUNK_HEADER|
@@ -2305,17 +2302,13 @@ ngx_http_flv_live_append_shared_bufs(ngx_rtmp_core_srv_conf_t *cscf,
     *pos++ = (u_char) (h->type & 0x1f);
 
     /* data length, 3B */
-    p = (u_char *) &data_size;
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
+    ngx_rtmp_h4_to_n3(pos, data_size);
+    pos += 3;
 
     /* timestamp, 3B + ext, 1B */
-    p = (u_char *) &h->timestamp;
-    *pos++ = p[2];
-    *pos++ = p[1];
-    *pos++ = p[0];
-    *pos++ = p[3];
+    ngx_rtmp_h4_to_n3(pos, h->timestamp);
+    pos += 3;
+    *pos++ = (u_char) (h->timestamp >> 24);
 
     /* streamId, 3B, always be 0 */
     *pos++ = 0;
