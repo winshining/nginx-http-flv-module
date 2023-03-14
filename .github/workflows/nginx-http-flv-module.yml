@@ -1,0 +1,42 @@
+name: nginx-http-flv-module CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      NGINX_VERSION: nginx-1.22.1
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: download nginx
+      working-directory: ../
+      run: wget https://nginx.org/download/${{env.NGINX_VERSION}}.tar.gz
+    - name: uncompress nginx
+      working-directory: ../
+      run: tar zxvf ${{env.NGINX_VERSION}}.tar.gz
+    - name: configure (build into nginx)
+      working-directory: ../${{env.NGINX_VERSION}}
+      run: ./configure --add-module=../nginx-http-flv-module
+    - name: make
+      working-directory: ../${{env.NGINX_VERSION}}
+      run: make
+    - name: clean
+      working-directory: ../${{env.NGINX_VERSION}}
+      run: make clean
+    - name: configure (build as a dynamic module)
+      working-directory: ../${{env.NGINX_VERSION}}
+      run: ./configure --add-dynamic-module=../nginx-http-flv-module
+    - name: make
+      working-directory: ../${{env.NGINX_VERSION}}
+      run: make
+    - name: remove
+      working-directory: ../
+      run: rm -rf "${{env.NGINX_VERSION}}*"

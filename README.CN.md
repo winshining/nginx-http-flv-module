@@ -1,6 +1,6 @@
 # nginx-http-flv-module
 
-[![Build Status](https://app.travis-ci.com/winshining/nginx-http-flv-module.svg?branch=master)](https://app.travis-ci.com/winshining/nginx-http-flv-module)
+![nginx-http-flv-module workflow](https://github.com/winshining/nginx-http-flv-module/actions/workflows/nginx-http-flv-module.yml/badge.svg?branch=master)
 
 一款基于 [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) 的流媒体服务器。
 
@@ -24,18 +24,19 @@
 
 * nginx-http-flv-module 的其他功能与 [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module) 的对比：
 
-|           功能           | nginx-http-flv-module | nginx-rtmp-module |                  备注                   |
-| :----------------------: | :-------------------: | :---------------: | :-------------------------------------: |
-|     HTTP-FLV (播放)      |           √           |         x         |     支持 HTTPS-FLV 和 chunked 回复      |
-|         GOP 缓存         |           √           |         x         |                                         |
-|         虚拟主机         |           √           |         x         |                                         |
-|   省略 `listen` 配置项   |           √           |       见备注      |        配置中必须有一个 `listen`        |
-| RTMP/HTTP-FLV 纯音频支持 |           √           |       见备注      |`wait_video` 或 `wait_key` 开启后无法工作|
-|       HLS 单轨支持       |           √           |         x         |                                         |
-|     `reuseport` 支持     |           √           |         x         |                                         |
-|     定时打印访问记录     |           √           |         x         |                                         |
-|   JSON 风格的数据信息    |           √           |         x         |                                         |
-|      录制的数据信息      |           √           |         x         |                                         |
+|           功能           | nginx-http-flv-module | nginx-rtmp-module |                  备注                    |
+| :----------------------: | :-------------------: | :---------------: | :--------------------------------------: |
+|     HTTP-FLV (播放)      |           √           |         x         |     支持 HTTPS-FLV 和 chunked 回复       |
+|         GOP 缓存         |           √           |         x         |                                          |
+|         虚拟主机         |           √           |         x         |                                          |
+|   省略 `listen` 配置项   |           √           |       见备注      |        配置中必须有一个 `listen`         |
+| RTMP/HTTP-FLV 纯音频支持 |           √           |       见备注      |`wait_video` 或 `wait_key` 开启后无法工作 |
+|       HLS 单轨支持       |           √           |         x         |                                          |
+|     `reuseport` 支持     |           √           |         x         |                                          |
+|     定时打印访问记录     |           √           |         x         |                                          |
+|   JSON 风格的数据信息    |           √           |         x         |                                          |
+|      录制的数据信息      |           √           |         x         |                                          |
+|        大小端无关        |           √           |       见备注      |          `endian` 分支部分支持           |
 
 ## 兼容性
 
