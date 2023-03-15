@@ -1630,7 +1630,7 @@ ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
 {
     uint8_t       type;
     uint32_t      timestamp;
-    u_char       *p, *pt;
+    u_char       *p;
     ngx_chain_t  *cl;
     ngx_buf_t    *b;
 
@@ -1651,14 +1651,9 @@ ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
             return;
         }
 
-        timestamp = 0;
-        pt = (u_char *) &timestamp;
-
         p = b->pos + 4;
-        pt[2] = *p++;
-        pt[1] = *p++;
-        pt[0] = *p++;
-        pt[3] = *p++;
+        timestamp = ngx_rtmp_n3_to_h4(p);
+        timestamp |= ((uint32_t) p[3] << 24);
 
         if (correct) {
             timestamp -= s->offset_timestamp;
@@ -1671,10 +1666,9 @@ ngx_http_flv_live_correct_timestamp(ngx_rtmp_session_t *s, ngx_flag_t correct)
         }
 
         p = b->pos + 4;
-        p[2] = *pt++;
-        p[1] = *pt++;
-        p[0] = *pt++;
-        p[3] = *pt++;
+        ngx_rtmp_h4_to_n3(p, timestamp);
+        p += 3;
+        *p++ = (u_char) (timestamp >> 24);
     }
 }
 
