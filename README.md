@@ -36,7 +36,7 @@ Donate if you like this module. Many thanks to you!
 |        Timer for access log        |           √           |         x         |                                                |
 |       JSON style statistics        |           √           |         x         |                                                |
 |     Statistics for recordings      |           √           |         x         |                                                |
-|     Independent of endianness      |           √           |    See remarks    |     Partially supported in branch `endian`     |
+|     Independent of endianness      |           √           |    See remarks    |   Partially supported in branch `big-endian`   |
 
 ## Compatibility
 
