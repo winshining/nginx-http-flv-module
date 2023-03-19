@@ -445,16 +445,17 @@ static ngx_int_t
 ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
                           ngx_rtmp_record_rec_ctx_t *rctx)
 {
-    ngx_rtmp_record_app_conf_t *rracf;
-    ngx_err_t                   err;
-    ngx_str_t                   path;
-    ngx_int_t                   mode, create_mode;
-    u_char                      buf[8];
-    off_t                       file_size;
-    uint32_t                    tag_size, mlen, timestamp;
+    ngx_rtmp_record_app_conf_t  *rracf;
+    ngx_err_t                    err;
+    ngx_str_t                    path;
+    ngx_int_t                    mode, create_mode;
+    u_char                      *p, buf[8];
+    off_t                        file_size;
+    uint32_t                     tag_size, mlen, timestamp;
 
     rracf = rctx->conf;
     tag_size = 0;
+    p = buf;
 
     if (rctx->file.fd != NGX_INVALID_FILE) {
         return NGX_AGAIN;
@@ -540,27 +541,27 @@ ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
             goto done;
         }
 
-        if (ngx_read_file(&rctx->file, buf, 4, file_size - 4) != 4) {
+        if (ngx_read_file(&rctx->file, p, 4, file_size - 4) != 4) {
             ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
                           "record: %V tag size read failed", &rracf->id);
             goto done;
         }
 
-        tag_size = ntohl(*(uint32_t *) buf);
+        tag_size = ntohl(*(uint32_t *) p);
 
         if (tag_size == 0 || tag_size + 4 > file_size) {
             file_size = 0;
             goto done;
         }
 
-        if (ngx_read_file(&rctx->file, buf, 8, file_size - tag_size - 4) != 8)
+        if (ngx_read_file(&rctx->file, p, 8, file_size - tag_size - 4) != 8)
         {
             ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
                           "record: %V tag read failed", &rracf->id);
             goto done;
         }
 
-        mlen = ngx_rtmp_n3_to_h4(buf + 1);
+        mlen = ngx_rtmp_n3_to_h4(p + 1);
 
         if (tag_size != mlen + 11) {
             ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
@@ -569,8 +570,8 @@ ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
             goto done;
         }
 
-        timestamp = ngx_rtmp_n3_to_h4(buf + 4);
-        timestamp |= ((uint32_t) buf[7] << 24);
+        timestamp = ngx_rtmp_n3_to_h4(p + 4);
+        timestamp |= ((uint32_t) p[7] << 24);
 
 done:
         rctx->file.offset = file_size;
