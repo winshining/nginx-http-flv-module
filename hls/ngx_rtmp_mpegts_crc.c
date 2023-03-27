@@ -13,6 +13,7 @@
  *    ReflectOut    = False
  *    Algorithm     = table-driven
  *****************************************************************************/
+#include <ngx_config.h>
 #include "ngx_rtmp_mpegts_crc.h"     /* include the header file generated with pycrc */
 
 
