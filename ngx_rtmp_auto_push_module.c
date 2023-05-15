@@ -133,7 +133,7 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     struct sockaddr_un          *saun;
 #if (nginx_version >= 1009011)
     ngx_event_t                 *rev;
-    ngx_connection_t            *c, *old;
+    ngx_connection_t            *c;
     ngx_module_t               **modules;
     ngx_int_t                    i, auto_push_index, event_core_index;
 #endif
@@ -310,26 +310,6 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
         rev->deferred_accept = ls->deferred_accept;
 #endif
 
-        if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
-            if (ls->previous) {
-
-                /*
-                 * delete the old accept events that were bound to
-                 * the old cycle read events array
-                 */
-
-                old = ls->previous->connection;
-
-                if (ngx_del_event(old->read, NGX_READ_EVENT, NGX_CLOSE_EVENT)
-                    == NGX_ERROR)
-                {
-                    return NGX_ERROR;
-                }
-
-                old->fd = (ngx_socket_t) -1;
-            }
-        }
-
 #if (nginx_version >= 1009013)
         rev->handler = (c->type == SOCK_STREAM) ? ngx_event_accept
                                                 : ngx_event_recvmsg;
@@ -369,11 +349,55 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
     ngx_rtmp_auto_push_conf_t  *apcf;
     u_char                      path[NGX_MAX_PATH];
 
+    ngx_listening_t             *ls;
+    ngx_connection_t            *c;
+    size_t                       n;
+
     apcf = (ngx_rtmp_auto_push_conf_t *) ngx_get_conf(cycle->conf_ctx,
                                                     ngx_rtmp_auto_push_module);
     if (apcf->auto_push == 0) {
         return;
     }
+
+    ls = cycle->listening.elts;
+
+    for (n = 0; n < cycle->listening.nelts; ++n, ++ls) {
+        if ((ls->handler == ngx_rtmp_init_connection) &&
+            (ls->sockaddr && ls->sockaddr->sa_family == AF_UNIX))
+        {
+            c = ls->connection;
+
+            if (c) {
+                if (c->read->active) {
+                    if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
+
+                        /*
+                         * delete the old accept events that were bound to
+                         * the old cycle read events array
+                         */
+
+                        ngx_del_event(c->read,
+                                      NGX_READ_EVENT, NGX_CLOSE_EVENT);
+
+                        ngx_free_connection(c);
+
+                        c->fd = (ngx_socket_t) -1;
+                    }
+                }
+            }
+
+            if (ngx_close_socket(ls->fd) == -1) {
+                ngx_log_error(NGX_LOG_ERR, cycle->log, ngx_socket_errno,
+                              ngx_close_socket_n "%V failed",
+                              &ls->addr_text);
+            }
+
+            ls->fd = (ngx_socket_t) -1;
+
+            break;
+        }
+    }
+
     *ngx_snprintf(path, sizeof(path),
                   "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
                   &apcf->socket_dir, ngx_process_slot)

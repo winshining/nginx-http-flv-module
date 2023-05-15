@@ -19,12 +19,12 @@
   * **[misc]** if some changes were done and bugs were fixed.
 
 * Ensure that your codes conform to code conventions:
-  * All files are prefixed by 'ngx_'.
+  * All files are prefixed by 'ngx\_'.
   * Include #ifndef \_FILE\_NAME\_H\_INCLUDED\_, #define \_FILE\_NAME\_H\_INCLUDED\_ and #endif in header files.
   * Comments use /* ... */ are preferable.
   * It would be better that built-in types appear before customized types.
   * There should be no less than 2 spaces between types and variables.
-  * Variables are aligned by character, not '*'.
+  * Variables are aligned by character, not '\*'.
   * No more than 80 characters in a single code or comment line.
   * Two blank lines between two functions, styles of macro and type definitions are same as functions.
 
