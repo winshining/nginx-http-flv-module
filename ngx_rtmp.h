@@ -170,8 +170,6 @@ typedef struct {
 
     ngx_buf_t                       **free;
     ngx_int_t                         nfree;
-
-    unsigned                          proxy_protocol:1;
 } ngx_rtmp_connection_t;
 
 
