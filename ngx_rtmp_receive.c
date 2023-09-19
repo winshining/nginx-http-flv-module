@@ -360,6 +360,8 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
     ngx_rtmp_core_main_conf_t  *cmcf;
     ngx_array_t                *ch;
     ngx_rtmp_handler_pt        *ph;
+    ngx_chain_t                *cl;
+    ngx_int_t                   amf_len;
     size_t                      len, n;
 
     static u_char               func[128];
@@ -392,6 +394,31 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
     }
 
     cmcf = ngx_rtmp_get_module_main_conf(s, ngx_rtmp_core_module);
+
+    /*
+     * work around the buggy option `-map` in FFmpeg, see:
+     * https://trac.ffmpeg.org/ticket/10565
+     */
+    if (in->buf->pos[0] == NGX_RTMP_AMF_NUMBER) {
+        cl = in;
+        amf_len = 0;
+
+        while (cl) {
+            amf_len += cl->buf->last - cl->buf->pos;
+            if (amf_len >= 8) {
+                break;
+            }
+
+            cl = cl->next;
+        }
+
+        if (amf_len < 8) {
+            ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
+                          "AMF malformed: type=%d, length=%D, ignored",
+                          NGX_RTMP_AMF_NUMBER, amf_len);
+            return NGX_OK;
+        }
+    }
 
     /* read AMF func name & transaction id */
     ngx_memzero(&act, sizeof(act));
