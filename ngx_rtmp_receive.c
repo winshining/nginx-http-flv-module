@@ -405,14 +405,15 @@ ngx_rtmp_amf_message_handler(ngx_rtmp_session_t *s,
 
         while (cl) {
             amf_len += cl->buf->last - cl->buf->pos;
-            if (amf_len >= 8) {
+            /* type: 1B, number payload: 8B */
+            if (amf_len >= 9) {
                 break;
             }
 
             cl = cl->next;
         }
 
-        if (amf_len < 8) {
+        if (amf_len < 9) {
             ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
                           "AMF malformed: type=%d, length=%D, ignored",
                           NGX_RTMP_AMF_NUMBER, amf_len);

@@ -654,6 +654,7 @@ ngx_rtmp_prepare_message(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     hsize = hdrsize[fmt];
 
+    (void) nbufs;
     ngx_log_debug8(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "RTMP prep %s (%d) fmt=%d csid=%uD timestamp=%uD "
             "mlen=%uD msid=%uD nbufs=%d",
