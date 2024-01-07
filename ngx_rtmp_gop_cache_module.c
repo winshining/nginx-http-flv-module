@@ -292,22 +292,6 @@ ngx_rtmp_gop_cache_alloc_cache(ngx_rtmp_session_t *s)
         }
     }
 
-    // save video seq header.
-    if (codec_ctx->avc_header && ctx->video_seq_header == NULL) {
-        ctx->video_seq_header = codec_ctx->avc_header;
-    }
-
-    // save audio seq header.
-    if (codec_ctx->aac_header && ctx->audio_seq_header == NULL) {
-        ctx->audio_seq_header = codec_ctx->aac_header;
-    }
-
-    // save metadata.
-    if (codec_ctx->meta && ctx->meta == NULL) {
-        ctx->meta_version = codec_ctx->meta_version;
-        ctx->meta = codec_ctx->meta;
-    }
-
     if (ctx->cache_head == NULL) {
         ctx->cache_tail = ctx->cache_head = cache;
     } else {
@@ -474,6 +458,28 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         if (ngx_rtmp_gop_cache_alloc_cache(s) != NGX_OK) {
             return;
         }
+    }
+
+    // save video seq header.
+    if (ctx->video_seq_header == NULL && codec_ctx->avc_header) {
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "video header comming");
+        ctx->video_seq_header = codec_ctx->avc_header;
+    }
+
+    // save audio seq header.
+    if (ctx->audio_seq_header == NULL && codec_ctx->aac_header) {
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "audio header comming");
+        ctx->audio_seq_header = codec_ctx->aac_header;
+    }
+
+    // save metadata.
+    if (ctx->meta == NULL && codec_ctx->meta) {
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "meta comming");
+        ctx->meta_version = codec_ctx->meta_version;
+        ctx->meta = codec_ctx->meta;
     }
 
     gf = ngx_rtmp_gop_cache_alloc_frame(s);
