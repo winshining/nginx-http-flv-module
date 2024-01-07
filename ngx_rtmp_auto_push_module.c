@@ -141,6 +141,7 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     ngx_socket_t                 s;
     size_t                       n;
     ngx_file_info_t              fi;
+    ngx_pid_t                    pid;
 
     if (ngx_process != NGX_PROCESS_WORKER) {
         return NGX_OK;
@@ -197,9 +198,10 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
     saun->sun_family = AF_UNIX;
+    pid = ngx_getpid();
     *ngx_snprintf((u_char *) saun->sun_path, sizeof(saun->sun_path),
-                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
-                  &apcf->socket_dir, ngx_process_slot)
+                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
+                  &apcf->socket_dir, pid)
         = 0;
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, cycle->log, 0,
@@ -352,6 +354,7 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
     ngx_listening_t             *ls;
     ngx_connection_t            *c;
     size_t                       n;
+    ngx_pid_t                    pid;
 
     apcf = (ngx_rtmp_auto_push_conf_t *) ngx_get_conf(cycle->conf_ctx,
                                                     ngx_rtmp_auto_push_module);
@@ -398,9 +401,10 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
         }
     }
 
+    pid = ngx_getpid();
     *ngx_snprintf(path, sizeof(path),
-                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
-                  &apcf->socket_dir, ngx_process_slot)
+                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
+                  &apcf->socket_dir, pid)
          = 0;
 
     ngx_delete_file(path);
@@ -512,8 +516,8 @@ ngx_rtmp_auto_push_reconnect(ngx_event_t *ev)
         ngx_memzero(&at.url, sizeof(at.url));
         u = &at.url.url;
         p = ngx_snprintf(path, sizeof(path) - 1,
-                         "unix:%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
-                         &apcf->socket_dir, n);
+                         "unix:%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
+                         &apcf->socket_dir, pid);
         *p = 0;
 
         if (ngx_file_info(path + sizeof("unix:") - 1, &fi) != NGX_OK) {
