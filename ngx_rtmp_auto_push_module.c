@@ -200,7 +200,7 @@ ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle)
     saun->sun_family = AF_UNIX;
     pid = ngx_getpid();
     *ngx_snprintf((u_char *) saun->sun_path, sizeof(saun->sun_path),
-                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
+                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
                   &apcf->socket_dir, pid)
         = 0;
 
@@ -403,7 +403,7 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
 
     pid = ngx_getpid();
     *ngx_snprintf(path, sizeof(path),
-                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
+                  "%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
                   &apcf->socket_dir, pid)
          = 0;
 
@@ -516,7 +516,7 @@ ngx_rtmp_auto_push_reconnect(ngx_event_t *ev)
         ngx_memzero(&at.url, sizeof(at.url));
         u = &at.url.url;
         p = ngx_snprintf(path, sizeof(path) - 1,
-                         "unix:%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%i",
+                         "unix:%V/" NGX_RTMP_AUTO_PUSH_SOCKNAME ".%P",
                          &apcf->socket_dir, pid);
         *p = 0;
 
