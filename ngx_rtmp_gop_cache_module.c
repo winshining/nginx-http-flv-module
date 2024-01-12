@@ -438,17 +438,17 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         // drop non-IDR
         if (prio != NGX_RTMP_VIDEO_KEY_FRAME && ctx->cache_head == NULL) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop video non-keyframe timestamp=%uD",
+                    "gop cache: drop video non-keyframe timestamp=%uD",
                     ch->timestamp);
 
             return;
         }
     }
 
-    // pure audio
+    // audio only
     if (ctx->video_frame_in_all == 0 && ch->type == NGX_RTMP_MSG_AUDIO) {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "drop audio frame timestamp=%uD",
+                    "gop cache: drop audio frame timestamp=%uD",
                     ch->timestamp);
 
         return;
@@ -461,23 +461,25 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     }
 
     // save video seq header.
-    if (ctx->video_seq_header == NULL && codec_ctx->avc_header) {
+    if (codec_ctx->avc_header && ctx->video_seq_header == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "video header comming");
+                       "gop cache: video seq header is comming");
         ctx->video_seq_header = codec_ctx->avc_header;
     }
 
     // save audio seq header.
-    if (ctx->audio_seq_header == NULL && codec_ctx->aac_header) {
+    if (codec_ctx->aac_header && ctx->audio_seq_header == NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "audio header comming");
+                       "gop cache: audio seq header is comming");
         ctx->audio_seq_header = codec_ctx->aac_header;
     }
 
     // save metadata.
-    if (ctx->meta == NULL && codec_ctx->meta) {
+    if (codec_ctx->meta &&
+        (ctx->meta == NULL || codec_ctx->meta_version != ctx->meta_version))
+    {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "meta comming");
+                       "gop cache: meta is comming");
         ctx->meta_version = codec_ctx->meta_version;
         ctx->meta = codec_ctx->meta;
     }
