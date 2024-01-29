@@ -837,16 +837,18 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_int_t                         rc, mandatory, i;
     ngx_uint_t                        prio;
     ngx_uint_t                        peers;
-    ngx_uint_t                        meta_version;
+    ngx_uint_t                        version, coversion, meta_version;
+    ngx_uint_t                        version_send, coversion_send;
     ngx_uint_t                        csidx;
     uint32_t                          delta;
     ngx_rtmp_live_chunk_stream_t     *cs;
     ngx_http_request_t               *r;
     ngx_http_flv_live_ctx_t          *hctx;
 #ifdef NGX_DEBUG
-    const char                       *type_s;
+    const char                       *type_s, *type_sco;
 
     type_s = (h->type == NGX_RTMP_MSG_VIDEO ? "video" : "audio");
+    type_sco = (h->type == NGX_RTMP_MSG_VIDEO ? "audio" : "video");
 #endif
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
@@ -886,7 +888,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     peers = 0;
     header = NULL;
     coheader = NULL;
+    version = 0;
+    coversion = 0;
     meta_version = 0;
+    version_send = 0;
+    coversion_send = 0;
     mandatory = 0;
 
     for (i = 0; i <= NGX_RTMP_PROTOCOL_HTTP; i++) {
@@ -944,9 +950,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         if (h->type == NGX_RTMP_MSG_AUDIO) {
             header = codec_ctx->aac_header;
+            version = codec_ctx->ash_version;
 
             if (lacf->interleave) {
                 coheader = codec_ctx->avc_header;
+                coversion = codec_ctx->vsh_version;
             }
 
             if (codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC &&
@@ -958,9 +966,11 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         } else {
             header = codec_ctx->avc_header;
+            version = codec_ctx->vsh_version;
 
             if (lacf->interleave) {
                 coheader = codec_ctx->aac_header;
+                coversion = codec_ctx->ash_version;
             }
 
             if (codec_ctx->video_codec_id == NGX_RTMP_VIDEO_H264 &&
@@ -985,6 +995,16 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
         ss = pctx->session;
         cs = &pctx->cs[csidx];
+
+        if (h->type == NGX_RTMP_MSG_AUDIO) {
+            version_send = pctx->ash_version;
+            if (lacf->interleave)
+                coversion_send = pctx->vsh_version;
+        } else {
+            version_send = pctx->vsh_version;
+            if (lacf->interleave)
+                coversion_send = pctx->ash_version;
+        }
  
         handler = ngx_rtmp_live_proc_handlers[pctx->protocol];
 
@@ -1072,11 +1092,14 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 /* send absolute codec header */
 
-                ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
-                               "live: abs %s header timestamp=%uD",
-                               type_s, lh.timestamp);
+                ngx_log_debug3(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
+                               "live: abs %s header timestamp=%uD, version=%ui",
+                               type_s, lh.timestamp, version);
 
-                if (header) {
+                if (header && version != version_send) {
+                    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
+                                "live: %s coheader send, version=%ui",
+                                type_s, version);
                     if (handler->apkt == NULL) {
                         handler->apkt = handler->append_message_pt(ss, &lh,
                                                              NULL, header);
@@ -1091,7 +1114,10 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
                     }
                 }
 
-                if (coheader) {
+                if (coheader && coversion != coversion_send) {
+                    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
+                                "live: %s coheader send, coversion=%ui",
+                                type_sco, coversion);
                     if (handler->acopkt == NULL) {
                         handler->acopkt = handler->append_message_pt(ss, &clh,
                                                               NULL, coheader);
@@ -1107,6 +1133,15 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 }
 
+                if (h->type == NGX_RTMP_MSG_AUDIO) {
+                    pctx->ash_version = version;
+                    if (coheader && coversion)
+                        pctx->vsh_version = coversion;
+                } else {
+                    pctx->vsh_version = version;
+                    if (coheader && coversion)
+                        pctx->ash_version = coversion;
+                }
                 cs->timestamp = lh.timestamp;
                 cs->active = 1;
                 ss->current_time = cs->timestamp;

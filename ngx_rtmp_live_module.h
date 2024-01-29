@@ -35,6 +35,8 @@ struct ngx_rtmp_live_ctx_s {
     ngx_rtmp_live_ctx_t                *next;
     ngx_uint_t                          ndropped;
     ngx_rtmp_live_chunk_stream_t        cs[2];
+    ngx_uint_t                          vsh_version;
+    ngx_uint_t                          ash_version;
     ngx_uint_t                          meta_version;
     ngx_event_t                         idle_evt;
     unsigned                            active:1;

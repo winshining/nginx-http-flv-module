@@ -107,6 +107,8 @@ typedef struct {
 
     ngx_chain_t                *avc_header;
     ngx_chain_t                *aac_header;
+    ngx_uint_t                  vsh_version;
+    ngx_uint_t                  ash_version;
 
     ngx_chain_t                *meta;
     ngx_uint_t                  meta_version;

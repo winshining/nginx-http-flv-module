@@ -354,11 +354,10 @@ ngx_rtmp_gop_cache_cleanup(ngx_rtmp_session_t *s)
 
     for (cache = ctx->cache_head; cache; cache = cache->next) {
         ngx_rtmp_gop_cache_free_cache(s, cache);
+        cache->video_seq_header = NULL;
+        cache->audio_seq_header = NULL;
+        cache->meta = NULL;
     }
-
-    ctx->video_seq_header = NULL;
-    ctx->audio_seq_header = NULL;
-    ctx->meta = NULL;
 
     if (ctx->cache_head) {
         ctx->cache_head->next = ctx->free_cache;
@@ -460,28 +459,35 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         }
     }
 
+    if (ctx->cache_tail == NULL) {
+        return;
+    }
+
     // save video seq header.
-    if (codec_ctx->avc_header && ctx->video_seq_header == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: video seq header is comming");
-        ctx->video_seq_header = codec_ctx->avc_header;
+    if (codec_ctx->avc_header && ctx->cache_tail->video_seq_header == NULL) {
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "gop cache: video seq header is comming, version=%ui",
+                       codec_ctx->vsh_version);
+        ctx->cache_tail->video_seq_header = codec_ctx->avc_header;
+        ctx->cache_tail->vsh_version = codec_ctx->vsh_version;
     }
 
     // save audio seq header.
-    if (codec_ctx->aac_header && ctx->audio_seq_header == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: audio seq header is comming");
-        ctx->audio_seq_header = codec_ctx->aac_header;
+    if (codec_ctx->aac_header && ctx->cache_tail->audio_seq_header == NULL) {
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "gop cache: audio seq header is comming, version=%ui",
+                       codec_ctx->ash_version);
+        ctx->cache_tail->audio_seq_header = codec_ctx->aac_header;
+        ctx->cache_tail->ash_version = codec_ctx->ash_version;
     }
 
     // save metadata.
-    if (codec_ctx->meta &&
-        (ctx->meta == NULL || codec_ctx->meta_version != ctx->meta_version))
+    if (codec_ctx->meta && ctx->cache_tail->meta == NULL)
     {
-        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: meta is comming");
-        ctx->meta_version = codec_ctx->meta_version;
-        ctx->meta = codec_ctx->meta;
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "gop cache: meta is comming, version=%ui", codec_ctx->meta_version);
+        ctx->cache_tail->meta_version = codec_ctx->meta_version;
+        ctx->cache_tail->meta = codec_ctx->meta;
     }
 
     gf = ngx_rtmp_gop_cache_alloc_frame(s);
@@ -538,7 +544,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     ngx_rtmp_gop_cache_t               *cache;
     ngx_rtmp_gop_frame_t               *gf;
     ngx_rtmp_header_t                   ch, lh, clh;
-    ngx_uint_t                          meta_version;
+    ngx_uint_t                          version, coversion, meta_version;
+    ngx_uint_t                          version_send, coversion_send;
     uint32_t                            delta;
     ngx_int_t                           csidx;
     ngx_rtmp_live_chunk_stream_t       *cs;
@@ -565,7 +572,11 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     header = NULL;
     coheader = NULL;
     meta = NULL;
+    version = 0;
+    coversion = 0;
     meta_version = 0;
+    version_send = 0;
+    coversion_send = 0;
 
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
@@ -604,8 +615,8 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
         }
 
-        if (meta == NULL && meta_version != gctx->meta_version) {
-            meta = handler->meta_message_pt(s, gctx->meta);
+        if (meta == NULL && meta_version != cache->meta_version) {
+            meta = handler->meta_message_pt(s, cache->meta);
             if (meta == NULL) {
                 ngx_rtmp_finalize_session(s);
                 return;
@@ -613,13 +624,13 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
         }
 
         if (meta) {
-            meta_version = gctx->meta_version;
+            meta_version = cache->meta_version;
         }
 
         /* send metadata */
         if (meta && meta_version != ctx->meta_version) {
-            ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "gop cache send: meta");
+            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                    "gop cache send: meta, version=%ui", meta_version);
 
             if (handler->send_message_pt(s, meta, 0) == NGX_ERROR) {
                 ngx_rtmp_finalize_session(s);
@@ -673,20 +684,31 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                 }
 
                 switch (gf->h.type) {
-                    case NGX_RTMP_MSG_VIDEO:
-                        header = gctx->video_seq_header;
+                    case NGX_RTMP_MSG_AUDIO:
+                        header = cache->audio_seq_header;
+                        version = cache->ash_version;
+                        version_send = ctx->ash_version;
                         if (lacf->interleave) {
-                            coheader = gctx->audio_seq_header;
+                            coheader = cache->video_seq_header;
+                            coversion = cache->vsh_version;
+                            coversion_send = ctx->vsh_version;
                         }
                         break;
                     default:
-                        header = gctx->audio_seq_header;
+                        header = cache->video_seq_header;
+                        version = cache->vsh_version;
+                        version_send = ctx->vsh_version;
                         if (lacf->interleave) {
-                            coheader = gctx->video_seq_header;
+                            coheader = cache->audio_seq_header;
+                            coversion = cache->ash_version;
+                            coversion_send = cache->ash_version;
                         }
                 }
 
-                if (header) {
+                if (header && version != version_send) {
+                    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                            "gop cache send: %s sequence header, version=%ui",
+                            (gf->h.type == NGX_RTMP_MSG_AUDIO ? "audio" : "video"), version);
                     apkt = handler->append_message_pt(s, &lh, NULL, header);
                     if (apkt == NULL) {
                         error = 1;
@@ -698,7 +720,10 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     goto next;
                 }
 
-                if (coheader) {
+                if (coheader && coversion != coversion_send) {
+                    ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                            "gop cache send: %s sequence coheader, version=%ui",
+                            (gf->h.type == NGX_RTMP_MSG_AUDIO ? "video" : "audio"), coversion);
                     acopkt = handler->append_message_pt(s, &clh, NULL,
                                                         coheader);
                     if (acopkt == NULL) {
@@ -711,6 +736,15 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
                     goto next;
                 }
 
+                if (gf->h.type == NGX_RTMP_MSG_AUDIO) {
+                    ctx->ash_version = version;
+                    if (coheader && coversion)
+                        ctx->vsh_version = coversion;
+                } else {
+                    ctx->vsh_version = version;
+                    if (coheader && coversion)
+                        ctx->ash_version = coversion;
+                }
                 cs->timestamp = lh.timestamp;
                 cs->active = 1;
                 s->current_time = cs->timestamp;

@@ -198,6 +198,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ngx_rtmp_core_srv_conf_t           *cscf;
     ngx_rtmp_codec_ctx_t               *ctx;
     ngx_chain_t                       **header;
+    ngx_uint_t                         *version;
     uint8_t                             fmt;
     static ngx_uint_t                   sample_rates[] =
                                         { 5512, 11025, 22050, 44100 };
@@ -250,6 +251,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     if (h->type == NGX_RTMP_MSG_AUDIO) {
         if (ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC) {
             header = &ctx->aac_header;
+            version = &ctx->ash_version;
             if (ngx_rtmp_codec_parse_aac_header(s, in) == NGX_ERROR) {
                 return NGX_ERROR;
             }
@@ -257,6 +259,7 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     } else {
         if (ctx->video_codec_id == NGX_RTMP_VIDEO_H264) {
             header = &ctx->avc_header;
+            version = &ctx->vsh_version;
             if (ngx_rtmp_codec_parse_avc_header(s, in) == NGX_ERROR) {
                 return NGX_ERROR;
             }
@@ -272,6 +275,14 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     *header = ngx_rtmp_append_shared_bufs(cscf, NULL, in);
+    *version = ngx_rtmp_codec_get_next_version();
+    if (h->type == NGX_RTMP_MSG_AUDIO) {
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                    "codec: audio header version=%ui", *version);
+    } else {
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                    "codec: video header version=%ui", *version);
+    }
 
     return NGX_OK;
 }
@@ -766,6 +777,8 @@ ngx_rtmp_codec_prepare_meta(ngx_rtmp_session_t *s, uint32_t timestamp)
     ngx_rtmp_prepare_message(s, &h, NULL, ctx->meta);
 
     ctx->meta_version = ngx_rtmp_codec_get_next_version();
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                "codec: meta header version=%ui", ctx->meta_version);
 
     return NGX_OK;
 }
