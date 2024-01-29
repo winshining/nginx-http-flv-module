@@ -569,14 +569,6 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     pkt = NULL;
     apkt = NULL;
     acopkt = NULL;
-    header = NULL;
-    coheader = NULL;
-    meta = NULL;
-    version = 0;
-    coversion = 0;
-    meta_version = 0;
-    version_send = 0;
-    coversion_send = 0;
 
     pub_ctx = ctx->stream->pub_ctx;
     rs = pub_ctx->session;
@@ -598,6 +590,15 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
     }
 
     for (cache = gctx->cache_head; cache; cache = cache->next) {
+        header = NULL;
+        coheader = NULL;
+        meta = NULL;
+        version = 0;
+        coversion = 0;
+        meta_version = 0;
+        version_send = 0;
+        coversion_send = 0;
+
         if (s->connection == NULL || s->connection->destroyed) {
             return;
         }
@@ -615,15 +616,12 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
             }
         }
 
-        if (meta == NULL && meta_version != cache->meta_version) {
+        if (meta_version != cache->meta_version) {
             meta = handler->meta_message_pt(s, cache->meta);
             if (meta == NULL) {
                 ngx_rtmp_finalize_session(s);
                 return;
             }
-        }
-
-        if (meta) {
             meta_version = cache->meta_version;
         }
 

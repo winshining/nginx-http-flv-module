@@ -1098,7 +1098,7 @@ ngx_rtmp_live_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
                 if (header && version != version_send) {
                     ngx_log_debug2(NGX_LOG_DEBUG_RTMP, ss->connection->log, 0,
-                                "live: %s coheader send, version=%ui",
+                                "live: %s header send, version=%ui",
                                 type_s, version);
                     if (handler->apkt == NULL) {
                         handler->apkt = handler->append_message_pt(ss, &lh,
