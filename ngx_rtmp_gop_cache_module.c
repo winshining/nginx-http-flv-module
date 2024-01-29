@@ -892,17 +892,16 @@ ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
         }
 
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_gop_cache_module);
+    } else if (ctx->pool) {
+        ngx_destroy_pool(ctx->pool);
+        ctx->pool = NULL;
     }
-
     ngx_memzero(ctx, sizeof(*ctx));
 
+    ctx->pool = ngx_create_pool(NGX_GOP_CACHE_POOL_CREATE_SIZE,
+                                s->connection->log);
     if (ctx->pool == NULL) {
-        ctx->pool = ngx_create_pool(NGX_GOP_CACHE_POOL_CREATE_SIZE,
-                                    s->connection->log);
-
-        if (ctx->pool == NULL) {
-            return NGX_ERROR;
-        }
+        return NGX_ERROR;
     }
 
 next:
