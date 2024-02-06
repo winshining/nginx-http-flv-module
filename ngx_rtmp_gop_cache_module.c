@@ -325,6 +325,9 @@ ngx_rtmp_gop_cache_free_cache(ngx_rtmp_session_t *s,
         ngx_rtmp_gop_cache_free_frame(s, frame);
     }
 
+    cache->video_seq_header = NULL;
+    cache->audio_seq_header = NULL;
+
     cache->video_frame_in_this = 0;
     cache->audio_frame_in_this = 0;
 
@@ -356,8 +359,6 @@ ngx_rtmp_gop_cache_cleanup(ngx_rtmp_session_t *s)
         ngx_rtmp_gop_cache_free_cache(s, cache);
     }
 
-    ctx->video_seq_header = NULL;
-    ctx->audio_seq_header = NULL;
     ctx->meta = NULL;
 
     if (ctx->cache_head) {
@@ -447,9 +448,9 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
 
     // audio only
     if (ctx->video_frame_in_all == 0 && ch->type == NGX_RTMP_MSG_AUDIO) {
-            ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                    "gop cache: drop audio frame timestamp=%uD",
-                    ch->timestamp);
+        ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                       "gop cache: drop audio frame timestamp=%uD",
+                       ch->timestamp);
 
         return;
     }
@@ -461,17 +462,21 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
     }
 
     // save video seq header.
-    if (codec_ctx->avc_header && ctx->video_seq_header == NULL) {
+    if (codec_ctx->avc_header &&
+        (ctx->cache_tail && ctx->cache_tail->video_seq_header == NULL))
+    {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: video seq header is comming");
-        ctx->video_seq_header = codec_ctx->avc_header;
+                       "gop cache: add video seq header in new cache");
+        ctx->cache_tail->video_seq_header = codec_ctx->avc_header;
     }
 
     // save audio seq header.
-    if (codec_ctx->aac_header && ctx->audio_seq_header == NULL) {
+    if (codec_ctx->aac_header &&
+        (ctx->cache_tail && ctx->cache_tail->audio_seq_header == NULL))
+    {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: audio seq header is comming");
-        ctx->audio_seq_header = codec_ctx->aac_header;
+                       "gop cache: add audio seq header in new cache");
+        ctx->cache_tail->audio_seq_header = codec_ctx->aac_header;
     }
 
     // save metadata.
@@ -479,7 +484,7 @@ ngx_rtmp_gop_cache_frame(ngx_rtmp_session_t *s, ngx_uint_t prio,
         (ctx->meta == NULL || codec_ctx->meta_version != ctx->meta_version))
     {
         ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "gop cache: meta is comming");
+                       "gop cache: update meta");
         ctx->meta_version = codec_ctx->meta_version;
         ctx->meta = codec_ctx->meta;
     }
@@ -669,20 +674,23 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
             if (!cs->active) {
                 if (mandatory) {
+                    ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
+                                   "gop cache: skipping header");
+
                     continue;
                 }
 
                 switch (gf->h.type) {
                     case NGX_RTMP_MSG_VIDEO:
-                        header = gctx->video_seq_header;
+                        header = cache->video_seq_header;
                         if (lacf->interleave) {
-                            coheader = gctx->audio_seq_header;
+                            coheader = cache->audio_seq_header;
                         }
                         break;
                     default:
-                        header = gctx->audio_seq_header;
+                        header = cache->audio_seq_header;
                         if (lacf->interleave) {
-                            coheader = gctx->video_seq_header;
+                            coheader = cache->video_seq_header;
                         }
                 }
 
@@ -850,8 +858,8 @@ ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_gop_cache_module);
     if (ctx == NULL) {
-        ctx = ngx_palloc(s->connection->pool,
-                         sizeof(ngx_rtmp_gop_cache_ctx_t));
+        ctx = ngx_pcalloc(s->connection->pool,
+                          sizeof(ngx_rtmp_gop_cache_ctx_t));
         if (ctx == NULL) {
             ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                           "gop cache publish: failed to allocate for ctx");
@@ -859,18 +867,13 @@ ngx_rtmp_gop_cache_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
             return NGX_ERROR;
         }
 
-        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_gop_cache_module);
-    }
-
-    ngx_memzero(ctx, sizeof(*ctx));
-
-    if (ctx->pool == NULL) {
         ctx->pool = ngx_create_pool(NGX_GOP_CACHE_POOL_CREATE_SIZE,
                                     s->connection->log);
-
         if (ctx->pool == NULL) {
             return NGX_ERROR;
         }
+
+        ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_gop_cache_module);
     }
 
 next:

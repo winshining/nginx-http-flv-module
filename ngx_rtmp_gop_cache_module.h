@@ -27,6 +27,10 @@ struct ngx_rtmp_gop_cache_s {
     ngx_rtmp_gop_frame_t  *frame_head;
     ngx_rtmp_gop_frame_t  *frame_tail;
     ngx_rtmp_gop_cache_t  *next;
+
+    ngx_chain_t           *video_seq_header;
+    ngx_chain_t           *audio_seq_header;
+
     ngx_int_t              video_frame_in_this;
     ngx_int_t              audio_frame_in_this;
 };
@@ -48,8 +52,6 @@ typedef struct ngx_rtmp_gop_cache_ctx_s {
     ngx_rtmp_gop_cache_t       *free_cache;
     ngx_rtmp_gop_frame_t       *free_frame;
 
-    ngx_chain_t                *video_seq_header;
-    ngx_chain_t                *audio_seq_header;
     ngx_chain_t                *meta;
     ngx_chain_t                *free;
     
