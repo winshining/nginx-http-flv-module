@@ -631,16 +631,14 @@ ngx_rtmp_gop_cache_send(ngx_rtmp_session_t *s)
 
         meta = NULL;
 
-        if (cache->meta) {
-            if (meta_version != cache->meta_version) {
-                meta = handler->meta_message_pt(s, cache->meta);
-                if (meta == NULL) {
-                    ngx_rtmp_finalize_session(s);
-                    return;
-                }
-
-                meta_version = cache->meta_version;
+        if (cache->meta && meta_version != cache->meta_version) {
+            meta = handler->meta_message_pt(s, cache->meta);
+            if (meta == NULL) {
+                ngx_rtmp_finalize_session(s);
+                return;
             }
+
+            meta_version = cache->meta_version;
         }
 
         /* send metadata */
