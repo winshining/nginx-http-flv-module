@@ -517,7 +517,10 @@ static ngx_int_t
 ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
 {
     ngx_str_t                 value;
-    ngx_uint_t                i, safe_status;
+    ngx_uint_t                i;
+#if (nginx_version >= 1007005)
+    ngx_uint_t                safe_status;
+#endif
     ngx_http_header_val_t    *h;
     ngx_http_headers_conf_t  *conf;
     ngx_http_request_t       *r;
@@ -533,6 +536,7 @@ ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
         return ngx_http_flv_live_header_filter(s);
     }
 
+#if (nginx_version >= 1007005)
     switch (r->headers_out.status) {
 
     case NGX_HTTP_OK:
@@ -550,6 +554,7 @@ ngx_http_flv_live_headers_filter(ngx_rtmp_session_t *s)
     default:
         safe_status = 0;
     }
+#endif
 
     if (conf->headers) {
         h = conf->headers->elts;
