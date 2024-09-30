@@ -5,38 +5,41 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  schedule:
+    # Schedule for testing with the latest NGINX to run at 00:00 on the first day of every month
+    - cron: '0 0 1 * *'
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
-
-    env:
-      NGINX_VERSION: nginx-1.22.1
-
+    strategy:
+      max-parallel: 2
+      matrix:
+        nginx-branch: [stable, mainline]
     steps:
-    - uses: actions/checkout@v3
-    - name: download nginx
-      working-directory: ../
-      run: wget https://nginx.org/download/${{env.NGINX_VERSION}}.tar.gz
-    - name: uncompress nginx
-      working-directory: ../
-      run: tar zxvf ${{env.NGINX_VERSION}}.tar.gz
-    - name: configure (build into nginx)
-      working-directory: ../${{env.NGINX_VERSION}}
-      run: ./configure --add-module=../nginx-http-flv-module
-    - name: make
-      working-directory: ../${{env.NGINX_VERSION}}
-      run: make
-    - name: clean
-      working-directory: ../${{env.NGINX_VERSION}}
-      run: make clean
-    - name: configure (build as a dynamic module)
-      working-directory: ../${{env.NGINX_VERSION}}
-      run: ./configure --add-dynamic-module=../nginx-http-flv-module
-    - name: make
-      working-directory: ../${{env.NGINX_VERSION}}
-      run: make
-    - name: remove
-      working-directory: ../
-      run: rm -rf "${{env.NGINX_VERSION}}*"
+      - uses: actions/checkout@v3
+
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get --yes update
+          sudo apt-get install --yes libpcre3-dev libssl-dev perl cpanminus
+
+      - name: Create NGINX download directory
+        run: mkdir nginx
+
+      - name: Download ${{ matrix.nginx-branch }} NGINX
+        uses: dvershinin/lastversion-action@v0.0.3
+        with:
+          repository: 'nginx'
+          action: 'unzip'
+          branch: ${{ matrix.nginx-branch }}
+          working_directory: ./nginx
+
+      - name: Configure NGINX to compile with the module dynamically
+        run: |
+          cd nginx && ./configure --with-debug --add-dynamic-module=..
+
+      - name: Make NGINX module
+        run: |
+          cd nginx && make -j$(nproc) modules
