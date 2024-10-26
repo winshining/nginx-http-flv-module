@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Roman Arutyunyan
+ * Copyright (C) Winshining 
  */
 
 
@@ -485,6 +486,11 @@ ngx_rtmp_auto_push_reconnect(ngx_event_t *ev)
     ngx_memzero(&at, sizeof(at));
     ngx_str_set(&at.page_url, "nginx-auto-push");
     at.tag = &ngx_rtmp_auto_push_module;
+
+    if (s->app.len) {
+        at.app.data = s->app.data;
+        at.app.len = s->app.len;
+    }
 
     if (ctx->args[0]) {
         at.play_path.data = play_path;
