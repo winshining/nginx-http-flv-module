@@ -495,6 +495,13 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
     c = pc->connection;
     c->pool = pool;
 
+    ngx_str_set(&c->addr_text, "ngx-relay");
+
+    addr_conf = ngx_pcalloc(pool, sizeof(ngx_rtmp_addr_conf_t));
+    if (addr_conf == NULL) {
+        goto clear;
+    }
+
     if (addr->sockaddr->sa_family != AF_UNIX) {
         len = ngx_sock_ntop(pc->sockaddr,
 #if (nginx_version >= 1005003)
@@ -502,35 +509,32 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
 #endif
                             buf, NGX_SOCKADDR_STRLEN, 0);
 
-        c->addr_text.data = ngx_pcalloc(pool, len);
-        if (c->addr_text.data == NULL) {
+        addr_conf->addr_text.data = ngx_pcalloc(pool, len);
+        if (addr_conf->addr_text.data == NULL) {
             ngx_log_error(NGX_LOG_ERR, racf->log, 0,
                           "relay: allocation for address failed");
             goto clear;
         }
 
-        c->addr_text.len = len;
-        ngx_memcpy(c->addr_text.data, buf, len);
+        addr_conf->addr_text.len = len;
+        ngx_memcpy(addr_conf->addr_text.data, buf, len);
     }
 
 #if (NGX_HAVE_UNIX_DOMAIN)
     if (addr->sockaddr->sa_family == AF_UNIX) {
-        c->addr_text.len = target->url.host.len;
-        c->addr_text.data = ngx_pcalloc(pool, c->addr_text.len);
-        if (c->addr_text.data == NULL) {
+        addr_conf->addr_text.len = target->url.host.len;
+        addr_conf->addr_text.data = ngx_pcalloc(pool,
+                                                addr_conf->addr_text.len);
+        if (addr_conf->addr_text.data == NULL) {
             ngx_log_error(NGX_LOG_ERR, racf->log, 0,
                           "relay: allocation for unix address failed");
             goto clear;
         }
 
-        ngx_memcpy(c->addr_text.data, target->url.host.data, c->addr_text.len);
+        ngx_memcpy(addr_conf->addr_text.data, target->url.host.data,
+                   addr_conf->addr_text.len);
     }
 #endif
-
-    addr_conf = ngx_pcalloc(pool, sizeof(ngx_rtmp_addr_conf_t));
-    if (addr_conf == NULL) {
-        goto clear;
-    }
 
     addr_conf->default_server = ngx_pcalloc(pool,
                                             sizeof(ngx_rtmp_core_srv_conf_t));
@@ -546,7 +550,6 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
     addr_conf->default_server->ctx = addr_ctx;
     addr_ctx->main_conf = cctx->main_conf;
     addr_ctx->srv_conf  = cctx->srv_conf;
-    ngx_str_set(&addr_conf->addr_text, "ngx-relay");
 
     rs = ngx_rtmp_init_session(c, addr_conf);
     if (rs == NULL) {
