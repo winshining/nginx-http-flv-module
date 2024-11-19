@@ -435,8 +435,9 @@ ngx_rtmp_live_set_status(ngx_rtmp_session_t *s, ngx_chain_t *control,
 
         for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
             if (pctx->publishing == 0) {
+                pctx->session->publisher = s;
+
                 if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
-                    pctx->session->publisher = s;
                     ngx_http_flv_live_set_status(pctx->session, active);
                 } else {
                     ngx_rtmp_live_set_status(pctx->session, control, status,
