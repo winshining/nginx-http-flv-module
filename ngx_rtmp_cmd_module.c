@@ -236,10 +236,12 @@ ngx_rtmp_cmd_connect_init(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 static ngx_int_t
 ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
 {
+    int                         tcp_nodelay;
     ngx_rtmp_core_srv_conf_t   *cscf;
-    ngx_rtmp_core_app_conf_t  **cacfp;
+    ngx_rtmp_core_app_conf_t  **cacfp, *cacf;
     ngx_uint_t                  n;
     ngx_rtmp_header_t           h;
+    ngx_connection_t           *c;
     u_char                     *p;
 
     static double               trans;
@@ -360,6 +362,32 @@ ngx_rtmp_cmd_connect(ngx_rtmp_session_t *s, ngx_rtmp_connect_t *v)
     }
 
     object_encoding = v->object_encoding;
+    
+    if (s->data == NULL) {
+        cacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_core_module);
+        c = s->connection;
+
+        if (!cacf->tcp_nopush) {
+            c->tcp_nopush = NGX_TCP_NOPUSH_DISABLED;
+        }
+
+        if (c->tcp_nopush == NGX_TCP_NOPUSH_SET) {
+            if (ngx_tcp_push(c->fd) == -1) {
+                ngx_connection_error(c, ngx_socket_errno,
+                                     ngx_tcp_push_n " failed");
+                return NGX_ERROR;
+            }
+
+            c->tcp_nopush = NGX_TCP_NOPUSH_UNSET;
+            tcp_nodelay = ngx_tcp_nodelay_and_tcp_nopush ? 1 : 0;
+        } else {
+            tcp_nodelay = 1;
+        }
+
+        if (tcp_nodelay && cacf->tcp_nodelay && ngx_tcp_nodelay(c) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
 
     return ngx_rtmp_send_ack_size(s, cscf->ack_window) != NGX_OK ||
            ngx_rtmp_send_bandwidth(s, cscf->ack_window,

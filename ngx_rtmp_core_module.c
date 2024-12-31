@@ -191,6 +191,20 @@ static ngx_command_t  ngx_rtmp_core_commands[] = {
       offsetof(ngx_rtmp_core_srv_conf_t, buflen),
       NULL },
 
+    { ngx_string("tcp_nopush"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, tcp_nopush),
+      NULL },
+
+    { ngx_string("tcp_nodelay"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_core_app_conf_t, tcp_nodelay),
+      NULL },
+
     { ngx_string("send_timeout"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
@@ -485,6 +499,8 @@ ngx_rtmp_core_create_app_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    conf->tcp_nopush = NGX_CONF_UNSET;
+    conf->tcp_nodelay = NGX_CONF_UNSET;
     conf->send_timeout = NGX_CONF_UNSET_MSEC;
     conf->send_lowat = NGX_CONF_UNSET_SIZE;
     conf->resolver_timeout = NGX_CONF_UNSET_MSEC;
@@ -498,6 +514,9 @@ ngx_rtmp_core_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_rtmp_core_app_conf_t *prev = parent;
     ngx_rtmp_core_app_conf_t *conf = child;
+
+    ngx_conf_merge_value(conf->tcp_nopush, prev->tcp_nopush, 0);
+    ngx_conf_merge_value(conf->tcp_nodelay, prev->tcp_nodelay, 1);
 
     ngx_conf_merge_msec_value(conf->send_timeout, prev->send_timeout, 60000);
     ngx_conf_merge_size_value(conf->send_lowat, prev->send_lowat, 0);

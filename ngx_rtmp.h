@@ -524,6 +524,9 @@ typedef struct {
     ngx_msec_t              resolver_timeout;
 
     ngx_resolver_t         *resolver;
+
+    ngx_flag_t              tcp_nopush;
+    ngx_flag_t              tcp_nodelay;
 } ngx_rtmp_core_app_conf_t;
 
 
