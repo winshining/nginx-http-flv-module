@@ -478,7 +478,16 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
     pc->log = &rctx->log;
     pc->get = ngx_rtmp_relay_get_peer;
     pc->free = ngx_rtmp_relay_free_peer;
-    pc->name = &addr->name;
+
+    pc->name = ngx_palloc(pool, sizeof(ngx_str_t) + addr->name.len);
+    if (pc->name == NULL) {
+        goto clear;
+    }
+
+    pc->name->len = addr->name.len;
+    pc->name->data = (u_char *) pc->name + sizeof(ngx_str_t);
+    ngx_memcpy(pc->name->data, addr->name.data, addr->name.len);
+
     pc->socklen = addr->socklen;
     pc->sockaddr = (struct sockaddr *)ngx_palloc(pool, pc->socklen);
     if (pc->sockaddr == NULL) {
@@ -502,24 +511,6 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
         goto clear;
     }
 
-    if (addr->sockaddr->sa_family != AF_UNIX) {
-        len = ngx_sock_ntop(pc->sockaddr,
-#if (nginx_version >= 1005003)
-                            pc->socklen,
-#endif
-                            buf, NGX_SOCKADDR_STRLEN, 0);
-
-        addr_conf->addr_text.data = ngx_pcalloc(pool, len);
-        if (addr_conf->addr_text.data == NULL) {
-            ngx_log_error(NGX_LOG_ERR, racf->log, 0,
-                          "relay: allocation for address failed");
-            goto clear;
-        }
-
-        addr_conf->addr_text.len = len;
-        ngx_memcpy(addr_conf->addr_text.data, buf, len);
-    }
-
 #if (NGX_HAVE_UNIX_DOMAIN)
     if (addr->sockaddr->sa_family == AF_UNIX) {
         addr_conf->addr_text.len = target->url.host.len;
@@ -533,8 +524,25 @@ ngx_rtmp_relay_create_connection(ngx_rtmp_conf_ctx_t *cctx, ngx_str_t *name,
 
         ngx_memcpy(addr_conf->addr_text.data, target->url.host.data,
                    addr_conf->addr_text.len);
-    }
+    } else
 #endif
+    {
+        len = ngx_sock_ntop(pc->sockaddr,
+#if (nginx_version >= 1005003)
+                            pc->socklen,
+#endif
+                            buf, NGX_SOCKADDR_STRLEN, 1);
+
+        addr_conf->addr_text.data = ngx_pcalloc(pool, len);
+        if (addr_conf->addr_text.data == NULL) {
+            ngx_log_error(NGX_LOG_ERR, racf->log, 0,
+                          "relay: allocation for address failed");
+            goto clear;
+        }
+
+        addr_conf->addr_text.len = len;
+        ngx_memcpy(addr_conf->addr_text.data, buf, len);
+    }
 
     addr_conf->default_server = ngx_pcalloc(pool,
                                             sizeof(ngx_rtmp_core_srv_conf_t));
@@ -592,6 +600,7 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
 
     rctx = NULL;
     save = target->url;
+    ngx_memzero(&url, sizeof(ngx_str_t));
 
     if(ngx_strlchr(target->url.url.data,
                    target->url.url.data + target->url.url.len, '$'))
@@ -628,6 +637,10 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
 
 error:
     target->url = save;
+    if (url.len) {
+        ngx_free(url.data);
+	ngx_memzero(&url, sizeof(ngx_str_t));
+    }
 
     return rctx;
 }

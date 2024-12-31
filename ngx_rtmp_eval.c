@@ -61,10 +61,14 @@ ngx_rtmp_eval_t ngx_rtmp_eval_session[] = {
 static void
 ngx_rtmp_eval_append(ngx_buf_t *b, void *data, size_t len, ngx_log_t *log)
 {
-    size_t  buf_len;
+    size_t   buf_len;
+    u_char  *old;
 
     if (b->last + len > b->end) {
-        buf_len = 2 * (b->last - b->pos) + len;
+        buf_len = (2 * (b->last - b->pos) + len +
+                   NGX_RTMP_EVAL_BUFLEN - 1) & ~(NGX_RTMP_EVAL_BUFLEN - 1);
+
+        old = b->start;
 
         b->start = ngx_alloc(buf_len, log);
         if (b->start == NULL) {
@@ -74,6 +78,8 @@ ngx_rtmp_eval_append(ngx_buf_t *b, void *data, size_t len, ngx_log_t *log)
         b->last = ngx_cpymem(b->start, b->pos, b->last - b->pos);
         b->pos = b->start;
         b->end = b->start + buf_len;
+
+        ngx_free(old);
     }
 
     b->last = ngx_cpymem(b->last, data, len);
