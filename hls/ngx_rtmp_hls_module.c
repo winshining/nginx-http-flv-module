@@ -31,7 +31,7 @@ static ngx_int_t ngx_rtmp_hls_ensure_directory(ngx_rtmp_session_t *s,
 
 
 #define NGX_RTMP_HLS_BUFSIZE            (1024*1024)
-#define NGX_RTMP_HLS_DIR_ACCESS         0744
+#define NGX_RTMP_HLS_DEFAULT_DIR_ACCESS 0744
 
 
 typedef struct {
@@ -115,6 +115,8 @@ typedef struct {
     ngx_str_t                           key_path;
     ngx_str_t                           key_url;
     ngx_uint_t                          frags_per_key;
+    ngx_uint_t                          dir_access;
+    ngx_str_t                           nested_index_filename;
 } ngx_rtmp_hls_app_conf_t;
 
 
@@ -309,6 +311,20 @@ static ngx_command_t ngx_rtmp_hls_commands[] = {
       offsetof(ngx_rtmp_hls_app_conf_t, frags_per_key),
       NULL },
 
+    { ngx_string("hls_dir_access"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_hls_app_conf_t, dir_access),
+      NULL },
+
+    { ngx_string("hls_nested_index_filename"),
+      NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_RTMP_APP_CONF_OFFSET,
+      offsetof(ngx_rtmp_hls_app_conf_t, nested_index_filename),
+      NULL },
+
     ngx_null_command
 };
 
@@ -450,7 +466,7 @@ ngx_rtmp_hls_write_variant_playlist(ngx_rtmp_session_t *s)
                          ctx->name.len - ctx->var->suffix.len, ctx->name.data,
                          &var->suffix);
         if (hacf->nested) {
-            p = ngx_slprintf(p, last, "%s", "/index");
+	    p = ngx_slprintf(p, last, "/%V", &hacf->nested_index_filename);
         }
 
         p = ngx_slprintf(p, last, "%s", ".m3u8\n");
@@ -1202,7 +1218,7 @@ ngx_rtmp_hls_ensure_directory(ngx_rtmp_session_t *s, ngx_str_t *path)
 
         /* ENOENT */
 
-        if (ngx_create_dir(zpath, NGX_RTMP_HLS_DIR_ACCESS) == NGX_FILE_ERROR) {
+        if (ngx_create_dir(zpath, hacf->dir_access) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
                           "hls: " ngx_create_dir_n " failed on '%V'", path);
             return NGX_ERROR;
@@ -1264,7 +1280,7 @@ ngx_rtmp_hls_ensure_directory(ngx_rtmp_session_t *s, ngx_str_t *path)
 
     /* NGX_ENOENT */
 
-    if (ngx_create_dir(zpath, NGX_RTMP_HLS_DIR_ACCESS) == NGX_FILE_ERROR) {
+    if (ngx_create_dir(zpath, hacf->dir_access) == NGX_FILE_ERROR) {
         ngx_log_error(NGX_LOG_ERR, s->connection->log, ngx_errno,
                       "hls: " ngx_create_dir_n " failed on '%s'", zpath);
         return NGX_ERROR;
@@ -1350,7 +1366,7 @@ ngx_rtmp_hls_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     len = hacf->path.len + 1 + ctx->name.len + sizeof(".m3u8");
     if (hacf->nested) {
-        len += sizeof("/index") - 1;
+	len += hacf->nested_index_filename.len + 1;
     }
 
     ctx->playlist.data = ngx_palloc(s->connection->pool, len);
@@ -1421,10 +1437,10 @@ ngx_rtmp_hls_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     /* playlist path */
 
     if (hacf->nested) {
-        p = ngx_cpymem(p, "/index.m3u8", sizeof("/index.m3u8") - 1);
-    } else {
-        p = ngx_cpymem(p, ".m3u8", sizeof(".m3u8") - 1);
+        p = ngx_cpymem(p, "/", sizeof("/") - 1);
+	p = ngx_cpymem(p, hacf->nested_index_filename.data, hacf->nested_index_filename.len);
     }
+    p = ngx_cpymem(p, ".m3u8", sizeof(".m3u8") - 1);
 
     ctx->playlist.len = p - ctx->playlist.data;
 
@@ -2350,6 +2366,7 @@ ngx_rtmp_hls_create_app_conf(ngx_conf_t *cf)
     conf->granularity = NGX_CONF_UNSET;
     conf->keys = NGX_CONF_UNSET;
     conf->frags_per_key = NGX_CONF_UNSET_UINT;
+    conf->dir_access = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -2388,6 +2405,8 @@ ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     /*ngx_conf_merge_str_value(conf->key_path, prev->key_path, "");*/
     ngx_conf_merge_str_value(conf->key_url, prev->key_url, "");
     ngx_conf_merge_uint_value(conf->frags_per_key, prev->frags_per_key, 0);
+    ngx_conf_merge_uint_value(conf->dir_access, prev->dir_access, NGX_RTMP_HLS_DEFAULT_DIR_ACCESS);
+    ngx_conf_merge_str_value(conf->nested_index_filename, prev->nested_index_filename, "index");
 
     if (conf->fraglen) {
         conf->winfrags = conf->playlen / conf->fraglen;
