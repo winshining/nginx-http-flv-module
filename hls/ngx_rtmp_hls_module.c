@@ -28,6 +28,7 @@ static char * ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf,
 static ngx_int_t ngx_rtmp_hls_flush_audio(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_hls_ensure_directory(ngx_rtmp_session_t *s,
        ngx_str_t *path);
+char * ngx_http_flv_set_permissions_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 #define NGX_RTMP_HLS_BUFSIZE            (1024*1024)
@@ -313,7 +314,7 @@ static ngx_command_t ngx_rtmp_hls_commands[] = {
 
     { ngx_string("hls_dir_access"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_http_flv_set_permissions_slot,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_hls_app_conf_t, dir_access),
       NULL },
@@ -2333,6 +2334,49 @@ ngx_rtmp_hls_variant(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     for (n = 2; n < cf->args->nelts; n++) {
         *arg++ = value[n];
+    }
+
+    return NGX_CONF_OK;
+}
+
+char *
+ngx_http_flv_set_permissions_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_int_t        *np;
+    ngx_str_t        *value;
+    ngx_conf_post_t  *post;
+    ngx_uint_t       i;
+    ngx_uint_t       f;
+
+    np = (ngx_int_t *) (p + cmd->offset);
+
+    if (*np != NGX_CONF_UNSET) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+    if (value[1].data[0] != '0') {
+        return "invalid octal : should start with 0";
+    }
+    if (value[1].len != 4) {
+        return "invalid permission mask : should be exactly 4 characters long";
+    }
+    *np = 0;
+    f = 64;
+
+    for (i = 1; i < value[1].len; i++) {
+        if (value[1].data[i] < '0' || value[1].data[i] > '7') {
+	    return "invalid octal number";
+	}
+	*np += (value[1].data[i] - '0') * f;
+	f /= 8;
+    }
+
+    if (cmd->post) {
+        post = cmd->post;
+        return post->post_handler(cf, post, np);
     }
 
     return NGX_CONF_OK;
