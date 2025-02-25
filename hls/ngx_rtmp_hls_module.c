@@ -19,16 +19,17 @@ static ngx_rtmp_stream_begin_pt         next_stream_begin;
 static ngx_rtmp_stream_eof_pt           next_stream_eof;
 
 
-static char * ngx_rtmp_hls_variant(ngx_conf_t *cf, ngx_command_t *cmd,
+static char *ngx_rtmp_hls_variant(ngx_conf_t *cf, ngx_command_t *cmd,
        void *conf);
 static ngx_int_t ngx_rtmp_hls_postconfiguration(ngx_conf_t *cf);
-static void * ngx_rtmp_hls_create_app_conf(ngx_conf_t *cf);
-static char * ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf,
+static void *ngx_rtmp_hls_create_app_conf(ngx_conf_t *cf);
+static char *ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf,
        void *parent, void *child);
 static ngx_int_t ngx_rtmp_hls_flush_audio(ngx_rtmp_session_t *s);
 static ngx_int_t ngx_rtmp_hls_ensure_directory(ngx_rtmp_session_t *s,
        ngx_str_t *path);
-char * ngx_http_flv_set_permissions_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_rtmp_hls_set_permissions(ngx_conf_t *cf, ngx_command_t *cmd,
+       void *conf);
 
 
 #define NGX_RTMP_HLS_BUFSIZE            (1024*1024)
@@ -314,7 +315,7 @@ static ngx_command_t ngx_rtmp_hls_commands[] = {
 
     { ngx_string("hls_dir_access"),
       NGX_RTMP_MAIN_CONF|NGX_RTMP_SRV_CONF|NGX_RTMP_APP_CONF|NGX_CONF_TAKE1,
-      ngx_http_flv_set_permissions_slot,
+      ngx_rtmp_hls_set_permissions,
       NGX_RTMP_APP_CONF_OFFSET,
       offsetof(ngx_rtmp_hls_app_conf_t, dir_access),
       NULL },
@@ -467,7 +468,7 @@ ngx_rtmp_hls_write_variant_playlist(ngx_rtmp_session_t *s)
                          ctx->name.len - ctx->var->suffix.len, ctx->name.data,
                          &var->suffix);
         if (hacf->nested) {
-	    p = ngx_slprintf(p, last, "/%V", &hacf->nested_index_filename);
+            p = ngx_slprintf(p, last, "/%V", &hacf->nested_index_filename);
         }
 
         p = ngx_slprintf(p, last, "%s", ".m3u8\n");
@@ -1367,7 +1368,7 @@ ngx_rtmp_hls_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     len = hacf->path.len + 1 + ctx->name.len + sizeof(".m3u8");
     if (hacf->nested) {
-	len += hacf->nested_index_filename.len + 1;
+        len += hacf->nested_index_filename.len + 1;
     }
 
     ctx->playlist.data = ngx_palloc(s->connection->pool, len);
@@ -1439,8 +1440,10 @@ ngx_rtmp_hls_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     if (hacf->nested) {
         p = ngx_cpymem(p, "/", sizeof("/") - 1);
-	p = ngx_cpymem(p, hacf->nested_index_filename.data, hacf->nested_index_filename.len);
+        p = ngx_cpymem(p, hacf->nested_index_filename.data,
+                       hacf->nested_index_filename.len);
     }
+
     p = ngx_cpymem(p, ".m3u8", sizeof(".m3u8") - 1);
 
     ctx->playlist.len = p - ctx->playlist.data;
@@ -2339,44 +2342,47 @@ ngx_rtmp_hls_variant(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-char *
-ngx_http_flv_set_permissions_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+
+static char *
+ngx_rtmp_hls_set_permissions(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char  *p = conf;
+    ngx_rtmp_hls_app_conf_t  *hacf = conf;
 
-    ngx_int_t        *np;
+    size_t            i;
+    ngx_uint_t        f, base, step;
     ngx_str_t        *value;
-    ngx_conf_post_t  *post;
-    ngx_uint_t       i;
-    ngx_uint_t       f;
 
-    np = (ngx_int_t *) (p + cmd->offset);
-
-    if (*np != NGX_CONF_UNSET) {
+    if (hacf->dir_access != NGX_CONF_UNSET_UINT) {
         return "is duplicate";
     }
 
     value = cf->args->elts;
     if (value[1].data[0] != '0') {
-        return "invalid octal : should start with 0";
+        return "invalid octal: should start with 0";
     }
+
     if (value[1].len != 4) {
-        return "invalid permission mask : should be exactly 4 characters long";
+        return "invalid permission mask: should be exactly 4 characters long";
     }
-    *np = 0;
-    f = 64;
+
+    hacf->dir_access = 0;
+    f = 1;
+
+    for (base = 8, step = 0; base != 1; base >>= 1) {
+        step++;
+    }
+
+    for (i = value[1].len - 2; i >= 1; i--) {
+        f <<= step;
+    }
 
     for (i = 1; i < value[1].len; i++) {
         if (value[1].data[i] < '0' || value[1].data[i] > '7') {
-	    return "invalid octal number";
-	}
-	*np += (value[1].data[i] - '0') * f;
-	f /= 8;
-    }
+            return "invalid octal number";
+        }
 
-    if (cmd->post) {
-        post = cmd->post;
-        return post->post_handler(cf, post, np);
+        hacf->dir_access += (value[1].data[i] - '0') * f;
+        f >>= step;
     }
 
     return NGX_CONF_OK;
@@ -2446,11 +2452,12 @@ ngx_rtmp_hls_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->base_url, prev->base_url, "");
     ngx_conf_merge_value(conf->granularity, prev->granularity, 0);
     ngx_conf_merge_value(conf->keys, prev->keys, 0);
-    /*ngx_conf_merge_str_value(conf->key_path, prev->key_path, "");*/
     ngx_conf_merge_str_value(conf->key_url, prev->key_url, "");
     ngx_conf_merge_uint_value(conf->frags_per_key, prev->frags_per_key, 0);
-    ngx_conf_merge_uint_value(conf->dir_access, prev->dir_access, NGX_RTMP_HLS_DEFAULT_DIR_ACCESS);
-    ngx_conf_merge_str_value(conf->nested_index_filename, prev->nested_index_filename, "index");
+    ngx_conf_merge_uint_value(conf->dir_access, prev->dir_access,
+                              NGX_RTMP_HLS_DEFAULT_DIR_ACCESS);
+    ngx_conf_merge_str_value(conf->nested_index_filename,
+                             prev->nested_index_filename, "index");
 
     if (conf->fraglen) {
         conf->winfrags = conf->playlen / conf->fraglen;
