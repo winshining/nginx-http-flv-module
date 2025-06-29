@@ -891,6 +891,10 @@ ngx_rtmp_dash_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     }
 
     ctx->playlist.data = ngx_palloc(s->connection->pool, len);
+    if (ctx->playlist.data == NULL) {
+        return NGX_ERROR;
+    }
+
     p = ngx_cpymem(ctx->playlist.data, dacf->path.data, dacf->path.len);
 
     if (p[-1] != '/') {
@@ -909,6 +913,9 @@ ngx_rtmp_dash_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
     ctx->stream.data = ngx_palloc(s->connection->pool,
                                   ctx->stream.len + NGX_INT32_LEN +
                                   sizeof(".m4x"));
+    if (ctx->stream.data == NULL) {
+        return NGX_ERROR;
+    }
 
     ngx_memcpy(ctx->stream.data, ctx->playlist.data, ctx->stream.len - 1);
     ctx->stream.data[ctx->stream.len - 1] = (dacf->nested ? '/' : '-');
@@ -927,6 +934,10 @@ ngx_rtmp_dash_publish(ngx_rtmp_session_t *s, ngx_rtmp_publish_t *v)
 
     ctx->playlist_bak.data = ngx_palloc(s->connection->pool,
                                         ctx->playlist.len + sizeof(".bak"));
+    if (ctx->playlist_bak.data == NULL) {
+        return NGX_ERROR;
+    }
+
     p = ngx_cpymem(ctx->playlist_bak.data, ctx->playlist.data,
                    ctx->playlist.len);
     p = ngx_cpymem(p, ".bak", sizeof(".bak") - 1);

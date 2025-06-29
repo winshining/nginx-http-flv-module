@@ -456,7 +456,11 @@ ngx_rtmp_init_event_handlers(ngx_conf_t *cf, ngx_rtmp_core_main_conf_t *cmcf)
     *eh = ngx_rtmp_aggregate_message_handler;
 
     /* init amf callbacks */
-    ngx_array_init(&cmcf->amf_arrays, cf->pool, 1, sizeof(ngx_hash_key_t));
+    if (ngx_array_init(&cmcf->amf_arrays, cf->pool,
+                       1, sizeof(ngx_hash_key_t)) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
 
     h = cmcf->amf.elts;
     for(n = 0; n < cmcf->amf.nelts; ++n, ++h) {
@@ -1342,6 +1346,10 @@ ngx_rtmp_set_virtual_server(ngx_rtmp_session_t *s, ngx_str_t *host)
                     * ((ngx_rtmp_core_srv_conf_t *)
                         cscf->ctx->srv_conf[ngx_rtmp_core_module
                             .ctx_index])->out_queue);
+        if (s->out == NULL) {
+            ngx_rtmp_finalize_session(s);
+            return NGX_ERROR;
+        }
 
         s->out_queue = cscf->out_queue;
     }

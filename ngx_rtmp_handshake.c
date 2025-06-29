@@ -321,6 +321,12 @@ ngx_rtmp_handshake_parse_challenge(ngx_rtmp_session_t *s,
     b->pos += offs;
     b->last = b->pos + NGX_RTMP_HANDSHAKE_KEYLEN;
     s->hs_digest = ngx_palloc(s->connection->pool, NGX_RTMP_HANDSHAKE_KEYLEN);
+    if (s->hs_digest == NULL) {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "handshake: failed to allocate for digest");
+        return NGX_ERROR;
+    }
+
     if (ngx_rtmp_make_digest(key, b, NULL, s->hs_digest, s->connection->log)
             != NGX_OK)
     {

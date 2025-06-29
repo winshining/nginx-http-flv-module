@@ -300,6 +300,9 @@ ngx_rtmp_live_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     conf->streams = ngx_pcalloc(cf->pool,
             sizeof(ngx_rtmp_live_stream_t *) * conf->nbuckets);
+    if (conf->streams == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     return NGX_CONF_OK;
 }
@@ -360,6 +363,11 @@ ngx_rtmp_live_get_stream(ngx_rtmp_session_t *s, u_char *name, int create)
         lacf->free_streams = lacf->free_streams->next;
     } else {
         *stream = ngx_palloc(lacf->pool, sizeof(ngx_rtmp_live_stream_t));
+        if (*stream == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "live: failed to allocate for stream");
+            return NULL;
+        }
     }
     ngx_memzero(*stream, sizeof(ngx_rtmp_live_stream_t));
     ngx_memcpy((*stream)->name, name,
@@ -624,8 +632,22 @@ ngx_rtmp_live_join(ngx_rtmp_session_t *s, u_char *name, unsigned publisher)
     if (ctx == NULL) {
         ctx = ngx_palloc(s->connection->pool, sizeof(ngx_rtmp_live_ctx_t));
         if (ctx == NULL) {
-            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                          "live: failed to allocate for ctx");
+            if (publisher) {
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                              "live: failed to allocate for publish ctx");
+
+                ngx_rtmp_send_status(s, "NetStream.Publish.Failed", "error",
+                                     "Failed to allocate memory");
+            } else {
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                              "live: failed to allocate for play ctx");
+
+                ngx_rtmp_send_status(s, "NetStream.Play.Failed", "error",
+                                     "Failed to allocate memory");
+            }
+
+            ngx_rtmp_finalize_session(s);
+
             return;
         }
 
@@ -1429,22 +1451,27 @@ ngx_rtmp_live_on_fcpublish(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
-        ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                        "live: FCPublish - no live config!");
         return NGX_ERROR;
     }
 
     if (!lacf->live || in == NULL || in->buf == NULL) {
-        ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                        "live: FCPublish - no live or no buffer!");
         return NGX_OK;
     }
 
     ngx_memzero(&v, sizeof(v));
-    ngx_rtmp_receive_amf(s, in, in_elts,
-            sizeof(in_elts) / sizeof(in_elts[0]));
+    if (ngx_rtmp_receive_amf(s, in, in_elts,
+            sizeof(in_elts) / sizeof(in_elts[0])))
+    {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "live: FCPublish - error receiving amf data");
+        return NGX_ERROR;
+    }
 
-    ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "live: onFCPublish: stream='%s'", v.stream);
 
     return ngx_rtmp_send_fcpublish(s, v.stream);
@@ -1480,22 +1507,27 @@ ngx_rtmp_live_on_fcunpublish(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     lacf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_live_module);
     if (lacf == NULL) {
-        ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                        "live: FCUnpublish - no live config!");
         return NGX_ERROR;
     }
 
     if (!lacf->live || in == NULL || in->buf == NULL) {
-        ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+        ngx_log_debug0(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                        "live: FCUnpublish - no live or no buffer!");
         return NGX_OK;
     }
 
     ngx_memzero(&v, sizeof(v));
-    ngx_rtmp_receive_amf(s, in, in_elts,
-            sizeof(in_elts) / sizeof(in_elts[0]));
+    if (ngx_rtmp_receive_amf(s, in, in_elts,
+            sizeof(in_elts) / sizeof(in_elts[0])))
+    {
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                      "live: FCUnpublish - error receiving amf data");
+        return NGX_ERROR;
+    }
 
-    ngx_log_error(NGX_LOG_DEBUG, s->connection->log, 0,
+    ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
             "live: onFCUnpublish: stream='%s'", v.stream);
 
     return ngx_rtmp_send_fcunpublish(s, v.stream);

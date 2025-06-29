@@ -222,6 +222,9 @@ ngx_rtmp_relay_merge_app_conf(ngx_conf_t *cf, void *parent, void *child)
 
     conf->ctx = ngx_pcalloc(cf->pool, sizeof(ngx_rtmp_relay_ctx_t *)
             * conf->nbuckets);
+    if (conf->ctx == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     ngx_conf_merge_value(conf->session_relay, prev->session_relay, 0);
     ngx_conf_merge_msec_value(conf->buflen, prev->buflen, 5000);
@@ -1528,11 +1531,23 @@ ngx_rtmp_relay_on_status(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
 
     ngx_memzero(&v, sizeof(v));
     if (h->type == NGX_RTMP_MSG_AMF_META) {
-        ngx_rtmp_receive_amf(s, in, in_elts_meta,
-                sizeof(in_elts_meta) / sizeof(in_elts_meta[0]));
+        if (ngx_rtmp_receive_amf(s, in, in_elts_meta,
+                sizeof(in_elts_meta) / sizeof(in_elts_meta[0])))
+        {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "relay: error receiving meta");
+
+            return NGX_ERROR;
+        }
     } else {
-        ngx_rtmp_receive_amf(s, in, in_elts,
-                sizeof(in_elts) / sizeof(in_elts[0]));
+        if (ngx_rtmp_receive_amf(s, in, in_elts,
+                sizeof(in_elts) / sizeof(in_elts[0])))
+        {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "relay: error receiving status");
+
+            return NGX_ERROR;
+        }
     }
 
     ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,

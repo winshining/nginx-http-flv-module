@@ -209,6 +209,12 @@ ngx_rtmp_codec_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "codec: failed to allocate for ctx");
+            return NGX_ERROR;
+	}
+
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_codec_module);
     }
 
@@ -881,6 +887,12 @@ ngx_rtmp_codec_meta_data(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (ctx == NULL) {
         ctx = ngx_pcalloc(s->connection->pool, sizeof(ngx_rtmp_codec_ctx_t));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "codec: failed to allocate for ctx (meta)");
+            return NGX_ERROR;
+	}
+
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_codec_module);
     }
 

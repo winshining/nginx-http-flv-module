@@ -1092,6 +1092,13 @@ ngx_http_flv_live_join(ngx_rtmp_session_t *s, u_char *name,
 
     if (ctx == NULL) {
         ctx = ngx_palloc(s->connection->pool, sizeof(ngx_rtmp_live_ctx_t));
+        if (ctx == NULL) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "flv live: failed to allocate for ctx");
+
+            return NGX_ERROR;
+        }
+
         ngx_rtmp_set_ctx(s, ctx, ngx_rtmp_live_module);
     }
 
@@ -2073,6 +2080,9 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
 #define NGX_RTMP_SET_STRPAR(name)                                          \
     s->name.len = ngx_strlen(v.name);                                      \
     s->name.data = ngx_palloc(c->pool, s->name.len);                       \
+    if (s->name.data == NULL) {                                            \
+        return NGX_ERROR;                                                  \
+    }                                                                      \
     ngx_memcpy(s->name.data, v.name, s->name.len)
 
     NGX_RTMP_SET_STRPAR(app);
