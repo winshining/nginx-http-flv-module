@@ -612,6 +612,10 @@ ngx_rtmp_record_init(ngx_rtmp_session_t *s)
 
     ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_record_module);
 
+    if (ctx->rec.nelts) {
+        return NGX_OK;
+    }
+
     if (ngx_array_init(&ctx->rec, s->connection->pool, racf->rec.nelts,
                        sizeof(ngx_rtmp_record_rec_ctx_t))
         != NGX_OK)

@@ -1171,7 +1171,7 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
         NGX_RTMP_STAT_L("\"count\":");
         NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
                       "%ui", racf->rec.nelts) - buf);
-        NGX_RTMP_STAT_L(",\"lists\":[");           
+        NGX_RTMP_STAT_L(",\"lists\":[");
     }
 
     rracf = racf->rec.elts;
