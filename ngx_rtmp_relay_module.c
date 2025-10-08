@@ -614,6 +614,7 @@ ngx_rtmp_relay_create_remote_ctx(ngx_rtmp_session_t *s, ngx_str_t *name,
                          &url, s->connection->log) == NGX_OK)
         {
             target->url.default_port = 1935;
+            target->url.no_resolve = 1;
             target->url.uri_part = 1;
             target->url.url = url;
 
