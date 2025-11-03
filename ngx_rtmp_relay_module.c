@@ -1791,7 +1791,7 @@ ngx_rtmp_relay_push_pull(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
-        return "unsuppored parameter";
+        return "unsupported parameter";
     }
 
     if (is_static) {
