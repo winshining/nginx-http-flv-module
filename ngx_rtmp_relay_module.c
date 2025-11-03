@@ -282,6 +282,10 @@ ngx_rtmp_relay_push_reconnect(ngx_event_t *ev)
         return;
     }
 
+    if (ctx->tag != &ngx_rtmp_relay_module) {
+        return;
+    }
+
     t = racf->pushes.elts;
     for (n = 0; n < racf->pushes.nelts; ++n, ++t) {
         target = *t;
