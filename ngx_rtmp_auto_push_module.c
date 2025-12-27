@@ -17,8 +17,8 @@ static ngx_rtmp_delete_stream_pt    next_delete_stream;
 
 static ngx_int_t ngx_rtmp_auto_push_init_process(ngx_cycle_t *cycle);
 static void ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle);
-static void * ngx_rtmp_auto_push_create_conf(ngx_cycle_t *cf);
-static char * ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf);
+static void *ngx_rtmp_auto_push_create_conf(ngx_cycle_t *cf);
+static char *ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf);
 #if (NGX_HAVE_UNIX_DOMAIN)
 static ngx_int_t ngx_rtmp_auto_push_publish(ngx_rtmp_session_t *s,
        ngx_rtmp_publish_t *v);
@@ -434,6 +434,11 @@ ngx_rtmp_auto_push_create_conf(ngx_cycle_t *cycle)
 static char *
 ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf)
 {
+#if (NGX_HAVE_UNIX_DOMAIN)
+    struct sockaddr_un              saun;
+    size_t                          len;
+    u_char                         *p;
+#endif
     ngx_rtmp_auto_push_conf_t      *apcf = conf;
 
     ngx_conf_init_value(apcf->auto_push, 0);
@@ -442,6 +447,24 @@ ngx_rtmp_auto_push_init_conf(ngx_cycle_t *cycle, void *conf)
     if (apcf->socket_dir.len == 0) {
         ngx_str_set(&apcf->socket_dir, "/tmp");
     }
+#if (NGX_HAVE_UNIX_DOMAIN)
+    else {
+        p = apcf->socket_dir.data + apcf->socket_dir.len - 1;
+
+        while ((p > apcf->socket_dir.data) && (*p == '/' || *p == '\\')) {
+            *p-- = '\0';
+        }
+
+        apcf->socket_dir.len = p + 1 - apcf->socket_dir.data;
+        len = apcf->socket_dir.len + sizeof(NGX_RTMP_AUTO_PUSH_SOCKNAME);
+
+        if (len + 1 + NGX_INT_T_LEN >= sizeof(saun.sun_path)) {
+            ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
+                          "auto_push: too long \"rtmp_socket_dir\" directive");
+            return NGX_CONF_ERROR;
+        }
+    }
+#endif
 
     return NGX_CONF_OK;
 }
