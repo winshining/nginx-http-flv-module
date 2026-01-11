@@ -1393,8 +1393,14 @@ ngx_rtmp_stat_application_recorders(ngx_http_request_t *r, ngx_chain_t ***lll,
                           "%ui", (ngx_uint_t)lracf->max_frames) - buf);
 
             NGX_RTMP_STAT_L(",\"interval\":");
-            NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
-                          "%ui", lracf->interval) - buf);
+
+            if (lracf->interval == NGX_CONF_UNSET_MSEC) {
+                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                              "%d", -1) - buf);
+            } else {
+                NGX_RTMP_STAT(buf, ngx_snprintf(buf, sizeof(buf),
+                              "%ui", lracf->interval) - buf);
+            }
 
             NGX_RTMP_STAT_L(",\"suffix\":\"");
             NGX_RTMP_STAT_S(&lracf->suffix);
