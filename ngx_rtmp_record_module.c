@@ -1187,12 +1187,23 @@ ngx_rtmp_record_node_av(ngx_rtmp_session_t *s, ngx_rtmp_record_rec_ctx_t *rctx,
             return NGX_OK;
         }
 
+        if (ngx_rtmp_is_codec_header(in)) {
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                          "record: video header has been written already");
+            return NGX_OK;
+        }
     } else {
         if (codec_ctx && codec_ctx->audio_codec_id == NGX_RTMP_AUDIO_AAC &&
             !rctx->aac_header_sent)
         {
             ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                            "record: %V skipping until AAC header", &rracf->id);
+            return NGX_OK;
+        }
+
+        if (ngx_rtmp_is_codec_header(in)) {
+            ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                          "record: audio header has been written already");
             return NGX_OK;
         }
     }
