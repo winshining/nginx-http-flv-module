@@ -711,6 +711,49 @@ ngx_rtmp_live_join(ngx_rtmp_session_t *s, u_char *name, unsigned publisher)
     }
 }
 
+static ngx_int_t
+ngx_rtmp_live_flush_meta(ngx_rtmp_session_t *s, ngx_rtmp_live_ctx_t *ctx)
+{
+    ngx_rtmp_live_proc_handler_t   *handler;
+    ngx_rtmp_live_ctx_t            *pctx;
+    ngx_rtmp_codec_ctx_t           *codec_ctx;
+    ngx_rtmp_session_t             *ss;
+    ngx_chain_t                    *meta = NULL;
+    ngx_uint_t                      meta_version = 0;
+
+    if (ctx == NULL || ctx->stream == NULL) {
+        return NGX_OK;
+    }
+
+    codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
+    if (codec_ctx == NULL || codec_ctx->meta == NULL) {
+        return NGX_OK;
+    }
+    meta = codec_ctx->meta;
+    meta_version = codec_ctx->meta_version;
+
+    handler = &ngx_rtmp_live_proc_handler;
+    /* broadcast to all subscribers */
+    for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
+        if (pctx == ctx || pctx->paused) {
+            continue;
+        }
+
+        ss = pctx->session;
+
+        if (meta && meta_version != pctx->meta_version) {
+            ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
+                           "live: meta, ver=%ui, ptx_ver=%ui",
+                           meta_version, pctx->meta_version);
+
+            if (handler->send_message_pt(ss, meta, 0) == NGX_OK) {
+                pctx->meta_version = meta_version;
+            }
+        }
+    }
+
+    return NGX_OK;
+}
 
 static ngx_int_t
 ngx_rtmp_live_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
@@ -738,6 +781,9 @@ ngx_rtmp_live_close_stream(ngx_rtmp_session_t *s, ngx_rtmp_close_stream_t *v)
 
     ngx_log_debug1(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "live: leave '%s'", ctx->stream->name);
+    if (ctx->publishing) {
+        ngx_rtmp_live_flush_meta(s, ctx);
+    }
 
     if (ctx->stream->publishing && ctx->publishing) {
         ctx->stream->publishing = 0;
