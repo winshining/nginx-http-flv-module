@@ -718,21 +718,25 @@ ngx_rtmp_live_flush_meta(ngx_rtmp_session_t *s, ngx_rtmp_live_ctx_t *ctx)
     ngx_rtmp_live_ctx_t            *pctx;
     ngx_rtmp_codec_ctx_t           *codec_ctx;
     ngx_rtmp_session_t             *ss;
-    ngx_chain_t                    *meta = NULL;
-    ngx_uint_t                      meta_version = 0;
+    ngx_uint_t                      meta_version = 0, i;
+    ngx_http_request_t             *r;
+    ngx_http_flv_live_ctx_t        *hctx;
 
     if (ctx == NULL || ctx->stream == NULL) {
         return NGX_OK;
+    }
+
+    for (i = 0; i <= NGX_RTMP_PROTOCOL_HTTP; i++) {
+        handler = ngx_rtmp_live_proc_handlers[i];
+        handler->meta = NULL;
     }
 
     codec_ctx = ngx_rtmp_get_module_ctx(s, ngx_rtmp_codec_module);
     if (codec_ctx == NULL || codec_ctx->meta == NULL) {
         return NGX_OK;
     }
-    meta = codec_ctx->meta;
     meta_version = codec_ctx->meta_version;
 
-    handler = &ngx_rtmp_live_proc_handler;
     /* broadcast to all subscribers */
     for (pctx = ctx->stream->ctx; pctx; pctx = pctx->next) {
         if (pctx == ctx || pctx->paused) {
@@ -740,15 +744,40 @@ ngx_rtmp_live_flush_meta(ngx_rtmp_session_t *s, ngx_rtmp_live_ctx_t *ctx)
         }
 
         ss = pctx->session;
+        if (pctx->protocol == NGX_RTMP_PROTOCOL_HTTP) {
+            r = ss->data;
+            if (r == NULL || (r->connection && r->connection->destroyed)) {
+                continue;
+            }
 
-        if (meta && meta_version != pctx->meta_version) {
+            hctx = ngx_http_get_module_ctx(r, ngx_http_flv_live_module);
+            if (!hctx->header_sent) {
+                hctx->header_sent = 1;
+                ngx_http_flv_live_send_header(ss);
+            }
+        }
+
+        handler = ngx_rtmp_live_proc_handlers[pctx->protocol];
+        if (handler->meta == NULL && meta_version != pctx->meta_version) {
+            handler->meta = handler->meta_message_pt(ss, codec_ctx->meta);
+        }
+
+        if (handler->meta && meta_version != pctx->meta_version) {
             ngx_log_error(NGX_LOG_INFO, ss->connection->log, 0,
                            "live: meta, ver=%ui, ptx_ver=%ui",
                            meta_version, pctx->meta_version);
 
-            if (handler->send_message_pt(ss, meta, 0) == NGX_OK) {
+            if (handler->send_message_pt(ss, handler->meta, 0) == NGX_OK) {
                 pctx->meta_version = meta_version;
             }
+        }
+    }
+
+    for (i = 0; i <= NGX_RTMP_PROTOCOL_HTTP; i++) {
+        handler = ngx_rtmp_live_proc_handlers[i];
+        if (handler->meta) {
+            handler->free_message_pt(s, handler->meta);
+            handler->meta = NULL;
         }
     }
 
