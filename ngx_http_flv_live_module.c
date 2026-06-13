@@ -323,7 +323,7 @@ ngx_http_flv_live_init_handlers(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
-    /* rtmp live conf aready exsits, so add additional event handlers */
+    /* rtmp live conf already exsits, so add additional event handlers */
     h = ngx_array_push(&cmcf->events[NGX_HTTP_FLV_LIVE_REQUEST]);
     *h = ngx_http_flv_live_request;
 
@@ -2064,6 +2064,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_connection_t            *c;
     ngx_http_request_t          *r;
     u_char                       name[NGX_RTMP_MAX_NAME];
+    ngx_str_t                    addr;
 
     r = s->data;
     c = s->connection;
@@ -2074,8 +2075,17 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_memcpy(v.args, r->args.data, ngx_min(r->args.len, sizeof(v.args) - 1));
     ngx_memcpy(v.flashver, "flv_live 1.1", ngx_strlen("flv_live 1.1"));
 
-    *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
-            &r->headers_in.host->value, app) = 0;
+    if (r->headers_in.host) {
+        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
+                      &r->headers_in.host->value, app) = 0;
+    } else {
+        if (ngx_connection_local_sockaddr(c, &addr, 1) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
+                      &addr, app) = 0;
+    }
 
 #define NGX_RTMP_SET_STRPAR(name)                                          \
     s->name.len = ngx_strlen(v.name);                                      \
