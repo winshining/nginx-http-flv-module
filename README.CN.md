@@ -8,7 +8,7 @@
 
 如果您喜欢这个模块，可以通过赞赏来支持我的工作，非常感谢！
 
-![reward_qrcode_winshining](https://gitee.com/winshining/nginx-http-flv-module/raw/master/qrcode/reward_qrcode_winshining.png)
+![reward_qrcode_winshining](https://raw.githubusercontent.com/wiki/winshining/nginx-http-flv-module/reward_qrcode_winshining.png)
 
 ### 感谢
 
