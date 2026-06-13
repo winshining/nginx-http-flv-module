@@ -12,6 +12,11 @@
 #include "ngx_rtmp.h"
 
 
+#if (nginx_version < 1002006)
+#error The module can not be compiled with too older version than nginx-1.2.6.
+#endif
+
+
 static char *ngx_rtmp_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_rtmp_optimize_servers(ngx_conf_t *cf,
     ngx_rtmp_core_main_conf_t *cmcf, ngx_array_t *ports);
