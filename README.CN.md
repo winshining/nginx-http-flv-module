@@ -26,7 +26,7 @@
 
 |           功能           | nginx-http-flv-module | nginx-rtmp-module |                  备注                    |
 | :----------------------: | :-------------------: | :---------------: | :--------------------------------------: |
-|     HTTP-FLV (播放)      |           √           |         x         |     支持 HTTPS-FLV 和 chunked 回复       |
+| HTTP-FLV (HTTP/1.x 播放) |           √           |         x         |      支持 HTTPS-FLV 和 chunked 回复      |
 |         GOP 缓存         |           √           |         x         |                                          |
 |         虚拟主机         |           √           |         x         |                                          |
 |   省略 `listen` 配置项   |           √           |       见备注      |        配置中必须有一个 `listen`         |

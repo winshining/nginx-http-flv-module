@@ -26,7 +26,7 @@ Donate if you like this module. Many thanks to you!
 
 |         Features                   | nginx-http-flv-module | nginx-rtmp-module |                    Remarks                     |
 | :--------------------------------: | :-------------------: | :---------------: | :--------------------------------------------: |
-|        HTTP-FLV (for play)         |           √           |         x         |    HTTPS-FLV and chunked response supported    |
+|    HTTP-FLV (HTTP/1.x for play)    |           √           |         x         |    HTTPS-FLV and chunked response supported    |
 |             GOP cache              |           √           |         x         |                                                |
 |            Virtual Host            |           √           |         x         |                                                |
 |      Omit `listen` directive       |           √           |    See remarks    | There MUST be at least one `listen` directive  |
