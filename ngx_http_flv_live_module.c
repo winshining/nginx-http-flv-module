@@ -2076,14 +2076,14 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_memcpy(v.flashver, "flv_live 1.1", ngx_strlen("flv_live 1.1"));
 
     if (r->headers_in.host) {
-        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
+        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL - 1, "http://%V/%V",
                       &r->headers_in.host->value, app) = 0;
     } else {
         if (ngx_connection_local_sockaddr(c, &addr, 1) != NGX_OK) {
             return NGX_ERROR;
         }
 
-        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL, "http://%V/%V",
+        *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL - 1, "http://%V/%V",
                       &addr, app) = 0;
     }
 
