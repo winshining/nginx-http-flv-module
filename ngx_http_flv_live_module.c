@@ -2493,10 +2493,13 @@ ngx_http_flv_live_handler(ngx_http_request_t *r)
 #if (NGX_HTTP_V2)
         || r->http_version == NGX_HTTP_VERSION_20
 #endif
+#if (NGX_HTTP_V3)
+        || r->http_version == NGX_HTTP_VERSION_30
+#endif
        )
     {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "flv live: HTTP version 0.9 or 2.0 not supported");
+                      "flv live: HTTP version 0.9, 2.0 or 3.0 not supported");
 
         return NGX_HTTP_NOT_ALLOWED;
     }
