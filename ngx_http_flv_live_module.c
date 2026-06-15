@@ -2081,7 +2081,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
                       &r->headers_in.host->value, app) = 0;
     } else {
         addr.len = sizeof(addr_buf);
-	addr.data = addr_buf;
+        addr.data = addr_buf;
 
         if (ngx_connection_local_sockaddr(c, &addr, 1) != NGX_OK) {
             return NGX_ERROR;
