@@ -2065,6 +2065,7 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
     ngx_http_request_t          *r;
     u_char                       name[NGX_RTMP_MAX_NAME];
     ngx_str_t                    addr;
+    u_char                       addr_buf[NGX_SOCKADDR_STRLEN];
 
     r = s->data;
     c = s->connection;
@@ -2079,6 +2080,9 @@ ngx_http_flv_live_connect_init(ngx_rtmp_session_t *s, ngx_str_t *app,
         *ngx_snprintf(v.tc_url, NGX_RTMP_MAX_URL - 1, "http://%V/%V",
                       &r->headers_in.host->value, app) = 0;
     } else {
+        addr.len = sizeof(addr_buf);
+	addr.data = addr_buf;
+
         if (ngx_connection_local_sockaddr(c, &addr, 1) != NGX_OK) {
             return NGX_ERROR;
         }
