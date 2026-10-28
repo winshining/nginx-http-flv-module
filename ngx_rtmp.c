@@ -828,19 +828,6 @@ ngx_rtmp_add_listening(ngx_conf_t *cf, ngx_rtmp_conf_addr_t *addr)
     ls->log.data = &ls->addr_text;
     ls->log.handler = ngx_accept_log_error;
 
-#if (NGX_WIN32)
-    {
-        ngx_iocp_conf_t  *iocpcf = NULL;
-
-        if (ngx_get_conf(cf->cycle->conf_ctx, ngx_events_module)) {
-            iocpcf = ngx_event_get_conf(cf->cycle->conf_ctx, ngx_iocp_module);
-        }
-        if (iocpcf && iocpcf->acceptex_read) {
-            ls->post_accept_buffer_size = 1024;
-        }
-    }
-#endif
-
     ls->backlog = addr->opt.backlog;
     ls->rcvbuf = addr->opt.rcvbuf;
     ls->sndbuf = addr->opt.sndbuf;

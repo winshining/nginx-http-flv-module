@@ -366,40 +366,51 @@ ngx_rtmp_auto_push_exit_process(ngx_cycle_t *cycle)
     ls = cycle->listening.elts;
 
     for (n = 0; n < cycle->listening.nelts; ++n, ++ls) {
-        if ((ls->handler == ngx_rtmp_init_connection) &&
-            (ls->sockaddr && ls->sockaddr->sa_family == AF_UNIX))
+        if (ls->handler != ngx_rtmp_init_connection ||
+            ls->sockaddr == NULL || ls->sockaddr->sa_family != AF_UNIX)
         {
-            c = ls->connection;
+            continue;
+        }
 
-            if (c) {
-                if (c->read->active) {
-                    if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
+        c = ls->connection;
 
-                        /*
-                         * delete the old accept events that were bound to
-                         * the old cycle read events array
-                         */
+        if (c) {
+            if (c->read->active) {
+                if (ngx_event_flags & NGX_USE_EPOLL_EVENT) {
 
-                        ngx_del_event(c->read,
-                                      NGX_READ_EVENT, NGX_CLOSE_EVENT);
+                    /*
+                     * it seems that Linux-2.6.x OpenVZ sends events
+                     * for closed shared listening sockets unless
+                     * the events was explicitly deleted
+                     */
 
-                        ngx_free_connection(c);
+                    ngx_del_event(c->read, NGX_READ_EVENT, 0);
 
-                        c->fd = (ngx_socket_t) -1;
-                    }
+                } else {
+                    ngx_del_event(c->read, NGX_READ_EVENT, NGX_CLOSE_EVENT);
                 }
             }
 
-            if (ngx_close_socket(ls->fd) == -1) {
-                ngx_log_error(NGX_LOG_ERR, cycle->log, ngx_socket_errno,
-                              ngx_close_socket_n "%V failed",
-                              &ls->addr_text);
+            if (c->read->timer_set) {
+                ngx_del_timer(c->read);
             }
 
-            ls->fd = (ngx_socket_t) -1;
+            ngx_free_connection(c);
 
-            break;
+            c->fd = (ngx_socket_t) -1;
         }
+
+        ngx_log_debug2(NGX_LOG_DEBUG_RTMP, cycle->log, 0,
+                       "close listening %V #%d ", &ls->addr_text, ls->fd);
+
+        if (ngx_close_socket(ls->fd) == -1) {
+            ngx_log_error(NGX_LOG_ERR, cycle->log, ngx_socket_errno,
+                          ngx_close_socket_n "%V failed", &ls->addr_text);
+        }
+
+        ls->fd = (ngx_socket_t) -1;
+
+        break;
     }
 
     pid = ngx_getpid();
