@@ -28,7 +28,10 @@ ngx_rtmp_amf_reverse_copy(void *dst, void* src, size_t len)
     return dst;
 }
 
-#define NGX_RTMP_AMF_DEBUG_SIZE 16
+#define NGX_RTMP_AMF_DEBUG_SIZE         16
+#define NGX_RTMP_AMF_OBJECT_MAX_DEPTH   32
+#define NGX_RTMP_AMF_ARRAY_MAX_DEPTH    32
+#define NGX_RTMP_AMF_VARIANT_MAX_DEPTH  32
 
 #ifdef NGX_DEBUG
 static void
@@ -406,28 +409,58 @@ ngx_rtmp_amf_read(ngx_rtmp_amf_ctx_t *ctx, ngx_rtmp_amf_elt_t *elts,
                 /* fall through */
 
             case NGX_RTMP_AMF_OBJECT:
-                if (ngx_rtmp_amf_read_object(ctx, data,
-                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0
-                    ) != NGX_OK)
-                {
+                if (ctx->object_depth >= NGX_RTMP_AMF_OBJECT_MAX_DEPTH) {
+                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                                "amf: tried to read object nested too deeply");
+                    return NGX_ERROR;
+                }
+
+                ctx->object_depth++;
+
+                rc = ngx_rtmp_amf_read_object(ctx, data,
+                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0);
+
+                ctx->object_depth--;
+
+                if (rc != NGX_OK) {
                     return NGX_ERROR;
                 }
                 break;
 
             case NGX_RTMP_AMF_ARRAY:
-                if (ngx_rtmp_amf_read_array(ctx, data,
-                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0
-                    ) != NGX_OK)
-                {
+                if (ctx->array_depth >= NGX_RTMP_AMF_ARRAY_MAX_DEPTH) {
+                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                                 "amf: tried to read array nested too deeply");
+                    return NGX_ERROR;
+                }
+
+                ctx->array_depth++;
+
+                rc = ngx_rtmp_amf_read_array(ctx, data,
+                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0);
+
+                ctx->array_depth--;
+
+                if (rc != NGX_OK) {
                     return NGX_ERROR;
                 }
                 break;
 
             case NGX_RTMP_AMF_VARIANT_:
-                if (ngx_rtmp_amf_read_variant(ctx, data,
-                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0
-                    ) != NGX_OK)
-                {
+                if (ctx->variant_depth >= NGX_RTMP_AMF_VARIANT_MAX_DEPTH) {
+                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                               "amf: tried to read variant nested too deeply");
+                    return NGX_ERROR;
+                }
+
+                ctx->variant_depth++;
+
+                rc = ngx_rtmp_amf_read_variant(ctx, data,
+                    data && elts ? elts->len / sizeof(ngx_rtmp_amf_elt_t) : 0);
+
+                ctx->variant_depth--;
+
+                if (rc != NGX_OK) {
                     return NGX_ERROR;
                 }
                 break;
@@ -535,6 +568,7 @@ ngx_rtmp_amf_write(ngx_rtmp_amf_ctx_t *ctx,
         ngx_rtmp_amf_elt_t *elts, size_t nelts)
 {
     size_t                  n;
+    ngx_int_t               rc;
     ngx_int_t               type;
     uint8_t                 type8;
     void                   *data;
@@ -603,18 +637,41 @@ ngx_rtmp_amf_write(ngx_rtmp_amf_ctx_t *ctx,
 
             case NGX_RTMP_AMF_OBJECT:
                 type8 = NGX_RTMP_AMF_END;
-                if (ngx_rtmp_amf_write_object(ctx, data,
-                        elts[n].len / sizeof(ngx_rtmp_amf_elt_t)) != NGX_OK
-                    || ngx_rtmp_amf_put(ctx, &type8, 1) != NGX_OK)
+
+                if (ctx->object_depth >= NGX_RTMP_AMF_OBJECT_MAX_DEPTH) {
+                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                               "amf: tried to write object nested too deeply");
+                    return NGX_ERROR;
+                }
+
+                ctx->object_depth++;
+
+                rc = ngx_rtmp_amf_write_object(ctx, data,
+                                     elts[n].len / sizeof(ngx_rtmp_amf_elt_t));
+
+                ctx->object_depth--;
+
+                if (rc != NGX_OK || ngx_rtmp_amf_put(ctx, &type8, 1) != NGX_OK)
                 {
                     return NGX_ERROR;
                 }
                 break;
 
             case NGX_RTMP_AMF_ARRAY:
-                if (ngx_rtmp_amf_write_array(ctx, data,
-                        elts[n].len / sizeof(ngx_rtmp_amf_elt_t)) != NGX_OK)
-                {
+                if (ctx->array_depth >= NGX_RTMP_AMF_ARRAY_MAX_DEPTH) {
+                    ngx_log_error(NGX_LOG_WARN, ctx->log, 0,
+                                "amf: tried to write array nested too deeply");
+                    return NGX_ERROR;
+                }
+
+                ctx->array_depth++;
+
+                rc = ngx_rtmp_amf_write_array(ctx, data,
+                                     elts[n].len / sizeof(ngx_rtmp_amf_elt_t));
+
+                ctx->array_depth--;
+
+                if (rc != NGX_OK) {
                     return NGX_ERROR;
                 }
                 break;
