@@ -953,7 +953,7 @@ ngx_rtmp_hls_open_fragment(ngx_rtmp_session_t *s, uint64_t ts,
 
     ngx_log_debug7(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "hls: open fragment file='%s', keyfile='%s', "
-                   "frag=%uL, n=%ui, time=%uL, discont=%i, cc=%u",
+                   "frag=%uL, n=%ui, time=%uL, discont=%i, cc=%ui",
                    ctx->stream.data,
                    ctx->keyfile.data ? ctx->keyfile.data : (u_char *) "",
                    ctx->frag, ctx->nfrags, ts, discont, counter);
