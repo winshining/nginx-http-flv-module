@@ -37,6 +37,7 @@ Donate if you like this module. Many thanks to you!
 |       JSON style statistics        |           √           |         x         |                                                |
 |     Statistics for recordings      |           √           |         x         |                                                |
 |     Independent of endianness      |           √           |    See remarks    |   Partially supported in branch `big-endian`   |
+|    Timeout for play connections    |           √           |         x         |                                                |
 
 ## Compatibility
 
