@@ -157,5 +157,14 @@ else
     CFLAGS="$CFLAGS -I$ngx_addon_dir"
 fi
 
+ngx_feature="file-description locks for keyed recordings"
+ngx_feature_name=NGX_RTMP_HAVE_FLOCK
+ngx_feature_run=no
+ngx_feature_incs="#include <sys/file.h>"
+ngx_feature_path=
+ngx_feature_libs=
+ngx_feature_test="(void) flock(0, LOCK_EX | LOCK_NB);"
+. auto/feature
+
 USE_OPENSSL=YES
 

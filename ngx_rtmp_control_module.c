@@ -38,6 +38,8 @@ enum {
 typedef struct {
     ngx_uint_t                      count;
     ngx_str_t                       path;
+    ngx_str_t                       key;
+    ngx_uint_t                      status;
     ngx_uint_t                      filter;
     ngx_str_t                       method;
     ngx_array_t                     sessions; /* ngx_rtmp_session_t * */
@@ -129,15 +131,22 @@ ngx_rtmp_control_record_handler(ngx_http_request_t *r, ngx_rtmp_session_t *s)
     if (ctx->method.len == sizeof("start") - 1 &&
         ngx_strncmp(ctx->method.data, "start", ctx->method.len) == 0)
     {
-        rc = ngx_rtmp_record_open(s, rn, &ctx->path);
+        rc = ngx_rtmp_record_open_key(s, rn, ctx->key.data ? &ctx->key : NULL,
+                                      &ctx->path);
 
     } else if (ctx->method.len == sizeof("stop") - 1 &&
                ngx_strncmp(ctx->method.data, "stop", ctx->method.len) == 0)
     {
-        rc = ngx_rtmp_record_close(s, rn, &ctx->path);
+        rc = ngx_rtmp_record_close_key(s, rn, ctx->key.data ? &ctx->key : NULL,
+                                       &ctx->path);
 
     } else {
         return "Undefined method";
+    }
+
+    if (rc == NGX_BUSY || rc == NGX_DECLINED) {
+        ctx->status = rc == NGX_BUSY ? NGX_HTTP_CONFLICT : NGX_HTTP_BAD_REQUEST;
+        return "Recorder key conflict";
     }
 
     if (rc == NGX_ERROR) {
@@ -434,10 +443,23 @@ ngx_rtmp_control_record(ngx_http_request_t *r, ngx_str_t *method)
     ngx_buf_t               *b;
     const char              *msg;
     ngx_chain_t              cl;
+    ngx_str_t                selector;
     ngx_rtmp_control_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_rtmp_control_module);
     ctx->filter = NGX_RTMP_CONTROL_FILTER_PUBLISHER;
+    if (ngx_http_arg(r, (u_char *) "key", 3, &ctx->key) == NGX_OK) {
+        if (!ngx_rtmp_record_valid_key(&ctx->key)
+            || ngx_http_arg(r, (u_char *) "name", 4, &selector) != NGX_OK
+            || !selector.len
+            || ngx_http_arg(r, (u_char *) "app", 3, &selector) != NGX_OK
+            || !selector.len
+            || ngx_http_arg(r, (u_char *) "rec", 3, &selector) != NGX_OK
+            || !selector.len)
+        {
+            return NGX_HTTP_BAD_REQUEST;
+        }
+    }
 
     msg = ngx_rtmp_control_walk(r, ngx_rtmp_control_record_handler);
     if (msg != NGX_CONF_OK) {
@@ -469,7 +491,7 @@ ngx_rtmp_control_record(ngx_http_request_t *r, ngx_str_t *method)
     return ngx_http_output_filter(r, &cl);
 
 error:
-    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    return ctx->status ? ctx->status : NGX_HTTP_INTERNAL_SERVER_ERROR;
 }
 
 

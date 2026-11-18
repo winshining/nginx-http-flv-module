@@ -19,6 +19,7 @@
 #define NGX_RTMP_RECORD_VIDEO           0x04
 #define NGX_RTMP_RECORD_KEYFRAMES       0x08
 #define NGX_RTMP_RECORD_MANUAL          0x10
+#define NGX_RTMP_RECORD_KEY_MAX         80
 
 
 typedef struct {
@@ -31,6 +32,7 @@ typedef struct {
     ngx_str_t                           suffix;
     ngx_flag_t                          unique;
     ngx_flag_t                          append;
+    ngx_flag_t                          keyed;
     ngx_flag_t                          lock_file;
     ngx_flag_t                          notify;
     ngx_url_t                          *url;
@@ -43,6 +45,8 @@ typedef struct {
 typedef struct {
     ngx_rtmp_record_app_conf_t         *conf;
     ngx_file_t                          file;
+    u_char                              key[NGX_RTMP_RECORD_KEY_MAX + 1];
+    ngx_uint_t                          part;
     ngx_uint_t                          nframes;
     uint32_t                            epoch, time_shift;
     ngx_time_t                          last;
@@ -76,6 +80,11 @@ ngx_int_t ngx_rtmp_record_open(ngx_rtmp_session_t *s, ngx_uint_t n,
           ngx_str_t *path);
 ngx_int_t ngx_rtmp_record_close(ngx_rtmp_session_t *s, ngx_uint_t n,
           ngx_str_t *path);
+ngx_int_t ngx_rtmp_record_open_key(ngx_rtmp_session_t *s, ngx_uint_t n,
+          ngx_str_t *key, ngx_str_t *path);
+ngx_int_t ngx_rtmp_record_close_key(ngx_rtmp_session_t *s, ngx_uint_t n,
+          ngx_str_t *key, ngx_str_t *path);
+ngx_int_t ngx_rtmp_record_valid_key(ngx_str_t *key);
 
 void ngx_rtmp_record_get_path(ngx_rtmp_session_t *s,
     ngx_rtmp_record_rec_ctx_t *rctx, ngx_str_t *path);
