@@ -13,6 +13,7 @@
 #include "ngx_rtmp_cmd_module.h"
 #include "ngx_rtmp_netcall_module.h"
 #include "ngx_rtmp_record_module.h"
+#include "ngx_rtmp_live_module.h"
 #include "ngx_rtmp_relay_module.h"
 
 
@@ -915,6 +916,9 @@ ngx_rtmp_notify_parse_http_header(ngx_rtmp_session_t *s,
                             state = parse_space;
                             break;
                         case '\n':
+                            if (n == 0) {
+                                return NGX_OK;
+                            }
                             n = 0;
                             break;
                         default:
@@ -1034,6 +1038,48 @@ ngx_rtmp_notify_set_name(u_char *dst, size_t dst_len, u_char *src,
 }
 
 
+static void
+ngx_rtmp_notify_record_publish(ngx_rtmp_session_t *s, ngx_chain_t *in)
+{
+    static ngx_str_t             header = ngx_string("X-Record-Key");
+    ngx_rtmp_record_app_conf_t  *conf, **rec;
+    ngx_rtmp_live_ctx_t         *live;
+    ngx_uint_t                   i;
+    ngx_int_t                    len;
+    ngx_str_t                    key;
+    /* The parser reserves one byte. Keep another to detect overlong keys. */
+    u_char                       buf[NGX_RTMP_RECORD_KEY_MAX + 2];
+
+    live = ngx_rtmp_get_module_ctx(s, ngx_rtmp_live_module);
+    /* A duplicate publisher can complete its notify chain without joining. */
+    if (s->auto_pushed || !live || !live->stream
+        || live->stream->pub_ctx != live)
+    {
+        return;
+    }
+
+    conf = ngx_rtmp_get_module_app_conf(s, ngx_rtmp_record_module);
+    rec = conf->rec.elts;
+    for (i = 0; i < conf->rec.nelts; ++i) {
+        if (!rec[i]->keyed) {
+            continue;
+        }
+        len = ngx_rtmp_notify_parse_http_header(s, in, &header,
+                                                buf, sizeof(buf));
+        if (len <= 0) {
+            return;
+        }
+        key.data = buf;
+        key.len = len;
+        if (ngx_rtmp_record_open_key(s, i, &key, NULL) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "notify: failed to start keyed recorder %V",
+                          &rec[i]->id);
+        }
+    }
+}
+
+
 static ngx_int_t
 ngx_rtmp_notify_publish_handle(ngx_rtmp_session_t *s,
         void *arg, ngx_chain_t *in)
@@ -1106,10 +1152,15 @@ ngx_rtmp_notify_publish_handle(ngx_rtmp_session_t *s,
     }
 
     ngx_rtmp_relay_push(s, &local_name, &target);
+    return next_publish(s, v);
 
 next:
-
-    return next_publish(s, v);
+    rc = next_publish(s, v);
+    if (rc == NGX_OK) {
+        /* A recorder failure must leave an authorized publisher live. */
+        ngx_rtmp_notify_record_publish(s, in);
+    }
+    return rc;
 }
 
 
