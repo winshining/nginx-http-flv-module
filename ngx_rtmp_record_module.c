@@ -442,20 +442,78 @@ ngx_rtmp_record_notify_error(ngx_rtmp_session_t *s,
 
 
 static ngx_int_t
+ngx_rtmp_record_append_offset(ngx_rtmp_record_rec_ctx_t *rctx)
+{
+    ngx_file_info_t  info;
+    off_t            size;
+    uint32_t         tag;
+    u_char           buf[13];
+
+    if (ngx_fd_info(rctx->file.fd, &info) == NGX_FILE_ERROR) {
+        return NGX_ERROR;
+    }
+
+    size = ngx_file_size(&info);
+    if (size == 0) {
+        return NGX_OK;
+    }
+
+    if (size < 13) {
+        return NGX_DECLINED;
+    }
+    if (ngx_read_file(&rctx->file, buf, 13, 0) != 13) {
+        return NGX_ERROR;
+    }
+    /* The track flags at byte 4 can change when the writer closes. */
+    if (ngx_memcmp(buf, "FLV\x01", 4)
+        || ngx_memcmp(buf + 5, "\x00\x00\x00\x09\x00\x00\x00\x00", 8))
+    {
+        return NGX_DECLINED;
+    }
+    rctx->audio = (buf[4] & 4) != 0;
+    rctx->video = (buf[4] & 1) != 0;
+
+    /* The last tag size locates its header without scanning hours of media. */
+    if (size > 13) {
+        if (size < 13 + 11 + 4) {
+            return NGX_DECLINED;
+        }
+        if (ngx_read_file(&rctx->file, buf, 4, size - 4) != 4) {
+            return NGX_ERROR;
+        }
+        ngx_memcpy(&tag, buf, 4);
+        tag = ntohl(tag);
+        if (tag < 11 || tag > size - 13 - 4) {
+            return NGX_DECLINED;
+        }
+        if (ngx_read_file(&rctx->file, buf, 11, size - 4 - tag) != 11) {
+            return NGX_ERROR;
+        }
+        if (tag != ngx_rtmp_n3_to_h4(buf + 1) + 11
+            || (buf[0] != NGX_RTMP_MSG_AUDIO && buf[0] != NGX_RTMP_MSG_VIDEO))
+        {
+            return NGX_DECLINED;
+        }
+        /* The next publisher starts its own clock at zero. */
+        rctx->time_shift = (ngx_rtmp_n3_to_h4(buf + 4)
+                            | ((uint32_t) buf[7] << 24)) + 1;
+    }
+
+    rctx->file.offset = size;
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
                           ngx_rtmp_record_rec_ctx_t *rctx)
 {
     ngx_rtmp_record_app_conf_t  *rracf;
     ngx_err_t                    err;
     ngx_str_t                    path;
-    ngx_int_t                    mode, create_mode;
-    u_char                      *p, buf[8];
-    off_t                        file_size;
-    uint32_t                     tag_size, mlen, timestamp;
+    ngx_int_t                    mode, create_mode, rc;
 
     rracf = rctx->conf;
-    tag_size = 0;
-    p = buf;
 
     if (rctx->file.fd != NGX_INVALID_FILE) {
         return NGX_AGAIN;
@@ -484,26 +542,31 @@ ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
     if (rctx->file.fd == NGX_INVALID_FILE) {
         err = ngx_errno;
 
-        if (err != NGX_ENOENT) {
-            ngx_log_error(NGX_LOG_CRIT, s->connection->log, err,
-                          "record: %V failed to open file '%V'",
-                          &rracf->id, &path);
-        }
-
+        ngx_log_error(NGX_LOG_ERR, s->connection->log, err,
+                      "record: %V failed to open '%V'", &rracf->id, &path);
         ngx_rtmp_record_notify_error(s, rctx);
-
-        return NGX_OK;
+        return NGX_ERROR;
     }
 
 #if !(NGX_WIN32)
     if (rracf->lock_file) {
-        err = ngx_lock_fd(rctx->file.fd);
+        err = ngx_trylock_fd(rctx->file.fd);
         if (err) {
             ngx_log_error(NGX_LOG_CRIT, s->connection->log, err,
                           "record: %V lock failed", &rracf->id);
+            goto failed;
         }
     }
 #endif
+
+    if (rracf->append) {
+        rc = ngx_rtmp_record_append_offset(rctx);
+        if (rc != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                          "record: cannot append to '%V'", &path);
+            goto failed;
+        }
+    }
 
     ngx_log_debug2(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
                    "record: %V opened '%V'", &rracf->id, &path);
@@ -513,76 +576,13 @@ ngx_rtmp_record_node_open(ngx_rtmp_session_t *s,
                              rracf->id.data ? (char *) rracf->id.data : "");
     }
 
-    if (rracf->append) {
-        mlen = 0;
-        file_size = 0;
-        timestamp = 0;
-
-#if (NGX_WIN32)
-        {
-            LONG  lo, hi;
-
-            lo = 0;
-            hi = 0;
-            lo = SetFilePointer(rctx->file.fd, lo, &hi, FILE_END);
-            file_size = (lo == INVALID_SET_FILE_POINTER ?
-                         (off_t) -1 : (off_t) hi << 32 | (off_t) lo);
-        }
-#else
-        file_size = lseek(rctx->file.fd, 0, SEEK_END);
-#endif
-        if (file_size == (off_t) -1) {
-            ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
-                          "record: %V seek failed", &rracf->id);
-            goto done;
-        }
-
-        if (file_size < 4) {
-            goto done;
-        }
-
-        if (ngx_read_file(&rctx->file, p, 4, file_size - 4) != 4) {
-            ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
-                          "record: %V tag size read failed", &rracf->id);
-            goto done;
-        }
-
-        tag_size = ntohl(*(uint32_t *) p);
-
-        if (tag_size == 0 || tag_size + 4 > file_size) {
-            file_size = 0;
-            goto done;
-        }
-
-        if (ngx_read_file(&rctx->file, p, 8, file_size - tag_size - 4) != 8)
-        {
-            ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
-                          "record: %V tag read failed", &rracf->id);
-            goto done;
-        }
-
-        mlen = ngx_rtmp_n3_to_h4(p + 1);
-
-        if (tag_size != mlen + 11) {
-            ngx_log_error(NGX_LOG_CRIT, s->connection->log, ngx_errno,
-                          "record: %V tag size mismatch: "
-                          "tag_size=%uD, mlen=%uD", &rracf->id, tag_size, mlen);
-            goto done;
-        }
-
-        timestamp = ngx_rtmp_n3_to_h4(p + 4);
-        timestamp |= ((uint32_t) p[7] << 24);
-
-done:
-        rctx->file.offset = file_size;
-        rctx->time_shift = timestamp;
-
-        ngx_log_debug3(NGX_LOG_DEBUG_RTMP, s->connection->log, 0,
-                       "record: append offset=%O, time=%uD, tag_size=%uD",
-                       file_size, timestamp, tag_size);
-    }
-
     return NGX_OK;
+
+failed:
+    ngx_close_file(rctx->file.fd);
+    rctx->file.fd = NGX_INVALID_FILE;
+    ngx_rtmp_record_notify_error(s, rctx);
+    return NGX_ERROR;
 }
 
 
