@@ -948,11 +948,7 @@ ngx_rtmp_record_write_frame(ngx_rtmp_session_t *s,
     if (ngx_write_file(&rctx->file, hdr, ph - hdr, rctx->file.offset)
         == NGX_ERROR)
     {
-        ngx_rtmp_record_notify_error(s, rctx);
-
-        ngx_close_file(rctx->file.fd);
-
-        return NGX_ERROR;
+        goto write_failed;
     }
 
     /* write tag body
@@ -970,7 +966,7 @@ ngx_rtmp_record_write_frame(ngx_rtmp_session_t *s,
                            - in->buf->pos, rctx->file.offset)
             == NGX_ERROR)
         {
-            return NGX_ERROR;
+            goto write_failed;
         }
     }
 
@@ -983,7 +979,7 @@ ngx_rtmp_record_write_frame(ngx_rtmp_session_t *s,
                        rctx->file.offset)
         == NGX_ERROR)
     {
-        return NGX_ERROR;
+        goto write_failed;
     }
 
     rctx->nframes += inc_nframes;
@@ -1033,6 +1029,12 @@ ngx_rtmp_record_av(ngx_rtmp_session_t *s, ngx_rtmp_header_t *h,
     }
 
     return NGX_OK;
+
+write_failed:
+    ngx_rtmp_record_notify_error(s, rctx);
+    ngx_close_file(rctx->file.fd);
+    rctx->file.fd = NGX_INVALID_FILE;
+    return NGX_ERROR;
 }
 
 
